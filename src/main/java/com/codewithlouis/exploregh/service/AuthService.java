@@ -1,5 +1,6 @@
 package com.codewithlouis.exploregh.service;
 
+import com.codewithlouis.exploregh.dto.AuthResponse;
 import com.codewithlouis.exploregh.dto.LoginRequest;
 import com.codewithlouis.exploregh.dto.RegisterRequest;
 import com.codewithlouis.exploregh.model.User;
@@ -16,7 +17,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
 
-    public String register(RegisterRequest request) {
+    public AuthResponse register(RegisterRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new RuntimeException("Email already in use");
         }
@@ -32,10 +33,11 @@ public class AuthService {
         user.setRole(User.Role.TOURIST);
 
         userRepository.save(user);
-        return jwtService.generateToken(user.getEmail());
+        String token = jwtService.generateToken(user.getEmail());
+        return new AuthResponse(token, user.getName(), user.getEmail(), user.getRole().name());
     }
 
-    public String login(LoginRequest request) {
+    public AuthResponse login(LoginRequest request) {
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new RuntimeException("Invalid credentials"));
 
@@ -43,6 +45,7 @@ public class AuthService {
             throw new RuntimeException("Invalid credentials");
         }
 
-        return jwtService.generateToken(user.getEmail());
+        String token = jwtService.generateToken(user.getEmail());
+        return new AuthResponse(token, user.getName(), user.getEmail(), user.getRole().name());
     }
 }
