@@ -9,7 +9,7 @@
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
     <groupId>com.codewithlouis</groupId>
-    <artifactId>ExploreGH</artifactId>
+    <artifactId>Codefest_Project</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>ExploreGH</name>
     <description>ExploreGH</description>
