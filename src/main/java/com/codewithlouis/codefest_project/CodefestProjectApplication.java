@@ -1,13 +1,13 @@
-package com.codewithlouis.exploregh;
+package com.codewithlouis.codefest_project;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-public class ExploreGhApplication {
+public class CodefestProjectApplication {
 
     public static void main(String[] args) {
-        SpringApplication.run(ExploreGhApplication.class, args);
+        SpringApplication.run(CodefestProjectApplication.class, args);
     }
 
 }
