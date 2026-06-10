@@ -1,4 +1,7 @@
 package com.codewithlouis.codefest_project.model;
 
-public class Role {
+public enum Role {
+    OWNER,
+    INVESTOR,
+    ADMIN
 }
