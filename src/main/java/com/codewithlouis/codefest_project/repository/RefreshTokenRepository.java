@@ -2,15 +2,11 @@ package com.codewithlouis.codefest_project.repository;
 
 import com.codewithlouis.codefest_project.model.RefreshToken;
 import com.codewithlouis.codefest_project.model.User;
-import org.springframework.data.repository.CrudRepository;
-import org.springframework.stereotype.Repository;
+import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;
 
-@Repository
-public interface RefreshTokenRepository extends CrudRepository<RefreshToken, Integer> {
+public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Long> {
     Optional<RefreshToken> findByToken(String token);
-    void deleteByUser(User user);
-
-        Optional<RefreshToken> findByUser(User user);
+    Optional<RefreshToken> findByUser(User user);
 }
