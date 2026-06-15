@@ -4,6 +4,7 @@ import com.codewithlouis.codefest_project.dto.LoginResponseDto;
 import com.codewithlouis.codefest_project.dto.LoginUserDto;
 import com.codewithlouis.codefest_project.dto.RegisterUserDto;
 import com.codewithlouis.codefest_project.model.RefreshToken;
+import com.codewithlouis.codefest_project.model.Role;
 import com.codewithlouis.codefest_project.model.User;
 import com.codewithlouis.codefest_project.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -34,6 +35,7 @@ public class AuthenticationService {
         User user = new User();
         user.setName(input.getName());
         user.setEmail(input.getEmail());
+        user.setRole(Role.OWNER); // or whatever your default is
         user.setPassword(passwordEncoder.encode(input.getPassword()));
 
         return userRepository.save(user);
