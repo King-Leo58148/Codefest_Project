@@ -34,7 +34,10 @@
             "imageWidth": 76
           }
         }
-      ]
+      ],
+      "expo-secure-store",
+      "expo-status-bar",
+      "expo-video"
     ],
     "experiments": {
       "typedRoutes": true,

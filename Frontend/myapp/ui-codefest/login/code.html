@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Login - Welcome Back</title>
+<!-- Tailwind CSS v3 CDN -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Font Awesome for social icons -->
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet"/>
+<style data-purpose="custom-layout">
+    /* Custom background to mimic the abstract blue waves in the image */
+    .bg-abstract-waves {
+      background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 50%, #93c5fd 100%);
+      position: relative;
+      overflow: hidden;
+    }
+    
+    /* Decorative circles to match the UI design */
+    .bg-circle-1 {
+      position: absolute;
+      top: -20px;
+      left: -20px;
+      width: 100px;
+      height: 100px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 50%;
+    }
+    
+    .bg-circle-2 {
+      position: absolute;
+      top: 60px;
+      right: 20px;
+      width: 40px;
+      height: 40px;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 50%;
+    }
+
+    /* Soft shadow for the login card */
+    .card-shadow {
+      box-shadow: 0 -10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+    }
+  </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center font-sans">
+<!-- BEGIN: Mobile Device Frame -->
+<!-- Mimics a mobile screen size as requested (Mobile iOS) -->
+<main class="relative w-full max-w-[375px] h-[812px] bg-white overflow-hidden shadow-2xl flex flex-col">
+<!-- BEGIN: Header Section -->
+<header class="bg-abstract-waves h-1/3 relative flex flex-col p-6 text-white" data-purpose="top-navigation">
+<div class="bg-circle-1"></div>
+<div class="bg-circle-2"></div>
+<!-- Back Button -->
+<button class="flex items-center gap-2 text-sm font-medium z-10 hover:opacity-80 transition-opacity">
+<i class="fa-solid fa-chevron-left"></i>
+<span>Back</span>
+</button>
+</header>
+<!-- END: Header Section -->
+<!-- BEGIN: Login Card -->
+<!-- The main white container that overlaps the blue header slightly -->
+<section class="flex-1 bg-white -mt-10 rounded-t-[40px] z-20 px-8 pt-10 pb-6 card-shadow flex flex-col" data-purpose="login-form-container">
+<div class="text-center mb-8">
+<h1 class="text-2xl font-bold text-blue-900">Welcome back</h1>
+</div>
+<!-- Login Form -->
+<form action="#" class="space-y-5 flex-1">
+<!-- Email Field -->
+<div data-purpose="input-group">
+<label class="block text-xs font-semibold text-gray-400 mb-1 ml-1" for="email">Email</label>
+<input class="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none" id="email" placeholder="kristin.watson@example.com" type="email"/>
+</div>
+<!-- Password Field -->
+<div data-purpose="input-group">
+<label class="block text-xs font-semibold text-gray-400 mb-1 ml-1" for="password">Password</label>
+<input class="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none" id="password" type="password" value="password123"/>
+</div>
+<!-- Utilities (Remember & Forgot) -->
+<div class="flex items-center justify-between text-xs" data-purpose="form-utilities">
+<label class="flex items-center text-gray-500 cursor-pointer">
+<input checked="" class="w-4 h-4 rounded text-blue-600 border-gray-300 focus:ring-blue-500 mr-2" type="checkbox"/>
+            Remember me
+          </label>
+<a class="text-blue-600 font-semibold hover:underline" href="#">Forgot password?</a>
+</div>
+<!-- Sign In Button -->
+<button class="w-full py-4 bg-blue-600 text-white font-bold rounded-xl shadow-lg shadow-blue-200 hover:bg-blue-700 transition-colors active:scale-[0.98]" type="submit">
+          Sign In
+        </button>
+</form>
+<!-- BEGIN: Social Login Footer -->
+<footer class="mt-8" data-purpose="social-login-section">
+<div class="relative flex py-4 items-center">
+<div class="flex-grow border-t border-gray-200"></div>
+<span class="flex-shrink mx-4 text-gray-400 text-xs">Sign in with</span>
+<div class="flex-grow border-t border-gray-200"></div>
+</div>
+<!-- Social Icons -->
+<div class="flex justify-center gap-6 mt-4">
+<button class="w-10 h-10 flex items-center justify-center text-blue-600 hover:scale-110 transition-transform">
+<i class="fa-brands fa-facebook-f text-xl"></i>
+</button>
+<button class="w-10 h-10 flex items-center justify-center text-blue-400 hover:scale-110 transition-transform">
+<i class="fa-brands fa-twitter text-xl"></i>
+</button>
+<button class="w-10 h-10 flex items-center justify-center text-red-500 hover:scale-110 transition-transform">
+<i class="fa-brands fa-google text-xl"></i>
+</button>
+<button class="w-10 h-10 flex items-center justify-center text-black hover:scale-110 transition-transform">
+<i class="fa-brands fa-apple text-xl"></i>
+</button>
+</div>
+<!-- Sign Up Link -->
+<p class="text-center text-xs text-gray-500 mt-8">
+          Don't have an account? <a class="text-blue-600 font-bold hover:underline" href="#">Sign up</a>
+</p>
+</footer>
+<!-- END: Social Login Footer -->
+</section>
+<!-- END: Login Card -->
+</main>
+<!-- END: Mobile Device Frame -->
+</body></html>
