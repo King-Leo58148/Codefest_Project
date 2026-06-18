@@ -31,7 +31,12 @@ public class User implements UserDetails {
     @Enumerated(EnumType.STRING)
     private Role role;
 
+    private String ghanaCardNumber;
 
+    private String ghanaCardImageUrl;
+
+    @Column(nullable = false)
+    private boolean ghanaCardVerified = false;
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return List.of();
@@ -65,4 +70,5 @@ public class User implements UserDetails {
     public boolean isEnabled() {
         return true;
     }
+
 }
