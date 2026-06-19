@@ -34,6 +34,10 @@ public class User implements UserDetails {
     private String ghanaCardNumber;
 
     private String ghanaCardImageUrl;
+    private String momoNumber;
+
+    @Column(nullable = false)
+    private boolean momoVerified = false;
 
     @Column(nullable = false)
     private boolean ghanaCardVerified = false;

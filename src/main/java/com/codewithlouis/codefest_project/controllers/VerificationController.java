@@ -1,5 +1,8 @@
 package com.codewithlouis.codefest_project.controllers;
 
+import com.codewithlouis.codefest_project.dto.MomoVerificationRequest;
+import com.codewithlouis.codefest_project.dto.MomoVerificationResponse;
+import com.codewithlouis.codefest_project.services.MomoVerificationService;
 import com.codewithlouis.codefest_project.services.VerificationService;
 import com.codewithlouis.codefest_project.dto.VerificationResponse;
 import lombok.RequiredArgsConstructor;
@@ -23,5 +26,12 @@ public class VerificationController {
         return ResponseEntity.ok(
                 verificationService.verifyGhanaCard(cardNumber, cardImage)
         );
+    }
+    private final MomoVerificationService momoVerificationService;
+
+    @PostMapping("/momo")
+    public ResponseEntity<MomoVerificationResponse> verifyMomo(
+            @RequestBody MomoVerificationRequest request) {
+        return ResponseEntity.ok(momoVerificationService.verifyAccount(request.getMomoNumber()));
     }
 }
