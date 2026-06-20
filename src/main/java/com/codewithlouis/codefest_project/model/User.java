@@ -1,5 +1,5 @@
 package com.codewithlouis.codefest_project.model;
-
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
 import org.springframework.security.core.GrantedAuthority;
@@ -25,21 +25,26 @@ public class User implements UserDetails {
     private String email;
 
     @Column(nullable = false)
+    @JsonIgnore
     private String password;
-
 
     @Enumerated(EnumType.STRING)
     private Role role;
-
+    @JsonIgnore
     private String ghanaCardNumber;
 
+
+    @JsonIgnore
     private String ghanaCardImageUrl;
+
+    @JsonIgnore
     private String momoNumber;
 
     @Column(nullable = false)
     private boolean momoVerified = false;
 
     @Column(nullable = false)
+
     private boolean ghanaCardVerified = false;
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
