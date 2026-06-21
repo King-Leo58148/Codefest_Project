@@ -18,6 +18,7 @@ public class BidService {
 
     private final BidRepository bidRepository;
     private final PitchRepository pitchRepository;
+    private final DealService dealService;
     private final UserRepository userRepository;
 
     private User getCurrentUser() {
@@ -97,7 +98,6 @@ public class BidService {
     // Business owner accepts a bid
     public Bid acceptBid(Integer bidId) {
         User owner = getCurrentUser();
-
         Bid bid = bidRepository.findById(bidId)
                 .orElseThrow(() -> new RuntimeException("Bid not found"));
 
@@ -107,12 +107,16 @@ public class BidService {
 
         bid.setStatus(BidStatus.ACCEPTED);
 
-        // Mark pitch as funded so no more bids come in
         Pitch pitch = bid.getPitch();
         pitch.setStatus(PitchStatus.FUNDED);
         pitchRepository.save(pitch);
 
-        return bidRepository.save(bid);
+        bidRepository.save(bid);
+
+        // CREATE DEAL AUTOMATICALLY
+        dealService.createDeal(bidId);
+
+        return bid;
     }
 
     // Business owner rejects a bid
