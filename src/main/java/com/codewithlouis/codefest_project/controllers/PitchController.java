@@ -1,6 +1,6 @@
 package com.codewithlouis.codefest_project.controllers;
 
-import com.codewithlouis.codefest_project.dto.PitchRequest;
+import com.codewithlouis.codefest_project.request.PitchRequest;
 import com.codewithlouis.codefest_project.model.Industry;
 import com.codewithlouis.codefest_project.model.OfferType;
 import com.codewithlouis.codefest_project.model.Pitch;

@@ -1,4 +1,4 @@
-package com.codewithlouis.codefest_project.dto;
+package com.codewithlouis.codefest_project.request;
 
 
 import com.codewithlouis.codefest_project.model.OfferType;
