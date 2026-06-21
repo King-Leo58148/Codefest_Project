@@ -31,14 +31,14 @@ public class User implements UserDetails {
 
     @Enumerated(EnumType.STRING)
     private Role role;
-    @JsonIgnore
+
     private String ghanaCardNumber;
 
 
     @JsonIgnore
     private String ghanaCardImageUrl;
 
-    @JsonIgnore
+
     private String momoNumber;
 
     @Column(nullable = false)
