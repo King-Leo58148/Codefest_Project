@@ -39,11 +39,13 @@ public class Pitch {
 
     private String location;
 
-    private String industry;
+    @Enumerated(EnumType.STRING)
+    private Industry industry;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private PitchStatus status = PitchStatus.PENDING;
 
     private LocalDateTime createdAt = LocalDateTime.now();
+    private LocalDateTime expiresAt;
 }

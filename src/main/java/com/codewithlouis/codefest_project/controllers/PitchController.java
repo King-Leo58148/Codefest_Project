@@ -1,6 +1,8 @@
 package com.codewithlouis.codefest_project.controllers;
 
 import com.codewithlouis.codefest_project.dto.PitchRequest;
+import com.codewithlouis.codefest_project.model.Industry;
+import com.codewithlouis.codefest_project.model.OfferType;
 import com.codewithlouis.codefest_project.model.Pitch;
 import com.codewithlouis.codefest_project.services.PitchService;
 import jakarta.validation.Valid;
@@ -40,5 +42,16 @@ public class PitchController {
     @PutMapping("/{id}/approve")
     public ResponseEntity<Pitch> approvePitch(@PathVariable Integer id) {
         return ResponseEntity.ok(pitchService.approvePitch(id));
+    }
+    @GetMapping("/filter")
+    public ResponseEntity<List<Pitch>> filterPitches(
+            @RequestParam(required = false) String location,
+            @RequestParam(required = false) Industry industry,
+            @RequestParam(required = false) OfferType offerType,
+            @RequestParam(required = false) Double minAmount,
+            @RequestParam(required = false) Double maxAmount
+
+    ) {
+        return ResponseEntity.ok(pitchService.filterPitches(location, industry, offerType, minAmount, maxAmount));
     }
 }

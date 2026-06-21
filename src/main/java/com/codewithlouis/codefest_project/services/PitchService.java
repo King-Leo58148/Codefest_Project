@@ -2,15 +2,14 @@ package com.codewithlouis.codefest_project.services;
 
 
 import com.codewithlouis.codefest_project.dto.PitchRequest;
-import com.codewithlouis.codefest_project.model.Pitch;
-import com.codewithlouis.codefest_project.model.PitchStatus;
-import com.codewithlouis.codefest_project.model.User;
+import com.codewithlouis.codefest_project.model.*;
 import com.codewithlouis.codefest_project.repository.PitchRepository;
 import com.codewithlouis.codefest_project.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -40,7 +39,7 @@ public class PitchService {
         pitch.setOfferType(request.getOfferType());
         pitch.setOfferValue(request.getOfferValue());
         pitch.setLocation(request.getLocation());
-        pitch.setIndustry(request.getIndustry());
+        pitch.setIndustry(Industry.valueOf(request.getIndustry()));
         pitch.setStatus(PitchStatus.PENDING);
 
         return pitchRepository.save(pitch);
@@ -57,16 +56,26 @@ public class PitchService {
                 .orElseThrow(() -> new RuntimeException("Pitch not found"));
     }
 
-    // Admin approves a pitch
+    // Update approvePitch to set expiry date
     public Pitch approvePitch(Integer id) {
         Pitch pitch = getPitchById(id);
         pitch.setStatus(PitchStatus.LIVE);
+        pitch.setExpiresAt(LocalDateTime.now().plusDays(30));
         return pitchRepository.save(pitch);
     }
 
+    // Add filter method
+    public List<Pitch> filterPitches(String location, Industry industry, OfferType offerType,
+                                     Double minAmount, Double maxAmount) {
+        String industryStr = industry != null ? industry.name() : null;
+        String offerTypeStr = offerType != null ? offerType.name() : null;
+        return pitchRepository.filterPitches(location, industryStr, offerTypeStr, minAmount, maxAmount);
+    }
     // Business owner sees their own pitches
     public List<Pitch> getMyPitches() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         return pitchRepository.findByOwnerEmail(email);
     }
+
+
 }
