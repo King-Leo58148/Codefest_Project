@@ -1,7 +1,7 @@
 package com.codewithlouis.codefest_project.services;
 
 
-import com.codewithlouis.codefest_project.dto.PitchRequest;
+import com.codewithlouis.codefest_project.request.PitchRequest;
 import com.codewithlouis.codefest_project.model.*;
 import com.codewithlouis.codefest_project.repository.PitchRepository;
 import com.codewithlouis.codefest_project.repository.UserRepository;

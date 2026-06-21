@@ -1,6 +1,6 @@
 package com.codewithlouis.codefest_project.controllers;
 
-import com.codewithlouis.codefest_project.dto.MomoVerificationRequest;
+import com.codewithlouis.codefest_project.request.MomoVerificationRequest;
 import com.codewithlouis.codefest_project.dto.MomoVerificationResponse;
 import com.codewithlouis.codefest_project.services.MomoVerificationService;
 import com.codewithlouis.codefest_project.services.VerificationService;
