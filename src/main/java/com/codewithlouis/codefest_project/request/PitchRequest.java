@@ -9,29 +9,27 @@ import lombok.Data;
 @Data
 public class PitchRequest {
 
-    @NotBlank(message = "Business name is required")
+    @NotBlank
     private String businessName;
 
-    @NotBlank(message = "Description is required")
+    @NotBlank
     private String description;
 
-    @NotBlank(message = "A pitch video is required")
-    private String videoUrl;
-
-    @NotNull(message = "Monthly income is required")
+    @NotNull
     private Double monthlyIncome;
 
-    @NotNull(message = "Amount needed is required")
+    @NotNull
     private Double amountNeeded;
 
-    @NotNull(message = "Offer type is required")
-    private OfferType offerType;
+    @NotNull
+    private String offerType;
 
     private Double offerValue;
 
     private String location;
 
+    @NotBlank
     private String industry;
 
-
+    // ❌ NO videoUrl here
 }
