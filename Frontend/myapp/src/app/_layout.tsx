@@ -7,6 +7,7 @@ export default function RootLayout() {
       <Stack.Screen name="(auth)/register" />
       <Stack.Screen name="(auth)/login" />
       <Stack.Screen name="(auth)/choose-role" />
+      <Stack.Screen name="(business)" />
     </Stack>
   );
 }
