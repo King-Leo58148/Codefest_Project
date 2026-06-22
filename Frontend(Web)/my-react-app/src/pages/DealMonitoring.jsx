@@ -30,35 +30,43 @@ function DealMonitoring() {
     },
   ]
 
-  const statusColors = {
-    Active: 'bg-green-500/10 text-green-400',
-    Pending: 'bg-amber-400/10 text-amber-400',
-    Completed: 'bg-blue-500/10 text-blue-400',
-    Defaulted: 'bg-red-500/10 text-red-400',
+  const statusStyles = {
+    Active: 'bg-green-50 text-green-600',
+    Pending: 'bg-amber-50 text-amber-600',
+    Completed: 'bg-blue-50 text-blue-600',
+    Defaulted: 'bg-red-50 text-red-500',
   }
 
   return (
     <div>
-      <h2 className="text-2xl font-bold text-white mb-8">Deal Monitoring</h2>
+      <div className="mb-8">
+        <h2 className="text-2xl font-bold text-gray-900">Deal Monitoring</h2>
+        <p className="text-gray-400 text-sm mt-1">
+          Track all active and historical deals on the platform.
+        </p>
+      </div>
 
-      <div className="bg-gray-900 rounded-xl overflow-hidden">
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-gray-800">
-              <th className="text-left text-gray-400 px-6 py-4">Business</th>
-              <th className="text-left text-gray-400 px-6 py-4">Investor</th>
-              <th className="text-left text-gray-400 px-6 py-4">Amount</th>
-              <th className="text-left text-gray-400 px-6 py-4">Status</th>
+            <tr className="border-b border-gray-100">
+              <th className="text-left text-gray-400 font-medium px-6 py-4">Business</th>
+              <th className="text-left text-gray-400 font-medium px-6 py-4">Investor</th>
+              <th className="text-left text-gray-400 font-medium px-6 py-4">Amount</th>
+              <th className="text-left text-gray-400 font-medium px-6 py-4">Status</th>
             </tr>
           </thead>
           <tbody>
             {deals.map((deal) => (
-              <tr key={deal.id} className="border-b border-gray-800">
-                <td className="text-white px-6 py-4">{deal.business}</td>
-                <td className="text-gray-400 px-6 py-4">{deal.investor}</td>
-                <td className="text-white px-6 py-4">{deal.amount}</td>
+              <tr
+                key={deal.id}
+                className="border-b border-gray-50 hover:bg-gray-50 transition-colors"
+              >
+                <td className="text-gray-900 font-medium px-6 py-4">{deal.business}</td>
+                <td className="text-gray-500 px-6 py-4">{deal.investor}</td>
+                <td className="text-gray-900 px-6 py-4">{deal.amount}</td>
                 <td className="px-6 py-4">
-                  <span className={`px-3 py-1 rounded-full text-xs ${statusColors[deal.status]}`}>
+                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusStyles[deal.status]}`}>
                     {deal.status}
                   </span>
                 </td>
