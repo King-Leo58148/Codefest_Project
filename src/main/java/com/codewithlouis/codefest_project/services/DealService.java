@@ -97,6 +97,12 @@ public class DealService {
 
     // Admin approves MFI
     public Deal approveMfi(Integer dealId) {
+        User currentUser = getCurrentUser();
+
+        if (currentUser.getRole() != Role.ADMIN) {
+            throw new RuntimeException("Only admins can approve MFI");
+        }
+
         Deal deal = dealRepository.findById(dealId)
                 .orElseThrow(() -> new RuntimeException("Deal not found"));
         deal.setMfiApproved(true);

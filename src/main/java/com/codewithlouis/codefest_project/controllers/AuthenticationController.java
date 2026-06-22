@@ -5,6 +5,7 @@ import com.codewithlouis.codefest_project.dto.LoginUserDto;
 import com.codewithlouis.codefest_project.dto.RegisterUserDto;
 import com.codewithlouis.codefest_project.model.RefreshToken;
 import com.codewithlouis.codefest_project.model.User;
+import com.codewithlouis.codefest_project.repository.UserRepository;
 import com.codewithlouis.codefest_project.services.AuthenticationService;
 import com.codewithlouis.codefest_project.services.JwtService;
 import com.codewithlouis.codefest_project.services.RefreshTokenService;
@@ -12,6 +13,7 @@ import com.codewithlouis.codefest_project.services.TokenBlacklistService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -25,6 +27,7 @@ public class AuthenticationController {
     private final AuthenticationService authenticationService;
     private final RefreshTokenService refreshTokenService;
     private final TokenBlacklistService tokenBlacklistService;
+    private final UserRepository userRepository;
 
     @PostMapping("/signup")
     public ResponseEntity<User> register(@RequestBody RegisterUserDto registerUserDto) {
@@ -63,11 +66,17 @@ public class AuthenticationController {
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             String token = authHeader.substring(7);
             tokenBlacklistService.blacklist(token);
-
-            // also delete refresh token from DB
             String email = jwtService.extractUsername(token);
             authenticationService.logout(email);
         }
         return ResponseEntity.ok(Map.of("message", "Logged out successfully"));
+    }
+
+    @GetMapping("/me")
+    public ResponseEntity<User> getMe() {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        return ResponseEntity.ok(user);
     }
 }

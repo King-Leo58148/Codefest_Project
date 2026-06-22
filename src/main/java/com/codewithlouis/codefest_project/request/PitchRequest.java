@@ -15,6 +15,7 @@ public class PitchRequest {
     @NotBlank(message = "Description is required")
     private String description;
 
+    @NotBlank(message = "A pitch video is required")
     private String videoUrl;
 
     @NotNull(message = "Monthly income is required")
@@ -31,4 +32,6 @@ public class PitchRequest {
     private String location;
 
     private String industry;
+
+
 }

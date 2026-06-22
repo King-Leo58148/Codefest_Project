@@ -35,7 +35,7 @@ public class AuthenticationService {
         User user = new User();
         user.setName(input.getName());
         user.setEmail(input.getEmail());
-        user.setRole(Role.OWNER); // or whatever your default is
+        user.setRole(input.getRole());; // or whatever your default is
         user.setPassword(passwordEncoder.encode(input.getPassword()));
 
         return userRepository.save(user);
