@@ -28,6 +28,12 @@ public class PitchService {
         if (!owner.isGhanaCardVerified() || !owner.isMomoVerified()) {
             throw new RuntimeException("You must complete Ghana Card and MoMo verification before posting a pitch");
         }
+        if (owner.getRole() != Role.OWNER && owner.getRole() != Role.BOTH) {
+            throw new RuntimeException("Only business owners can post a pitch");
+        }
+        if (request.getVideoUrl() == null || request.getVideoUrl().isBlank()) {
+            throw new RuntimeException("A 60-second pitch video is required");
+        }
 
         Pitch pitch = new Pitch();
         pitch.setOwner(owner);

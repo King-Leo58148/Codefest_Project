@@ -41,7 +41,9 @@ public class BidService {
         if (pitch.getOwner().getEmail().equals(investor.getEmail())) {
             throw new RuntimeException("You cannot bid on your own pitch");
         }
-
+        if (investor.getRole() != Role.INVESTOR && investor.getRole() != Role.BOTH) {
+            throw new RuntimeException("Only investors can place a bid");
+        }
         if (pitch.getStatus() != PitchStatus.LIVE) {
             throw new RuntimeException("This pitch is not accepting bids");
         }
