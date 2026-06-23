@@ -1,0 +1,142 @@
+package com.codewithlouis.codefest_project.services;
+
+import com.codewithlouis.codefest_project.model.Deal;
+import com.codewithlouis.codefest_project.model.DealStatus;
+import com.codewithlouis.codefest_project.repository.DealRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.http.*;
+
+import java.util.HashMap;
+import java.util.Map;
+
+@Service
+@RequiredArgsConstructor
+public class PaystackService {
+
+    @Value("${paystack.secret-key}")
+    private String secretKey;
+
+    @Value("${paystack.base-url}")
+    private String baseUrl;
+
+    private final RestTemplate restTemplate;
+    private final DealRepository dealRepository;
+
+    // Step 1 — Initialize payment, returns authorization URL
+    public Map<String, Object> initializePayment(Deal deal) {
+        if (deal.getStatus() != DealStatus.PAYMENT_PENDING) {
+            throw new RuntimeException("Deal is not ready for payment");
+        }
+
+        // Calculate amount in pesewas (Paystack uses smallest currency unit)
+        // 1% platform fee capped at GH₵ 100
+        double dealAmount = deal.getBid().getAmount();
+        double platformFee = Math.min(dealAmount * 0.01, 100.0);
+        double totalAmount = dealAmount + platformFee;
+
+        // Convert to pesewas (multiply by 100)
+        long amountInPesewas = (long) (totalAmount * 100);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("Authorization", "Bearer " + secretKey);
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        Map<String, Object> body = new HashMap<>();
+        body.put("email", deal.getInvestor().getEmail());
+        body.put("amount", amountInPesewas);
+        body.put("currency", "GHS");
+        body.put("reference", "NKOSO-DEAL-" + deal.getId() + "-" + System.currentTimeMillis());
+        body.put("metadata", Map.of(
+                "deal_id", deal.getId(),
+                "investor", deal.getInvestor().getName(),
+                "business", deal.getPitch().getBusinessName(),
+                "platform_fee", platformFee
+        ));
+
+        HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, headers);
+
+        ResponseEntity<Map> response = restTemplate.exchange(
+                baseUrl + "/transaction/initialize",
+                HttpMethod.POST,
+                request,
+                Map.class
+        );
+
+        Map<String, Object> responseData = (Map<String, Object>) response.getBody().get("data");
+
+        // Save reference to deal
+        String reference = (String) responseData.get("reference");
+        deal.setPaystackRef(reference);
+        dealRepository.save(deal);
+
+        return responseData;
+
+
+    }
+
+    // Step 2 — Verify payment after investor pays
+    public boolean verifyPayment(String reference) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("Authorization", "Bearer " + secretKey);
+
+        HttpEntity<String> request = new HttpEntity<>(headers);
+
+        ResponseEntity<Map> response = restTemplate.exchange(
+                baseUrl + "/transaction/verify/" + reference,
+                HttpMethod.GET,
+                request,
+                Map.class
+        );
+
+        Map<String, Object> data = (Map<String, Object>) response.getBody().get("data");
+        String status = (String) data.get("status");
+
+        return "success".equals(status);
+    }
+    public void disburseFunds(Deal deal) {
+        // Step 1 — Create transfer recipient (business owner's MoMo)
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("Authorization", "Bearer " + secretKey);
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        Map<String, Object> recipientBody = new HashMap<>();
+        recipientBody.put("type", "mobile_money");
+        recipientBody.put("name", deal.getOwner().getName());
+        recipientBody.put("account_number", deal.getOwner().getMomoNumber());
+        recipientBody.put("bank_code", "MTN");
+        recipientBody.put("currency", "GHS");
+
+        HttpEntity<Map<String, Object>> recipientRequest = new HttpEntity<>(recipientBody, headers);
+
+        ResponseEntity<Map> recipientResponse = restTemplate.exchange(
+                baseUrl + "/transferrecipient",
+                HttpMethod.POST,
+                recipientRequest,
+                Map.class
+        );
+
+        Map<String, Object> recipientData = (Map<String, Object>) recipientResponse.getBody().get("data");
+        String recipientCode = (String) recipientData.get("recipient_code");
+
+        // Step 2 — Initiate transfer
+        long amountInPesewas = (long) (deal.getBid().getAmount() * 100);
+
+        Map<String, Object> transferBody = new HashMap<>();
+        transferBody.put("source", "balance");
+        transferBody.put("amount", amountInPesewas);
+        transferBody.put("recipient", recipientCode);
+        transferBody.put("reason", "Nkoso deal disbursement - Deal #" + deal.getId());
+
+        HttpEntity<Map<String, Object>> transferRequest = new HttpEntity<>(transferBody, headers);
+
+        restTemplate.exchange(
+                baseUrl + "/transfer",
+                HttpMethod.POST,
+                transferRequest,
+                Map.class
+        );
+    }
+}
