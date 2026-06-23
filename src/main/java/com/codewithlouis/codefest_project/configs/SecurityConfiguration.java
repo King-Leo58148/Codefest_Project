@@ -58,7 +58,7 @@ public class SecurityConfiguration {
                 "http://10.0.2.2:8080"   // Android emulator calling your backend
         ));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
-        configuration.setAllowedHeaders(List.of("*")); // ✅ allow all headers including multipart boundary
+        configuration.setAllowedHeaders(List.of("*"));
         configuration.setExposedHeaders(List.of("Authorization"));
         configuration.setAllowCredentials(true);
 
