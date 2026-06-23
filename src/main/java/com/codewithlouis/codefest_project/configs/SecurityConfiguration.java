@@ -50,7 +50,13 @@ public class SecurityConfiguration {
     CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        configuration.setAllowedOrigins(List.of("http://localhost:5173", "http://localhost:3000"));
+        configuration.setAllowedOrigins(List.of(
+                "http://localhost:5173",  // React web (Vite)
+                "http://localhost:3000",  // React web (CRA)
+                "http://localhost:8081",  // React Native (Expo)
+                "http://localhost:19006", // React Native (Expo web)
+                "http://10.0.2.2:8080"   // Android emulator calling your backend
+        ));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         configuration.setAllowedHeaders(List.of("*")); // ✅ allow all headers including multipart boundary
         configuration.setExposedHeaders(List.of("Authorization"));
