@@ -2,13 +2,16 @@ package com.codewithlouis.codefest_project.controllers;
 
 import com.codewithlouis.codefest_project.model.Deal;
 import com.codewithlouis.codefest_project.model.Message;
+import com.codewithlouis.codefest_project.model.Repayment;
 import com.codewithlouis.codefest_project.services.DealService;
+import com.codewithlouis.codefest_project.services.RepaymentService;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/deals")
@@ -16,6 +19,7 @@ import java.util.List;
 public class DealController {
 
     private final DealService dealService;
+    private final RepaymentService repaymentService;
 
     @GetMapping("/{dealId}")
     public ResponseEntity<Deal> getDeal(@PathVariable Integer dealId) {
@@ -52,5 +56,21 @@ public class DealController {
     @Data
     static class MessageRequest {
         private String content;
+    }
+
+    @PostMapping("/{dealId}/pay")
+    public ResponseEntity<Map<String, Object>> initiatePayment(@PathVariable Integer dealId) {
+        return ResponseEntity.ok(dealService.initiatePayment(dealId));
+    }
+
+    @PostMapping("/{dealId}/verify-payment")
+    public ResponseEntity<Deal> verifyPayment(
+            @PathVariable Integer dealId,
+            @RequestParam String reference) {
+        return ResponseEntity.ok(dealService.verifyPayment(dealId, reference));
+    }
+    @GetMapping("/{dealId}/repayments")
+    public ResponseEntity<List<Repayment>> getRepayments(@PathVariable Integer dealId) {
+        return ResponseEntity.ok(repaymentService.getRepaymentSchedule(dealId));
     }
 }

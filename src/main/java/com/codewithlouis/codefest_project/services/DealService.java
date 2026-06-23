@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -20,6 +21,7 @@ public class DealService {
     private final MessageRepository messageRepository;
     private final EmailService emailService;
     private final SimpMessagingTemplate messagingTemplate;
+    private final RepaymentService repaymentService;
 
     private User getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -132,6 +134,40 @@ public class DealService {
     public List<Message> getMessages(Integer dealId) {
         getDeal(dealId); // security check
         return messageRepository.findByDealIdOrderBySentAtAsc(dealId);
+    }
+
+    private final PaystackService paystackService;
+
+    // Investor initiates payment
+    public Map<String, Object> initiatePayment(Integer dealId) {
+        User currentUser = getCurrentUser();
+        Deal deal = getDeal(dealId);
+
+        if (!deal.getInvestor().getEmail().equals(currentUser.getEmail())) {
+            throw new RuntimeException("Only the investor can initiate payment");
+        }
+
+        return paystackService.initializePayment(deal);
+    }
+
+    // Verify payment and mark deal as active
+    public Deal verifyPayment(Integer dealId, String reference) {
+        Deal deal = dealRepository.findById(dealId)
+                .orElseThrow(() -> new RuntimeException("Deal not found"));
+
+        boolean paid = paystackService.verifyPayment(reference);
+
+        if (paid) {
+            deal.setStatus(DealStatus.ACTIVE);
+            deal.setDisbursed(true);
+            deal.setDisbursedAt(java.time.LocalDateTime.now());
+            repaymentService.generateRepaymentSchedule(deal);
+            // Disburse funds to business owner
+            paystackService.disburseFunds(deal);
+            return dealRepository.save(deal);
+        } else {
+            throw new RuntimeException("Payment verification failed");
+        }
     }
 
 }
