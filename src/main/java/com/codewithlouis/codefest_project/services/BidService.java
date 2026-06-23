@@ -1,6 +1,5 @@
 package com.codewithlouis.codefest_project.services;
 
-
 import com.codewithlouis.codefest_project.model.*;
 import com.codewithlouis.codefest_project.repository.BidRepository;
 import com.codewithlouis.codefest_project.repository.PitchRepository;
@@ -20,6 +19,7 @@ public class BidService {
     private final PitchRepository pitchRepository;
     private final DealService dealService;
     private final UserRepository userRepository;
+    private final NotificationService notificationService;
 
     private User getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -27,10 +27,8 @@ public class BidService {
                 .orElseThrow(() -> new RuntimeException("User not found"));
     }
 
-    // Investor places a bid
     public Bid placeBid(Integer pitchId, BidRequest request) {
         User investor = getCurrentUser();
-
 
         if (!investor.isGhanaCardVerified() || !investor.isMomoVerified()) {
             throw new RuntimeException("You must complete verification before placing a bid");
@@ -38,12 +36,15 @@ public class BidService {
 
         Pitch pitch = pitchRepository.findById(pitchId)
                 .orElseThrow(() -> new RuntimeException("Pitch not found"));
+
         if (pitch.getOwner().getEmail().equals(investor.getEmail())) {
             throw new RuntimeException("You cannot bid on your own pitch");
         }
+
         if (investor.getRole() != Role.INVESTOR && investor.getRole() != Role.BOTH) {
             throw new RuntimeException("Only investors can place a bid");
         }
+
         if (pitch.getStatus() != PitchStatus.LIVE) {
             throw new RuntimeException("This pitch is not accepting bids");
         }
@@ -58,26 +59,33 @@ public class BidService {
         bid.setNote(request.getNote());
         bid.setStatus(BidStatus.PENDING);
 
-        return bidRepository.save(bid);
+        // Save first so bid.getId() is not null
+        Bid saved = bidRepository.save(bid);
+
+        notificationService.createNotification(
+                pitch.getOwner(),
+                NotificationType.BID_RECEIVED,
+                "New Bid Received",
+                investor.getName() + " placed a bid of GHS " + request.getAmount() + " on your pitch",
+                saved.getId()
+        );
+
+        return saved;
     }
 
-    // Business owner views all bids on their pitch
     public List<Bid> getBidsForPitch(Integer pitchId) {
         return bidRepository.findByPitchId(pitchId);
     }
 
-    // Investor views their own bids
     public List<Bid> getMyBids() {
         User investor = getCurrentUser();
         return bidRepository.findByInvestorEmail(investor.getEmail());
     }
 
-    // Either party counters a bid
     public Bid counterBid(Integer bidId, BidRequest request) {
         Bid bid = bidRepository.findById(bidId)
                 .orElseThrow(() -> new RuntimeException("Bid not found"));
 
-        // ADD THESE LINES
         User currentUser = getCurrentUser();
         String currentEmail = currentUser.getEmail();
         String ownerEmail = bid.getPitch().getOwner().getEmail();
@@ -86,7 +94,6 @@ public class BidService {
         if (!currentEmail.equals(ownerEmail) && !currentEmail.equals(investorEmail)) {
             throw new RuntimeException("You are not part of this bid");
         }
-        // END OF NEW LINES
 
         bid.setAmount(request.getAmount());
         bid.setReturnType(request.getReturnType());
@@ -95,9 +102,21 @@ public class BidService {
         bid.setNote(request.getNote());
         bid.setStatus(BidStatus.COUNTERED);
 
+        User otherParty = currentEmail.equals(bid.getInvestor().getEmail())
+                ? bid.getPitch().getOwner()
+                : bid.getInvestor();
+
+        notificationService.createNotification(
+                otherParty,
+                NotificationType.BID_COUNTERED,
+                "Counter Offer Received",
+                currentUser.getName() + " sent a counter offer on " + bid.getPitch().getBusinessName(),
+                bid.getId()
+        );
+
         return bidRepository.save(bid);
     }
-    // Business owner accepts a bid
+
     public Bid acceptBid(Integer bidId) {
         User owner = getCurrentUser();
         Bid bid = bidRepository.findById(bidId)
@@ -115,13 +134,19 @@ public class BidService {
 
         bidRepository.save(bid);
 
-        // CREATE DEAL AUTOMATICALLY
         dealService.createDeal(bidId);
+
+        notificationService.createNotification(
+                bid.getInvestor(),
+                NotificationType.BID_ACCEPTED,
+                "Bid Accepted",
+                "Your bid on " + bid.getPitch().getBusinessName() + " has been accepted. Go to deal room.",
+                bid.getId()
+        );
 
         return bid;
     }
 
-    // Business owner rejects a bid
     public Bid rejectBid(Integer bidId) {
         User owner = getCurrentUser();
 
@@ -133,6 +158,15 @@ public class BidService {
         }
 
         bid.setStatus(BidStatus.REJECTED);
+
+        notificationService.createNotification(
+                bid.getInvestor(),
+                NotificationType.BID_REJECTED,
+                "Bid Rejected",
+                "Your bid on " + bid.getPitch().getBusinessName() + " was rejected.",
+                bid.getId()
+        );
+
         return bidRepository.save(bid);
     }
 }

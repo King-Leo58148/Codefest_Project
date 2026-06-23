@@ -1,0 +1,18 @@
+package com.codewithlouis.codefest_project.model;
+
+public enum NotificationType {
+    BID_RECEIVED,
+    BID_ACCEPTED,
+    BID_REJECTED,
+    BID_COUNTERED,
+    DEAL_CREATED,
+    DEAL_SIGNED,
+    MFI_APPROVED,
+    PAYMENT_RECEIVED,
+    REPAYMENT_DUE,
+    REPAYMENT_COLLECTED,
+    REPAYMENT_MISSED,
+    PITCH_APPROVED,
+    PITCH_EXPIRED,
+    MESSAGE_RECEIVED
+}
