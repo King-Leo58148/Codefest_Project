@@ -8,13 +8,20 @@ import MFIWorkflow from './pages/MFIWorkflow'
 import RepaymentTracking from './pages/RepaymentTracking'
 import Notifications from './pages/Notifications'
 import Layout from './components/Layout'
+import ProtectedRoute from './components/ProtectedRoute'
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Login />} />
-        <Route element={<Layout />}>
+        <Route
+          element={
+            <ProtectedRoute>
+              <Layout />
+            </ProtectedRoute>
+          }
+        >
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/pitches" element={<PitchReview />} />
           <Route path="/users" element={<UserManagement />} />

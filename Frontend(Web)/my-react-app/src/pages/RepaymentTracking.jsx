@@ -1,43 +1,34 @@
+import { useState, useEffect } from 'react'
+import api from '../api'
+
 function RepaymentTracking() {
-  const repayments = [
-    {
-      id: 1,
-      deal: 'Ama Fashion',
-      investor: 'Kofi Mensah',
-      amount: 'GH₵ 500',
-      dueDate: '2026-06-15',
-      status: 'Paid',
-    },
-    {
-      id: 2,
-      deal: 'Kwame Farms',
-      investor: 'Esi Boateng',
-      amount: 'GH₵ 350',
-      dueDate: '2026-06-15',
-      status: 'Missed',
-    },
-    {
-      id: 3,
-      deal: 'Abena Boutique',
-      investor: 'Akosua Frimpong',
-      amount: 'GH₵ 800',
-      dueDate: '2026-06-22',
-      status: 'Pending',
-    },
-    {
-      id: 4,
-      deal: 'Kofi Chop Bar',
-      investor: 'Yaw Darko',
-      amount: 'GH₵ 200',
-      dueDate: '2026-06-28',
-      status: 'Pending',
-    },
-  ]
+  const [repayments, setRepayments] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [filter, setFilter] = useState('all')
+
+  useEffect(() => {
+    async function fetchRepayments() {
+      try {
+        const url =
+          filter === 'missed'
+            ? '/api/admin/repayments/missed'
+            : '/api/admin/repayments'
+        const response = await api.get(url)
+        setRepayments(response.data)
+      } catch (err) {
+        setError('Failed to load repayments.')
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchRepayments()
+  }, [filter])
 
   const statusStyles = {
-    Paid: 'bg-green-50 text-green-600',
-    Missed: 'bg-red-50 text-red-500',
-    Pending: 'bg-amber-50 text-amber-600',
+    PENDING: 'bg-amber-50 text-amber-600',
+    COLLECTED: 'bg-green-50 text-green-600',
+    MISSED: 'bg-red-50 text-red-500',
   }
 
   return (
@@ -49,37 +40,78 @@ function RepaymentTracking() {
         </p>
       </div>
 
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-gray-100">
-              <th className="text-left text-gray-400 font-medium px-6 py-4">Deal</th>
-              <th className="text-left text-gray-400 font-medium px-6 py-4">Investor</th>
-              <th className="text-left text-gray-400 font-medium px-6 py-4">Amount</th>
-              <th className="text-left text-gray-400 font-medium px-6 py-4">Due Date</th>
-              <th className="text-left text-gray-400 font-medium px-6 py-4">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {repayments.map((repayment) => (
-              <tr
-                key={repayment.id}
-                className="border-b border-gray-50 hover:bg-gray-50 transition-colors"
-              >
-                <td className="text-gray-900 font-medium px-6 py-4">{repayment.deal}</td>
-                <td className="text-gray-500 px-6 py-4">{repayment.investor}</td>
-                <td className="text-gray-900 px-6 py-4">{repayment.amount}</td>
-                <td className="text-gray-500 px-6 py-4">{repayment.dueDate}</td>
-                <td className="px-6 py-4">
-                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusStyles[repayment.status]}`}>
-                    {repayment.status}
-                  </span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="flex gap-2 mb-6">
+        <button
+          onClick={() => setFilter('all')}
+          className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
+            filter === 'all'
+              ? 'bg-amber-400 text-gray-900'
+              : 'bg-white border border-gray-200 text-gray-500 hover:bg-gray-50'
+          }`}
+        >
+          All Repayments
+        </button>
+        <button
+          onClick={() => setFilter('missed')}
+          className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
+            filter === 'missed'
+              ? 'bg-red-500 text-white'
+              : 'bg-white border border-gray-200 text-gray-500 hover:bg-gray-50'
+          }`}
+        >
+          Missed Only
+        </button>
       </div>
+
+      {loading && (
+        <p className="text-gray-400 text-sm">Loading repayments...</p>
+      )}
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-500 px-4 py-3 rounded-xl mb-6 text-sm">
+          {error}
+        </div>
+      )}
+
+      {!loading && !error && repayments.length === 0 && (
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 text-center">
+          <p className="text-gray-400 text-sm">No repayments found.</p>
+        </div>
+      )}
+
+      {!loading && repayments.length > 0 && (
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-100">
+                <th className="text-left text-gray-400 font-medium px-6 py-4">Deal</th>
+                <th className="text-left text-gray-400 font-medium px-6 py-4">Investor</th>
+                <th className="text-left text-gray-400 font-medium px-6 py-4">Amount</th>
+                <th className="text-left text-gray-400 font-medium px-6 py-4">Due Date</th>
+                <th className="text-left text-gray-400 font-medium px-6 py-4">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {repayments.map((repayment) => (
+                <tr
+                  key={repayment.id}
+                  className="border-b border-gray-50 hover:bg-gray-50 transition-colors"
+                >
+                  <td className="text-gray-900 font-medium px-6 py-4">{repayment.dealName}</td>
+                  <td className="text-gray-500 px-6 py-4">{repayment.investorName}</td>
+                  <td className="text-gray-900 px-6 py-4">GH₵ {repayment.amount}</td>
+                  <td className="text-gray-500 px-6 py-4">{repayment.dueDate?.slice(0, 10)}</td>
+                  <td className="px-6 py-4">
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusStyles[repayment.status] || 'bg-gray-100 text-gray-500'}`}>
+                      {repayment.status}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   )
 }
