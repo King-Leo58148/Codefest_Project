@@ -45,8 +45,10 @@ public class User implements UserDetails {
     private boolean momoVerified = false;
 
     @Column(nullable = false)
-
     private boolean ghanaCardVerified = false;
+
+    @Column(nullable = false)
+    private boolean suspended = false;
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
@@ -78,7 +80,6 @@ public class User implements UserDetails {
 
     @Override
     public boolean isEnabled() {
-        return true;
+        return !suspended;
     }
-
 }

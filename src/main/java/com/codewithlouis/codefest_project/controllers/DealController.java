@@ -36,10 +36,7 @@ public class DealController {
         return ResponseEntity.ok(dealService.signDeal(dealId));
     }
 
-    @PutMapping("/{dealId}/approve-mfi")
-    public ResponseEntity<Deal> approveMfi(@PathVariable Integer dealId) {
-        return ResponseEntity.ok(dealService.approveMfi(dealId));
-    }
+
 
     @PostMapping("/{dealId}/messages")
     public ResponseEntity<Message> sendMessage(
