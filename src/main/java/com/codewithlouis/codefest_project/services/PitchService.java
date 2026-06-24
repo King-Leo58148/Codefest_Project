@@ -20,6 +20,7 @@ public class PitchService {
     private final PitchRepository pitchRepository;
     private final UserRepository userRepository;
     private final CloudinaryService cloudinaryService;
+    private final NotificationService notificationService;
 
     public Pitch createPitch(PitchRequest request, MultipartFile video) {
         // 1. Auth check
@@ -68,9 +69,26 @@ public class PitchService {
     }
 
     public Pitch approvePitch(Integer id) {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        User currentUser = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (currentUser.getRole() != Role.ADMIN) {
+            throw new RuntimeException("Only admins can approve pitches");
+        }
+
         Pitch pitch = getPitchById(id);
         pitch.setStatus(PitchStatus.LIVE);
         pitch.setExpiresAt(LocalDateTime.now().plusDays(30));
+
+        notificationService.createNotification(
+                pitch.getOwner(),
+                NotificationType.PITCH_APPROVED,
+                "Pitch Approved",
+                "Your pitch '" + pitch.getBusinessName() + "' has been approved and is now live.",
+                pitch.getId()
+        );
+
         return pitchRepository.save(pitch);
     }
 

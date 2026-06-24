@@ -55,8 +55,4 @@ public class PitchController {
         return ResponseEntity.ok(pitchService.getPitchById(id));
     }
 
-    @PutMapping("/{id}/approve")
-    public ResponseEntity<Pitch> approvePitch(@PathVariable Integer id) {
-        return ResponseEntity.ok(pitchService.approvePitch(id));
-    }
 }

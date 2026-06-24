@@ -11,4 +11,5 @@ import java.util.List;
 public interface RepaymentRepository extends JpaRepository<Repayment, Integer> {
     List<Repayment> findByDealId(Integer dealId);
     List<Repayment> findByStatusAndDueDateLessThanEqual(RepaymentStatus status, LocalDate date);
+    List<Repayment> findByStatus(RepaymentStatus status);
 }
