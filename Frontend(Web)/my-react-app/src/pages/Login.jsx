@@ -48,50 +48,84 @@ function Login() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-      <div className="bg-white border border-gray-100 shadow-sm p-10 rounded-2xl w-full max-w-md">
-        <h1 className="text-2xl font-bold text-gray-900 mb-1">Nkɔso Admin</h1>
-        <p className="text-gray-400 text-sm mb-8">Sign in to your admin account</p>
+    <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center px-4 py-10">
+      <div className="grid w-full max-w-6xl gap-8 overflow-hidden rounded-[2rem] bg-slate-900/90 shadow-2xl shadow-slate-950/20 backdrop-blur-xl md:grid-cols-[1.2fr_0.8fr]">
+        <div className="relative px-8 py-10 sm:px-12 sm:py-14">
+          <div className="absolute inset-y-0 right-0 w-full bg-amber-400/10 blur-3xl opacity-70"></div>
+          <div className="relative z-10 space-y-6">
+            <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm font-semibold text-amber-200 shadow-inner shadow-slate-950/10">
+              <span>Nkɔso</span>
+            </div>
+            <h1 className="text-4xl font-semibold tracking-tight text-white sm:text-5xl">
+              Manage your platform with clarity.
+            </h1>
+            <p className="max-w-xl text-slate-300 sm:text-lg">
+              Admin tools for pitches, deals, repayments, and user oversight in a modern dashboard layout.
+            </p>
 
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-500 px-4 py-3 rounded-xl mb-6 text-sm">
-            {error}
+            <div className="grid gap-4 pt-4 sm:grid-cols-2">
+              <div className="rounded-3xl border border-white/10 bg-white/5 p-5 text-sm text-slate-200">
+                <p className="font-semibold text-white">Fast approvals</p>
+                <p className="mt-2 text-slate-300">Review new pitches, sign deals, and approve repayments faster.</p>
+              </div>
+              <div className="rounded-3xl border border-white/10 bg-white/5 p-5 text-sm text-slate-200">
+                <p className="font-semibold text-white">Clear overview</p>
+                <p className="mt-2 text-slate-300">See key metrics and activity at a glance as soon as you sign in.</p>
+              </div>
+            </div>
           </div>
-        )}
+        </div>
 
-        <form onSubmit={handleLogin} className="flex flex-col gap-5">
-          <div>
-            <label className="text-sm font-medium text-gray-700 mb-2 block">
+        <div className="bg-white p-8 sm:p-10">
+          <div className="mb-8">
+            <p className="text-sm font-semibold uppercase tracking-[0.24em] text-amber-500">Admin sign in</p>
+            <h2 className="mt-4 text-3xl font-semibold text-slate-900">Welcome back</h2>
+            <p className="mt-2 text-slate-500">Enter your admin details to access the control panel.</p>
+          </div>
+
+          {error && (
+            <div className="rounded-3xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700 shadow-sm">
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={handleLogin} className="mt-6 space-y-5">
+            <label className="block text-sm font-medium text-slate-900">
               Email
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="mt-3 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition focus:border-slate-900 focus:ring-2 focus:ring-slate-200"
+                placeholder="admin@example.com"
+              />
             </label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full bg-gray-50 text-gray-800 px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:border-amber-400 text-sm"
-              placeholder="admin@gmail.com"
-            />
-          </div>
-          <div>
-            <label className="text-sm font-medium text-gray-700 mb-2 block">
+
+            <label className="block text-sm font-medium text-slate-900">
               Password
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="mt-3 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition focus:border-slate-900 focus:ring-2 focus:ring-slate-200"
+                placeholder="••••••••"
+              />
             </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-gray-50 text-gray-800 px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:border-amber-400 text-sm"
-              placeholder="••••••••"
-            />
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full rounded-3xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {loading ? 'Signing in...' : 'Sign in'}
+            </button>
+          </form>
+
+          <div className="mt-8 rounded-3xl bg-slate-100 p-4 text-sm text-slate-600">
+            <p className="font-medium text-slate-900">Need help?</p>
+            <p className="mt-2">If you cannot sign in, confirm that your credentials are correct and your account has admin access.</p>
           </div>
-          <button
-            type="submit"
-            disabled={loading}
-            className="bg-amber-400 text-gray-900 font-bold py-3 rounded-xl hover:bg-amber-300 transition-colors disabled:opacity-50"
-          >
-            {loading ? 'Signing in...' : 'Sign In'}
-          </button>
-        </form>
+        </div>
       </div>
     </div>
   )

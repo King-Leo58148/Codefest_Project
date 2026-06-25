@@ -55,8 +55,8 @@ function DealMonitoring() {
       )}
 
       {!loading && deals.length > 0 && (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <table className="w-full text-sm">
+        <div className="overflow-x-auto rounded-2xl border border-gray-100 bg-white shadow-sm">
+          <table className="min-w-[720px] w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100">
                 <th className="text-left text-gray-400 font-medium px-6 py-4">Business</th>

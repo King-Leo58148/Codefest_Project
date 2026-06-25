@@ -40,10 +40,10 @@ function RepaymentTracking() {
         </p>
       </div>
 
-      <div className="flex gap-2 mb-6">
+      <div className="flex flex-col gap-2 mb-6 sm:flex-row">
         <button
           onClick={() => setFilter('all')}
-          className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
+          className={`w-full sm:w-auto px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
             filter === 'all'
               ? 'bg-amber-400 text-gray-900'
               : 'bg-white border border-gray-200 text-gray-500 hover:bg-gray-50'
@@ -53,7 +53,7 @@ function RepaymentTracking() {
         </button>
         <button
           onClick={() => setFilter('missed')}
-          className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
+          className={`w-full sm:w-auto px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
             filter === 'missed'
               ? 'bg-red-500 text-white'
               : 'bg-white border border-gray-200 text-gray-500 hover:bg-gray-50'
@@ -80,8 +80,8 @@ function RepaymentTracking() {
       )}
 
       {!loading && repayments.length > 0 && (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <table className="w-full text-sm">
+        <div className="overflow-x-auto rounded-2xl border border-gray-100 bg-white shadow-sm">
+          <table className="min-w-[720px] w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100">
                 <th className="text-left text-gray-400 font-medium px-6 py-4">Deal</th>
