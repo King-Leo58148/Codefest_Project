@@ -4,6 +4,8 @@ package com.codewithlouis.codefest_project.services;
 import com.codewithlouis.codefest_project.model.*;
 import com.codewithlouis.codefest_project.repository.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
@@ -29,11 +31,13 @@ public class AdminService {
     }
 
     // USERS
+    @Cacheable("allUsers")
     public List<User> getAllUsers() {
         checkAdmin();
         return userRepository.findAll();
     }
 
+    @CacheEvict(value = "allUsers", allEntries = true)
     public User suspendUser(Integer userId) {
         checkAdmin();
         User user = userRepository.findById(userId)
@@ -49,6 +53,7 @@ public class AdminService {
         return userRepository.save(user);
     }
 
+    @CacheEvict(value = "allUsers", allEntries = true)
     public User unsuspendUser(Integer userId) {
         checkAdmin();
         User user = userRepository.findById(userId)
@@ -65,11 +70,13 @@ public class AdminService {
     }
 
     // PITCHES
+    @Cacheable("allPitches")
     public List<Pitch> getAllPitches() {
         checkAdmin();
         return pitchRepository.findAll();
     }
 
+    @Cacheable("pendingPitches")
     public List<Pitch> getPendingPitches() {
         checkAdmin();
         return pitchRepository.findByStatus(PitchStatus.PENDING);
@@ -91,22 +98,26 @@ public class AdminService {
     }
 
     // DEALS
+    @Cacheable("allDeals")
     public List<Deal> getAllDeals() {
         checkAdmin();
         return dealRepository.findAll();
     }
 
+    @Cacheable(value = "dealsByStatus", key = "#status")
     public List<Deal> getDealsByStatus(DealStatus status) {
         checkAdmin();
         return dealRepository.findByStatus(status);
     }
 
     // REPAYMENTS
+    @Cacheable("allRepayments")
     public List<Repayment> getAllRepayments() {
         checkAdmin();
         return repaymentRepository.findAll();
     }
 
+    @Cacheable("missedRepayments")
     public List<Repayment> getMissedRepayments() {
         checkAdmin();
         return repaymentRepository.findByStatus(RepaymentStatus.MISSED);

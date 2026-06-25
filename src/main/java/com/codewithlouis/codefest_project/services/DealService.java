@@ -3,6 +3,7 @@ package com.codewithlouis.codefest_project.services;
 import com.codewithlouis.codefest_project.model.*;
 import com.codewithlouis.codefest_project.repository.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -31,6 +32,7 @@ public class DealService {
                 .orElseThrow(() -> new RuntimeException("User not found"));
     }
 
+    @CacheEvict(value = {"allDeals", "dealsByStatus"}, allEntries = true)
     public Deal createDeal(Integer bidId) {
         Bid bid = bidRepository.findById(bidId)
                 .orElseThrow(() -> new RuntimeException("Bid not found"));
@@ -95,6 +97,7 @@ public class DealService {
         }
     }
 
+    @CacheEvict(value = {"allDeals", "dealsByStatus"}, allEntries = true)
     public Deal signDeal(Integer dealId) {
         User currentUser = getCurrentUser();
         Deal deal = getDeal(dealId);
@@ -131,6 +134,7 @@ public class DealService {
         return dealRepository.save(deal);
     }
 
+    @CacheEvict(value = {"allDeals", "dealsByStatus"}, allEntries = true)
     public Deal approveMfi(Integer dealId) {
         User currentUser = getCurrentUser();
 
@@ -201,6 +205,7 @@ public class DealService {
         return paystackService.initializePayment(deal);
     }
 
+    @CacheEvict(value = {"allDeals", "dealsByStatus"}, allEntries = true)
     public Deal verifyPayment(Integer dealId, String reference) {
         Deal deal = dealRepository.findById(dealId)
                 .orElseThrow(() -> new RuntimeException("Deal not found"));
