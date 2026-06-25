@@ -24,6 +24,9 @@ function Layout() {
   const navigate = useNavigate()
 
   function handleLogout() {
+    localStorage.removeItem('accesstoken')
+    localStorage.removeItem('refreshtoken')
+    localStorage.removeItem('adminToken')
     localStorage.removeItem('token')
     navigate('/')
   }

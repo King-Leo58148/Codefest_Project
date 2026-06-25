@@ -52,7 +52,9 @@ public class SecurityConfiguration {
 
         configuration.setAllowedOrigins(List.of(
                 "http://localhost:5173",  // React web (Vite)
+                "http://127.0.0.1:5173",  // React web (Vite alternate)
                 "http://localhost:3000",  // React web (CRA)
+                "http://127.0.0.1:3000",  // React web (CRA alternate)
                 "http://localhost:8081",  // React Native (Expo)
                 "http://localhost:19006", // React Native (Expo web)
                 "http://10.0.2.2:8080"   // Android emulator calling your backend

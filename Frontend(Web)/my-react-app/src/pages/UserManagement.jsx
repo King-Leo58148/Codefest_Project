@@ -88,9 +88,9 @@ function UserManagement() {
                   <td className="text-gray-900 font-medium px-6 py-4">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center text-xs font-bold">
-                        {user.fullName?.charAt(0) || '?'}
+                        {(user.fullName || user.email)?.charAt(0).toUpperCase() || '?'}
                       </div>
-                      {user.fullName}
+                      {user.fullName || user.email}
                     </div>
                   </td>
                   <td className="px-6 py-4">

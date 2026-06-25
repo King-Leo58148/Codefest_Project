@@ -16,11 +16,32 @@ function Login() {
 
     try {
       const response = await api.post('/auth/login', { email, password })
-      localStorage.setItem('adminToken', response.data.token)
-      localStorage.setItem('adminRefreshToken', response.data.refreshToken)
+      const accessToken = response.data.accessToken || response.data.token
+      const refreshToken = response.data.refreshToken || response.data.refresh_token
+
+      localStorage.setItem('accesstoken', accessToken)
+      if (refreshToken) localStorage.setItem('refreshtoken', refreshToken)
+      localStorage.removeItem('adminToken')
+      localStorage.removeItem('token')
+
       navigate('/dashboard')
     } catch (err) {
-      setError('Invalid email or password. Make sure you have admin access.')
+      console.error('Login error:', err)
+
+      if (err?.response) {
+        const status = err.response.status
+        const message = err.response.data?.error || err.response.data?.message
+
+        if (status === 401 || status === 403) {
+          setError(message || 'Invalid email or password. Make sure you have admin access.')
+        } else {
+          setError(message || `Login failed with status ${status}.`)
+        }
+      } else if (err?.request) {
+        setError('Unable to reach the server. Please check your backend and network connection.')
+      } else {
+        setError('An unexpected error occurred while signing in.')
+      }
     } finally {
       setLoading(false)
     }
