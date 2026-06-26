@@ -1,0 +1,28 @@
+export const Colors = {
+  primary: '#0D1B3E',
+  primaryLight: '#162040',
+  accent: '#22C55E',
+  accentRed: '#EF4444',
+  background: '#F5F6FA',
+  surface: '#FFFFFF',
+  textPrimary: '#0F172A',
+  textSecondary: '#6B7280',
+  textMuted: '#9CA3AF',
+  border: '#E5E7EB',
+  borderLight: '#F3F4F6',
+  tabActive: '#0D1B3E',
+  tabInactive: '#9CA3AF',
+  inputBg: '#F9FAFB',
+  chartGreen: '#22C55E',
+
+  industries: {
+    All: { bg: '#F3F4F6', text: '#6B7280' },
+    Technology: { bg: '#EFF6FF', text: '#3B82F6' },
+    'Food & Bev': { bg: '#FFF7ED', text: '#EA580C' },
+    Health: { bg: '#F0FDF4', text: '#16A34A' },
+    Sustainability: { bg: '#F0FDF4', text: '#16A34A' },
+    Fitness: { bg: '#FDF4FF', text: '#9333EA' },
+    Agriculture: { bg: '#FFFBEB', text: '#D97706' },
+    Retail: { bg: '#FFF1F2', text: '#E11D48' },
+  } as Record<string, { bg: string; text: string }>,
+};
