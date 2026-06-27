@@ -50,9 +50,17 @@ public class PitchService {
         pitch.setOwner(owner);
         pitch.setBusinessName(request.getBusinessName());
         pitch.setDescription(request.getDescription());
+        pitch.setShortDescription(request.getShortDescription());
+        pitch.setImageUrl(request.getImageUrl());
         pitch.setVideoUrl(videoUrl);  // ✅ always from Cloudinary, never null
         pitch.setMonthlyIncome(request.getMonthlyIncome());
         pitch.setAmountNeeded(request.getAmountNeeded());
+        pitch.setAmountRaised(request.getAmountRaised() == null ? 0.0 : request.getAmountRaised());
+        pitch.setMinimumInvestment(request.getMinimumInvestment());
+        pitch.setPreMoneyValuation(request.getPreMoneyValuation());
+        pitch.setRevenue(request.getRevenue());
+        pitch.setFoundedYear(request.getFoundedYear());
+        pitch.setCampaignEndDate(request.getCampaignEndDate());
         pitch.setOfferType(OfferType.valueOf(request.getOfferType()));
         pitch.setOfferValue(request.getOfferValue());
         pitch.setLocation(request.getLocation());
