@@ -3,6 +3,8 @@ package com.codewithlouis.codefest_project.services;
 
 import com.codewithlouis.codefest_project.model.*;
 import com.codewithlouis.codefest_project.repository.NotificationRepository;
+import com.codewithlouis.codefest_project.repository.UserRepository;
+import com.codewithlouis.codefest_project.request.SendNotificationRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -15,6 +17,7 @@ import java.util.List;
 public class NotificationService {
 
     private final NotificationRepository notificationRepository;
+    private final UserRepository userRepository;
     private final SimpMessagingTemplate messagingTemplate;
 
     public Notification createNotification(User user, NotificationType type,
@@ -36,6 +39,43 @@ public class NotificationService {
         );
 
         return saved;
+    }
+
+    public Object sendNotification(SendNotificationRequest request) {
+        String target = request.getTarget() == null ? "all" : request.getTarget();
+        String title = request.getTitle();
+        if (title == null || title.isBlank()) {
+            title = target.equalsIgnoreCase("all") ? "Platform Announcement" : "Direct Message";
+        }
+        final String resolvedTitle = title;
+
+        if (target.equalsIgnoreCase("all")) {
+            List<User> users = userRepository.findAll();
+            return users.stream()
+                    .map(user -> createNotification(
+                            user,
+                            NotificationType.MESSAGE_RECEIVED,
+                            resolvedTitle,
+                            request.getMessage(),
+                            null
+                    ))
+                    .toList();
+        }
+
+        if (request.getEmail() == null || request.getEmail().isBlank()) {
+            throw new IllegalArgumentException("Email is required for sending a notification to a specific user.");
+        }
+
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new RuntimeException("User with email " + request.getEmail() + " not found"));
+
+        return createNotification(
+                user,
+                NotificationType.MESSAGE_RECEIVED,
+                title,
+                request.getMessage(),
+                null
+        );
     }
 
     public List<Notification> getMyNotifications() {
