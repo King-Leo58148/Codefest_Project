@@ -79,12 +79,15 @@ export default function PortfolioScreen() {
         {/* Investments */}
         <Text style={styles.sectionTitle}>Your investments</Text>
         {MOCK_INVESTMENTS.map((inv) => (
-          <TouchableOpacity
+          <View
             key={inv.pitchId}
-            style={styles.investmentRow}
-            onPress={() => router.push(`/pitch/${inv.pitchId}`)}
-            activeOpacity={0.8}
+            style={styles.investmentRowWrapper}
           >
+            <TouchableOpacity
+              style={styles.investmentRow}
+              onPress={() => router.push(`/pitch/${inv.pitchId}`)}
+              activeOpacity={0.8}
+            >
             <Image source={{ uri: inv.imageUrl }} style={styles.investImg} />
             <View style={styles.investInfo}>
               <Text style={styles.investName}>{inv.businessName}</Text>
@@ -111,7 +114,18 @@ export default function PortfolioScreen() {
                 </Text>
               </View>
             </View>
-          </TouchableOpacity>
+            </TouchableOpacity>
+            
+            <View style={styles.investmentActions}>
+              <TouchableOpacity 
+                style={styles.actionBtn}
+                onPress={() => router.push(`/repayments/${inv.pitchId}` as any)}
+              >
+                <Ionicons name="calendar-outline" size={14} color={Colors.primary} />
+                <Text style={styles.actionBtnText}>View Repayments</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         ))}
 
         <View style={{ height: 24 }} />
@@ -194,19 +208,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     marginBottom: 8,
   },
-  investmentRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  investmentRowWrapper: {
     backgroundColor: Colors.surface,
     marginHorizontal: 20,
-    marginBottom: 10,
+    marginBottom: 12,
     borderRadius: 14,
-    padding: 14,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04,
     shadowRadius: 4,
     elevation: 1,
+  },
+  investmentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 14,
     gap: 12,
   },
   investImg: {
@@ -245,5 +261,22 @@ const styles = StyleSheet.create({
   changeChipText: {
     fontSize: 12,
     fontWeight: '600',
+  },
+  investmentActions: {
+    flexDirection: 'row',
+    borderTopWidth: 1,
+    borderTopColor: Colors.borderLight,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  actionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  actionBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.primary,
   },
 });

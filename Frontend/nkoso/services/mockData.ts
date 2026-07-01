@@ -9,6 +9,7 @@ export const MOCK_PITCHES: Pitch[] = [
     description:
       'We partner with small-scale organic farmers across the Ashanti Region to supply fresh produce to Accra supermarkets and restaurants. Our cooperative model ensures farmers get fair prices while reducing food waste through smart logistics. Funds will be used to purchase a refrigerated truck and build a cold storage facility in Kumasi.',
     shortDescription: 'Making sustainable living accessible for everyone in Ghana.',
+    videoUrl: 'https://d23dyxeqlo5psv.cloudfront.net/big_buck_bunny.mp4',
     imageUrl: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&q=80',
     monthlyIncome: 8500,
     amountNeeded: 50000,
@@ -321,7 +322,11 @@ export const MOCK_DEALS: Deal[] = [
     ownerSigned: true,
     investorSigned: false,
     mfiApproved: false,
-    repaymentSchedule: [],
+    repaymentSchedule: [
+      { id: 'r1', dealId: 'd1', dueDate: '2024-04-18', amount: 180, status: 'COLLECTED', collectedAt: '2024-04-17' },
+      { id: 'r2', dealId: 'd1', dueDate: '2024-05-18', amount: 180, status: 'PENDING' },
+      { id: 'r3', dealId: 'd1', dueDate: '2024-06-18', amount: 180, status: 'PENDING' },
+    ],
     status: 'PENDING_MFI',
     amount: 2000,
     returnType: 'REVENUE_SHARE',

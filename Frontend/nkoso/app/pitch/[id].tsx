@@ -1,4 +1,5 @@
 import React from 'react';
+import { Video, ResizeMode } from 'expo-av';
 import {
   View,
   Text,
@@ -48,9 +49,18 @@ export default function PitchDetailScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Hero Image */}
+        {/* Hero Image / Video */}
         <View style={styles.heroContainer}>
-          <Image source={{ uri: pitch.imageUrl }} style={styles.heroImage} />
+          {pitch.videoUrl ? (
+            <Video
+              source={{ uri: pitch.videoUrl }}
+              style={styles.heroImage}
+              useNativeControls
+              resizeMode={ResizeMode.COVER}
+            />
+          ) : (
+            <Image source={{ uri: pitch.imageUrl }} style={styles.heroImage} />
+          )}
           <View style={styles.heroOverlay}>
             <TouchableOpacity
               style={styles.backBtn}
