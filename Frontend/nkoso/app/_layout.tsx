@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Stack, router } from 'expo-router';
+import { Stack, router, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -26,24 +26,31 @@ function RootLayoutNav() {
     })();
   }, []);
 
+  const segments = useSegments() as string[];
+
+  useEffect(() => {
+    if (authChecked) {
+      SplashScreen.hideAsync().catch(() => {});
+    }
+  }, [authChecked]);
+
   useEffect(() => {
     if (!authChecked) return;
-    SplashScreen.hideAsync().catch(() => {});
-    if (user) {
-      if (user.role === 'OWNER') {
-        router.replace('/(owner)');
-      } else {
-        router.replace('/(investor)');
-      }
-    } else {
-      router.replace('/(auth)/welcome');
+
+    const inAuthGroup = segments[0] === '(auth)';
+    const isIndex = segments.length === 0 || segments[0] === 'index';
+
+    // If user is logged out, and we aren't in the auth screens or splash screen, redirect to login
+    if (!user && !inAuthGroup && !isIndex) {
+      router.replace('/(auth)/login');
     }
-  }, [user, authChecked]);
+  }, [user, authChecked, segments]);
 
   return (
     <>
       <StatusBar style="auto" />
       <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="index" />
         <Stack.Screen name="(auth)" />
         <Stack.Screen name="(investor)" />
         <Stack.Screen name="(owner)" />
