@@ -23,3 +23,42 @@ dist-ssr
 *.sln
 *.sw?
 
+# dependencies
+node_modules/
+
+# Expo
+.expo/
+.expo-shared/
+
+# Build output
+dist/
+web-build/
+
+# Native build folders
+android/
+ios/
+
+
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# OS files
+
+Thumbs.db
+
+# IDEs
+.vscode/
+.idea/
+
+# TypeScript
+*.tsbuildinfo
+
+# Metro
+.metro-health-check*
+
+# Expo local settings
+*.jks
+*.keystore

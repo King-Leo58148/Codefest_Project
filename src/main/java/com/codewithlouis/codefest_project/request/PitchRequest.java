@@ -5,6 +5,7 @@ import com.codewithlouis.codefest_project.model.OfferType;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
+import java.time.LocalDate;
 
 @Data
 public class PitchRequest {
@@ -31,5 +32,12 @@ public class PitchRequest {
     @NotBlank
     private String industry;
 
-    // ❌ NO videoUrl here
+    private String shortDescription;
+    private String imageUrl;
+    private Double amountRaised;
+    private Double minimumInvestment;
+    private Double preMoneyValuation;
+    private Integer foundedYear;
+    private Double revenue;
+    private LocalDate campaignEndDate;
 }

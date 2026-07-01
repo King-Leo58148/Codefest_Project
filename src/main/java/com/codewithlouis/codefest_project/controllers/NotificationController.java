@@ -1,6 +1,7 @@
 package com.codewithlouis.codefest_project.controllers;
 
 import com.codewithlouis.codefest_project.model.Notification;
+import com.codewithlouis.codefest_project.request.SendNotificationRequest;
 import com.codewithlouis.codefest_project.services.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -19,6 +20,11 @@ public class NotificationController {
     @GetMapping
     public ResponseEntity<List<Notification>> getMyNotifications() {
         return ResponseEntity.ok(notificationService.getMyNotifications());
+    }
+
+    @PostMapping("/send")
+    public ResponseEntity<Object> sendNotification(@RequestBody SendNotificationRequest request) {
+        return ResponseEntity.ok(notificationService.sendNotification(request));
     }
 
     @GetMapping("/unread-count")
