@@ -1,3 +1,3 @@
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://codefest-backend.onrender.com";
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://codefest-project.onrender.com";
 
 export default BASE_URL;

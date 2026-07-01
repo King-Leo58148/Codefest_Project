@@ -12,7 +12,7 @@ The mobile app in `Frontend/nkoso` currently uses mock services in `services/api
 Use the deployed Render backend URL for all API calls:
 
 ```text
-https://codefest-backend.onrender.com
+https://codefest-project.onrender.com
 ```
 
 If the Render service URL is different, substitute it here.
@@ -69,7 +69,7 @@ The Spring backend exposes these main endpoints:
 Example using `fetch`:
 
 ```ts
-const BASE_URL = "https://codefest-backend.onrender.com";
+const BASE_URL = "https://codefest-project.onrender.com";
 
 async function request(path: string, options: RequestInit = {}) {
   const token = await SecureStore.getItemAsync('accesstoken');
