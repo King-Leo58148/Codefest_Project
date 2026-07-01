@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import * as ImagePicker from 'expo-image-picker';
 import {
   View,
   Text,
@@ -31,9 +32,22 @@ export default function PitchesScreen() {
   const [amountNeeded, setAmountNeeded] = useState('');
   const [offerValue, setOfferValue] = useState('');
   const [location, setLocation] = useState('');
+  const [videoUri, setVideoUri] = useState<string | null>(null);
 
   const myPitch = MOCK_PITCHES[0];
   const fundedPercent = (myPitch.amountRaised / myPitch.amountNeeded) * 100;
+
+  const handlePickVideo = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['videos'],
+      allowsEditing: true,
+      quality: 1,
+    });
+
+    if (!result.canceled) {
+      setVideoUri(result.assets[0].uri);
+    }
+  };
 
   const handleCreate = async () => {
     if (!businessName || !description || !monthlyIncome || !amountNeeded) {
@@ -44,6 +58,13 @@ export default function PitchesScreen() {
     await new Promise((r) => setTimeout(r, 1000));
     setLoading(false);
     setShowCreate(false);
+    setBusinessName('');
+    setDescription('');
+    setMonthlyIncome('');
+    setAmountNeeded('');
+    setOfferValue('');
+    setLocation('');
+    setVideoUri(null);
     Alert.alert(
       'Pitch submitted!',
       'Your pitch has been submitted for admin review. You will be notified once it goes live.',
@@ -215,11 +236,22 @@ export default function PitchesScreen() {
               onChangeText={setLocation}
             />
 
-            <View style={styles.videoNote}>
-              <Ionicons name="videocam-outline" size={18} color={Colors.primary} />
-              <Text style={styles.videoNoteText}>
-                You'll be able to upload a 60-second pitch video in the next step.
-              </Text>
+            <View style={styles.uploadSection}>
+              <Text style={styles.textAreaLabel}>Pitch Video</Text>
+              {videoUri ? (
+                <View style={styles.videoAttached}>
+                  <Ionicons name="checkmark-circle" size={20} color={Colors.accent} />
+                  <Text style={styles.videoAttachedText}>Video attached successfully.</Text>
+                  <TouchableOpacity onPress={() => setVideoUri(null)}>
+                    <Text style={styles.removeVideoText}>Remove</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <TouchableOpacity style={styles.uploadBtn} onPress={handlePickVideo} activeOpacity={0.7}>
+                  <Ionicons name="cloud-upload-outline" size={24} color={Colors.primary} />
+                  <Text style={styles.uploadBtnText}>Select a video</Text>
+                </TouchableOpacity>
+              )}
             </View>
 
             <Button
@@ -459,5 +491,45 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: Colors.primary,
     lineHeight: 18,
+  },
+  uploadSection: {
+    marginBottom: 20,
+  },
+  uploadBtn: {
+    backgroundColor: Colors.borderLight,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderStyle: 'dashed',
+    borderRadius: 10,
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  uploadBtnText: {
+    fontSize: 14,
+    color: Colors.primary,
+    fontWeight: '600',
+  },
+  videoAttached: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1,
+    borderColor: '#bbf7d0',
+    borderRadius: 10,
+    padding: 14,
+    gap: 10,
+  },
+  videoAttachedText: {
+    flex: 1,
+    fontSize: 14,
+    color: Colors.textPrimary,
+    fontWeight: '500',
+  },
+  removeVideoText: {
+    fontSize: 13,
+    color: Colors.accentRed,
+    fontWeight: '600',
   },
 });
