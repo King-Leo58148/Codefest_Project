@@ -68,8 +68,8 @@ function UserManagement() {
       )}
 
       {!loading && users.length > 0 && (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <table className="w-full text-sm">
+        <div className="overflow-x-auto rounded-2xl border border-gray-100 bg-white shadow-sm">
+          <table className="min-w-[720px] w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100">
                 <th className="text-left text-gray-400 font-medium px-6 py-4">Name</th>
@@ -87,9 +87,9 @@ function UserManagement() {
                   <td className="text-gray-900 font-medium px-6 py-4">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center text-xs font-bold">
-                        {user.fullName?.charAt(0) || '?'}
+                        {(user.fullName || user.email)?.charAt(0).toUpperCase() || '?'}
                       </div>
-                      {user.fullName}
+                      {user.fullName || user.email}
                     </div>
                   </td>
                   <td className="px-6 py-4">

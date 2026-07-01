@@ -3,12 +3,14 @@ package com.codewithlouis.codefest_project.services;
 import com.codewithlouis.codefest_project.model.*;
 import com.codewithlouis.codefest_project.repository.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -20,6 +22,9 @@ public class DealService {
     private final MessageRepository messageRepository;
     private final EmailService emailService;
     private final SimpMessagingTemplate messagingTemplate;
+    private final RepaymentService repaymentService;
+    private final NotificationService notificationService;
+    private final PaystackService paystackService;
 
     private User getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -27,12 +32,11 @@ public class DealService {
                 .orElseThrow(() -> new RuntimeException("User not found"));
     }
 
-    // Called automatically when bid is accepted
+    @CacheEvict(value = {"allDeals", "dealsByStatus"}, allEntries = true)
     public Deal createDeal(Integer bidId) {
         Bid bid = bidRepository.findById(bidId)
                 .orElseThrow(() -> new RuntimeException("Bid not found"));
 
-        // Check if deal already exists
         if (dealRepository.findByBidId(bidId).isPresent()) {
             throw new RuntimeException("Deal already exists for this bid");
         }
@@ -44,34 +48,56 @@ public class DealService {
         deal.setInvestor(bid.getInvestor());
         deal.setStatus(DealStatus.PENDING_SIGNATURES);
 
-        return dealRepository.save(deal);
+        Deal saved = dealRepository.save(deal);
+
+        // Notify both parties
+        notificationService.createNotification(
+                bid.getPitch().getOwner(),
+                NotificationType.DEAL_CREATED,
+                "Deal Room Open",
+                "A deal room has been created for " + bid.getPitch().getBusinessName() + ". Please sign to proceed.",
+                saved.getId()
+        );
+        notificationService.createNotification(
+                bid.getInvestor(),
+                NotificationType.DEAL_CREATED,
+                "Deal Room Open",
+                "A deal room has been created for " + bid.getPitch().getBusinessName() + ". Please sign to proceed.",
+                saved.getId()
+        );
+
+        return saved;
     }
 
-    // Get deal by ID
     public Deal getDeal(Integer dealId) {
         User currentUser = getCurrentUser();
         Deal deal = dealRepository.findById(dealId)
                 .orElseThrow(() -> new RuntimeException("Deal not found"));
 
         if (!deal.getOwner().getEmail().equals(currentUser.getEmail()) &&
-                !deal.getInvestor().getEmail().equals(currentUser.getEmail())) {
+                !deal.getInvestor().getEmail().equals(currentUser.getEmail()) &&
+                currentUser.getRole() != Role.ADMIN) {
             throw new RuntimeException("You are not part of this deal");
         }
 
         return deal;
     }
 
-    // Get my deals
     public List<Deal> getMyDeals() {
         User currentUser = getCurrentUser();
         if (currentUser.getRole() == Role.OWNER) {
             return dealRepository.findByOwnerEmail(currentUser.getEmail());
-        } else {
+        } else if (currentUser.getRole() == Role.INVESTOR) {
             return dealRepository.findByInvestorEmail(currentUser.getEmail());
+        } else {
+            // BOTH role
+            List<Deal> deals = dealRepository.findByOwnerEmail(currentUser.getEmail());
+            deals.addAll(dealRepository.findByInvestorEmail(currentUser.getEmail()));
+            return deals;
         }
     }
 
-    // Sign the deal
+    @CacheEvict(value = {"allDeals", "dealsByStatus"}, allEntries = true)
     public Deal signDeal(Integer dealId) {
         User currentUser = getCurrentUser();
         Deal deal = getDeal(dealId);
@@ -86,6 +112,19 @@ public class DealService {
             deal.setInvestorSigned(true);
         }
 
+        // Notify other party
+        User otherParty = currentUser.getEmail().equals(deal.getOwner().getEmail())
+                ? deal.getInvestor()
+                : deal.getOwner();
+
+        notificationService.createNotification(
+                otherParty,
+                NotificationType.DEAL_SIGNED,
+                "Deal Signed",
+                currentUser.getName() + " has signed the deal for " + deal.getPitch().getBusinessName(),
+                deal.getId()
+        );
+
         // Both signed — send MFI email
         if (deal.isOwnerSigned() && deal.isInvestorSigned()) {
             deal.setStatus(DealStatus.PENDING_MFI);
@@ -95,7 +134,7 @@ public class DealService {
         return dealRepository.save(deal);
     }
 
-    // Admin approves MFI
+    @CacheEvict(value = {"allDeals", "dealsByStatus"}, allEntries = true)
     public Deal approveMfi(Integer dealId) {
         User currentUser = getCurrentUser();
 
@@ -107,10 +146,19 @@ public class DealService {
                 .orElseThrow(() -> new RuntimeException("Deal not found"));
         deal.setMfiApproved(true);
         deal.setStatus(DealStatus.PAYMENT_PENDING);
+
+        // Notify investor to pay
+        notificationService.createNotification(
+                deal.getInvestor(),
+                NotificationType.MFI_APPROVED,
+                "MFI Approved",
+                "The deal for " + deal.getPitch().getBusinessName() + " has been approved. Please proceed with payment.",
+                deal.getId()
+        );
+
         return dealRepository.save(deal);
     }
 
-    // Send a message in the deal room
     public Message sendMessage(Integer dealId, String content) {
         User sender = getCurrentUser();
         Deal deal = getDeal(dealId);
@@ -125,13 +173,64 @@ public class DealService {
         // Broadcast to WebSocket subscribers
         messagingTemplate.convertAndSend("/topic/deal/" + dealId, saved);
 
+        // Notify other party
+        User otherParty = sender.getEmail().equals(deal.getOwner().getEmail())
+                ? deal.getInvestor()
+                : deal.getOwner();
+
+        notificationService.createNotification(
+                otherParty,
+                NotificationType.MESSAGE_RECEIVED,
+                "New Message",
+                sender.getName() + " sent you a message in the deal room",
+                dealId
+        );
+
         return saved;
     }
 
-    // Get all messages in a deal
     public List<Message> getMessages(Integer dealId) {
-        getDeal(dealId); // security check
+        getDeal(dealId);
         return messageRepository.findByDealIdOrderBySentAtAsc(dealId);
     }
 
+    public Map<String, Object> initiatePayment(Integer dealId) {
+        User currentUser = getCurrentUser();
+        Deal deal = getDeal(dealId);
+
+        if (!deal.getInvestor().getEmail().equals(currentUser.getEmail())) {
+            throw new RuntimeException("Only the investor can initiate payment");
+        }
+
+        return paystackService.initializePayment(deal);
+    }
+
+    @CacheEvict(value = {"allDeals", "dealsByStatus"}, allEntries = true)
+    public Deal verifyPayment(Integer dealId, String reference) {
+        Deal deal = dealRepository.findById(dealId)
+                .orElseThrow(() -> new RuntimeException("Deal not found"));
+
+        boolean paid = paystackService.verifyPayment(reference);
+
+        if (paid) {
+            deal.setStatus(DealStatus.ACTIVE);
+            deal.setDisbursed(true);
+            deal.setDisbursedAt(LocalDateTime.now());
+            repaymentService.generateRepaymentSchedule(deal);
+            paystackService.disburseFunds(deal);
+
+            // Notify owner
+            notificationService.createNotification(
+                    deal.getOwner(),
+                    NotificationType.PAYMENT_RECEIVED,
+                    "Payment Received",
+                    "GHS " + deal.getBid().getAmount() + " has been disbursed to your MoMo account for deal #" + deal.getId(),
+                    deal.getId()
+            );
+
+            return dealRepository.save(deal);
+        } else {
+            throw new RuntimeException("Payment verification failed");
+        }
+    }
 }

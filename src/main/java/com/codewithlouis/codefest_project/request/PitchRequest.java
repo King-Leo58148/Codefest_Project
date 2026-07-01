@@ -5,33 +5,39 @@ import com.codewithlouis.codefest_project.model.OfferType;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
+import java.time.LocalDate;
 
 @Data
 public class PitchRequest {
 
-    @NotBlank(message = "Business name is required")
+    @NotBlank
     private String businessName;
 
-    @NotBlank(message = "Description is required")
+    @NotBlank
     private String description;
 
-    @NotBlank(message = "A pitch video is required")
-    private String videoUrl;
-
-    @NotNull(message = "Monthly income is required")
+    @NotNull
     private Double monthlyIncome;
 
-    @NotNull(message = "Amount needed is required")
+    @NotNull
     private Double amountNeeded;
 
-    @NotNull(message = "Offer type is required")
-    private OfferType offerType;
+    @NotNull
+    private String offerType;
 
     private Double offerValue;
 
     private String location;
 
+    @NotBlank
     private String industry;
 
-
+    private String shortDescription;
+    private String imageUrl;
+    private Double amountRaised;
+    private Double minimumInvestment;
+    private Double preMoneyValuation;
+    private Integer foundedYear;
+    private Double revenue;
+    private LocalDate campaignEndDate;
 }

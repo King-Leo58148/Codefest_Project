@@ -3,6 +3,7 @@ package com.codewithlouis.codefest_project.model;
 
 import jakarta.persistence.*;
 import lombok.Data;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
@@ -24,6 +25,10 @@ public class Pitch {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String description;
 
+    private String shortDescription;
+
+    private String imageUrl;
+
     private String videoUrl;
 
     @Column(nullable = false)
@@ -31,6 +36,13 @@ public class Pitch {
 
     @Column(nullable = false)
     private Double amountNeeded;
+
+    private Double amountRaised = 0.0;
+    private Double minimumInvestment;
+    private Double preMoneyValuation;
+    private Double revenue;
+    private Integer foundedYear;
+    private LocalDate campaignEndDate;
 
     @Enumerated(EnumType.STRING)
     private OfferType offerType;

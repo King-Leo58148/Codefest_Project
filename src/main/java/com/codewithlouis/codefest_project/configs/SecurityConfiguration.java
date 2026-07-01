@@ -34,7 +34,7 @@ public class SecurityConfiguration {
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/auth/**", "/api/verify/**").permitAll()
+                        .requestMatchers("/auth/**", "/api/verify/**", "/error","/ws/**").permitAll() // ✅ add /error
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session
@@ -50,9 +50,19 @@ public class SecurityConfiguration {
     CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        configuration.setAllowedOrigins(List.of("http://localhost:5173", "http://localhost:3000"));
-        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type"));
+        configuration.setAllowedOrigins(List.of(
+                "http://localhost:5173",  // React web (Vite)
+                "http://127.0.0.1:5173",  // React web (Vite alternate)
+                "http://localhost:3000",  // React web (CRA)
+                "http://127.0.0.1:3000",  // React web (CRA alternate)
+                "http://localhost:8081",  // React Native (Expo)
+                "http://localhost:19006", // React Native (Expo web)
+                "http://10.0.2.2:8080"   // Android emulator calling your backend
+        ));
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
+        configuration.setAllowedHeaders(List.of("*"));
+        configuration.setExposedHeaders(List.of("Authorization"));
+        configuration.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);

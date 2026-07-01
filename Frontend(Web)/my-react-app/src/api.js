@@ -5,8 +5,10 @@ const api = axios.create({ baseURL: BASE_URL });
 
 // Attach admin token to every request automatically
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("adminToken");
-  if (token) config.headers.Authorization = `Bearer ${token}`;
+  const token = localStorage.getItem("accesstoken");
+  if (token && token !== "undefined" && token !== "null") {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
   return config;
 });
 

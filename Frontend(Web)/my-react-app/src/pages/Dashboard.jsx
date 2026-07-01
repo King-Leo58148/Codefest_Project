@@ -88,44 +88,85 @@ function Dashboard() {
   ]
 
   return (
-    <div>
-      <div className="mb-8">
-        <h2 className="text-2xl font-bold text-gray-900">Dashboard</h2>
-        <p className="text-gray-400 text-sm mt-1">
-          Welcome back. Here is what is happening today.
-        </p>
+    <div className="space-y-8">
+      <div className="grid gap-6 xl:grid-cols-[1.7fr_1.3fr]">
+        <div className="glass-card p-6">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.24em] text-amber-500">Performance</p>
+              <h2 className="mt-3 text-3xl font-semibold text-slate-900">Platform overview</h2>
+              <p className="mt-2 text-sm text-slate-500">Your current admin snapshot and top metrics for quick action.</p>
+            </div>
+            <div className="rounded-3xl bg-slate-100 px-4 py-3 text-sm text-slate-700">Updated just now</div>
+          </div>
+
+          <div className="mt-8 grid gap-4 sm:grid-cols-2">
+            {stats.slice(0, 2).map((stat) => {
+              const Icon = stat.icon
+              return (
+                <div key={stat.label} className="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm">
+                  <div className={`${stat.bg} inline-flex h-11 w-11 items-center justify-center rounded-2xl mb-4`}>
+                    <Icon size={18} className={stat.color} />
+                  </div>
+                  <p className="text-sm text-slate-500">{stat.label}</p>
+                  <p className="mt-2 text-2xl font-semibold text-slate-900">{stat.value}</p>
+                </div>
+              )
+            })}
+          </div>
+
+          <div className="mt-6 grid gap-4 sm:grid-cols-2">
+            {stats.slice(2).map((stat) => {
+              const Icon = stat.icon
+              return (
+                <div key={stat.label} className="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm">
+                  <div className={`${stat.bg} inline-flex h-11 w-11 items-center justify-center rounded-2xl mb-4`}>
+                    <Icon size={18} className={stat.color} />
+                  </div>
+                  <p className="text-sm text-slate-500">{stat.label}</p>
+                  <p className="mt-2 text-2xl font-semibold text-slate-900">{stat.value}</p>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        <div className="glass-card p-6">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-500">Reports</p>
+              <h3 className="mt-2 text-xl font-semibold text-slate-900">Activity insights</h3>
+            </div>
+            <button className="pill-button">See all</button>
+          </div>
+
+          <div className="mt-6 space-y-4">
+            {activity.map((item) => (
+              <div key={item.id} className="rounded-[1.75rem] border border-slate-200 bg-slate-50 p-4">
+                <div className="flex items-start gap-4">
+                  <span className={`mt-1 inline-flex h-3.5 w-3.5 rounded-full ${item.color}`} />
+                  <div>
+                    <p className="text-sm font-medium text-slate-900">{item.text}</p>
+                    <p className="mt-1 text-xs text-slate-500">{item.time}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
 
-      <div className="grid grid-cols-4 gap-6 mb-10">
-        {stats.map((stat) => {
-          const Icon = stat.icon
-          return (
-            <div
-              key={stat.label}
-              className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm"
-            >
-              <div className={`${stat.bg} w-10 h-10 rounded-xl flex items-center justify-center mb-4`}>
-                <Icon size={20} className={stat.color} />
-              </div>
-              <p className="text-gray-400 text-sm mb-1">{stat.label}</p>
-              <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
-            </div>
-          )
-        })}
-      </div>
-
-      <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
-        <h3 className="text-gray-900 font-semibold mb-6">Recent Activity</h3>
-        <div className="flex flex-col gap-4">
-          {activity.map((item) => (
-            <div key={item.id} className="flex items-start gap-4">
-              <div className={`w-2 h-2 rounded-full mt-2 shrink-0 ${item.color}`} />
-              <div>
-                <p className="text-gray-700 text-sm">{item.text}</p>
-                <p className="text-gray-400 text-xs mt-1">{item.time}</p>
-              </div>
-            </div>
-          ))}
+      <div className="glass-card p-6">
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h3 className="section-heading">Quick actions</h3>
+            <p className="mt-2 text-sm text-slate-500">Jump into the most important admin workflows.</p>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <button className="pill-button">Review pitches</button>
+            <button className="pill-button">Approve deals</button>
+            <button className="pill-button">Track repayments</button>
+          </div>
         </div>
       </div>
     </div>

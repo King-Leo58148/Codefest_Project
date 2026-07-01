@@ -55,32 +55,41 @@ function DealMonitoring() {
       )}
 
       {!loading && deals.length > 0 && (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <table className="w-full text-sm">
+        <div className="overflow-x-auto rounded-2xl border border-gray-100 bg-white shadow-sm">
+          <table className="min-w-[720px] w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100">
                 <th className="text-left text-gray-400 font-medium px-6 py-4">Business</th>
+                <th className="text-left text-gray-400 font-medium px-6 py-4">Owner</th>
                 <th className="text-left text-gray-400 font-medium px-6 py-4">Investor</th>
                 <th className="text-left text-gray-400 font-medium px-6 py-4">Amount</th>
                 <th className="text-left text-gray-400 font-medium px-6 py-4">Status</th>
               </tr>
             </thead>
             <tbody>
-              {deals.map((deal) => (
-                <tr
-                  key={deal.id}
-                  className="border-b border-gray-50 hover:bg-gray-50 transition-colors"
-                >
-                  <td className="text-gray-900 font-medium px-6 py-4">{deal.businessName}</td>
-                  <td className="text-gray-500 px-6 py-4">{deal.investorName}</td>
-                  <td className="text-gray-900 px-6 py-4">GH₵ {deal.amount}</td>
-                  <td className="px-6 py-4">
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusStyles[deal.status] || 'bg-gray-100 text-gray-500'}`}>
-                      {deal.status}
-                    </span>
-                  </td>
-                </tr>
-              ))}
+              {deals.map((deal) => {
+                const businessName = deal.pitch?.businessName || deal.bid?.pitch?.businessName || 'N/A'
+                const ownerName = deal.owner?.fullName || deal.owner?.email || 'N/A'
+                const investorName = deal.investor?.fullName || deal.investor?.email || deal.bid?.investor?.fullName || deal.bid?.investor?.email || 'N/A'
+                const amount = deal.bid?.amount ?? deal.pitch?.amountNeeded ?? 'N/A'
+
+                return (
+                  <tr
+                    key={deal.id}
+                    className="border-b border-gray-50 hover:bg-gray-50 transition-colors"
+                  >
+                    <td className="text-gray-900 font-medium px-6 py-4">{businessName}</td>
+                    <td className="text-gray-500 px-6 py-4">{ownerName}</td>
+                    <td className="text-gray-500 px-6 py-4">{investorName}</td>
+                    <td className="text-gray-900 px-6 py-4">{typeof amount === 'number' ? `GH₵ ${amount}` : amount}</td>
+                    <td className="px-6 py-4">
+                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusStyles[deal.status] || 'bg-gray-100 text-gray-500'}`}>
+                        {deal.status}
+                      </span>
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>

@@ -50,7 +50,13 @@ import java.io.IOException;
             }
 
             try {
-                final String jwt = authHeader.substring(7);
+                final String jwt = authHeader.substring(7).trim();
+
+                if (jwt.isEmpty()) {
+                    filterChain.doFilter(request, response);
+                    return;
+                }
+
                 final String userEmail = jwtService.extractUsername(jwt);
 
                 Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -70,6 +76,9 @@ import java.io.IOException;
                     }
                 }
 
+                filterChain.doFilter(request, response);
+            } catch (IllegalArgumentException | io.jsonwebtoken.JwtException exception) {
+                SecurityContextHolder.clearContext();
                 filterChain.doFilter(request, response);
             } catch (Exception exception) {
                 handlerExceptionResolver.resolveException(request, response, null, exception);
