@@ -75,7 +75,6 @@ function UserManagement() {
                 <th className="text-left text-gray-400 font-medium px-6 py-4">Name</th>
                 <th className="text-left text-gray-400 font-medium px-6 py-4">Role</th>
                 <th className="text-left text-gray-400 font-medium px-6 py-4">Verified</th>
-                <th className="text-left text-gray-400 font-medium px-6 py-4">Joined</th>
                 <th className="text-left text-gray-400 font-medium px-6 py-4">Action</th>
               </tr>
             </thead>
