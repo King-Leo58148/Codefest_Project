@@ -44,9 +44,9 @@ export default function RegisterScreen() {
     setError('');
     setLoading(true);
     try {
-      const user = await registerUser(name.trim(), email.trim(), password, role);
-      setToken('mock-jwt-token');
-      setUser(user);
+      const res = await registerUser(name.trim(), email.trim(), password, role);
+      setToken(res.token);
+      setUser(res.user);
       router.push('/(auth)/verify-ghana-card');
     } catch {
       setError('Registration failed. Please try again.');

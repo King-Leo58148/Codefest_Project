@@ -36,9 +36,9 @@ export default function LoginScreen() {
     setError('');
     setLoading(true);
     try {
-      const user = await loginUser(email.trim(), password);
-      setToken('mock-jwt-token');
-      setUser(user);
+      const res = await loginUser(email.trim(), password);
+      setToken(res.token);
+      setUser(res.user);
     } catch {
       setError('Invalid email or password. Please try again.');
     } finally {

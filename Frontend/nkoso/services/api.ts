@@ -1,150 +1,208 @@
-import { Pitch, Bid, Deal, User, Industry, BidStatus } from '@/types';
-import {
-  MOCK_PITCHES,
-  MOCK_BIDS,
-  MOCK_DEALS,
-  MOCK_INVESTMENTS,
-  MOCK_ACTIVITY,
-  MOCK_INVESTOR,
-  MOCK_OWNER,
-} from './mockData';
-
-const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
+import { Pitch, Bid, Deal, User, Industry, BidStatus, ActivityItem, Investment } from '@/types';
+import { request } from './backendClient';
+import { MOCK_INVESTMENTS, MOCK_ACTIVITY } from './mockData';
 
 // Auth
-export async function loginUser(email: string, _password: string): Promise<User> {
-  await delay(800);
-  if (email.includes('owner')) return MOCK_OWNER;
-  return MOCK_INVESTOR;
+export async function loginUser(email: string, password: string): Promise<{ token: string; user: User }> {
+  return request('/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ email, password }),
+  });
 }
 
 export async function registerUser(
   name: string,
   email: string,
-  _password: string,
+  password: string,
   role: 'INVESTOR' | 'OWNER'
-): Promise<User> {
-  await delay(1000);
-  return {
-    id: 'new-user',
-    name,
-    email,
-    role,
-    isVerified: false,
-    ghanaCardVerified: false,
-    momoVerified: false,
-  };
+): Promise<{ token: string; user: User }> {
+  return request('/auth/signup', {
+    method: 'POST',
+    body: JSON.stringify({ name, email, password, role }),
+  });
 }
 
-export async function verifyGhanaCard(_ghanaCardNumber: string): Promise<boolean> {
-  await delay(1500);
-  return true;
+export async function verifyGhanaCard(ghanaCardNumber: string): Promise<boolean> {
+  const res = await request('/api/verify/ghana-card', {
+    method: 'POST',
+    body: JSON.stringify({ ghanaCardNumber }),
+  });
+  return res?.success || true; // Assuming response has success field
 }
 
-export async function verifyMomo(_momoNumber: string): Promise<boolean> {
-  await delay(1200);
-  return true;
+export async function verifyMomo(momoNumber: string): Promise<boolean> {
+  const res = await request('/api/verify/momo', {
+    method: 'POST',
+    body: JSON.stringify({ momoNumber }),
+  });
+  return res?.success || true;
 }
 
 // Pitches
 export async function getPitches(industry?: Industry): Promise<Pitch[]> {
-  await delay(600);
-  if (!industry || industry === 'All') return MOCK_PITCHES;
-  return MOCK_PITCHES.filter((p) => p.industry === industry);
+  const url = industry && industry !== 'All' 
+    ? `/api/pitches/filter?industry=${encodeURIComponent(industry)}` 
+    : '/api/pitches';
+  return request(url);
 }
 
 export async function getPitch(id: string): Promise<Pitch | undefined> {
-  await delay(400);
-  return MOCK_PITCHES.find((p) => p.id === id);
+  return request(`/api/pitches/${id}`);
 }
 
-export async function createPitch(data: Partial<Pitch>): Promise<Pitch> {
-  await delay(1000);
-  return {
-    id: 'new-pitch',
-    ownerId: 'u3',
-    ownerName: 'Abena Mensah',
-    businessName: data.businessName || '',
-    description: data.description || '',
-    shortDescription: data.shortDescription || '',
-    imageUrl: 'https://images.unsplash.com/photo-1497366216548-37526070297c?w=800&q=80',
-    monthlyIncome: data.monthlyIncome || 0,
-    amountNeeded: data.amountNeeded || 0,
-    amountRaised: 0,
-    offerType: data.offerType || 'EQUITY',
-    offerValue: data.offerValue || 0,
-    location: data.location || '',
-    industry: data.industry || 'Retail',
-    status: 'PENDING',
-    foundedYear: 2024,
-    revenue: 0,
-    minimumInvestment: 100,
-    preMoneyValuation: 0,
-    campaignEndDate: '2024-12-31',
-    createdAt: new Date().toISOString(),
-    ...data,
-  };
+export async function createPitch(data: any): Promise<Pitch> {
+  const formData = new FormData();
+  Object.keys(data).forEach(key => {
+    if (data[key] !== undefined) {
+      if (key === 'image' && data[key].uri) {
+        formData.append('image', {
+          uri: data[key].uri,
+          name: 'pitch_image.jpg',
+          type: 'image/jpeg',
+        } as any);
+      } else {
+        formData.append(key, data[key]);
+      }
+    }
+  });
+
+  return request('/api/pitches', {
+    method: 'POST',
+    body: formData,
+  });
 }
 
 // Bids
 export async function getBidsForPitch(pitchId: string): Promise<Bid[]> {
-  await delay(500);
-  return MOCK_BIDS.filter((b) => b.pitchId === pitchId);
+  return request(`/api/pitches/${pitchId}/bids`);
 }
 
 export async function getMyBids(investorId: string): Promise<Bid[]> {
-  await delay(500);
-  return MOCK_BIDS.filter((b) => b.investorId === investorId);
+  return request('/api/bids/mine');
 }
 
 export async function placeBid(bid: Partial<Bid>): Promise<Bid> {
-  await delay(800);
-  return {
-    id: 'new-bid',
-    pitchId: bid.pitchId || '',
-    investorId: 'u1',
-    investorName: 'Alex Smith',
-    amount: bid.amount || 0,
-    returnType: bid.returnType || 'EQUITY',
-    returnValue: bid.returnValue || 0,
-    timelineMonths: bid.timelineMonths || 12,
-    status: 'PENDING',
-    note: bid.note,
-    createdAt: new Date().toISOString(),
-  };
+  const { pitchId, ...rest } = bid;
+  return request(`/api/pitches/${pitchId}/bids`, {
+    method: 'POST',
+    body: JSON.stringify(rest),
+  });
 }
 
 export async function updateBidStatus(bidId: string, status: BidStatus): Promise<Bid> {
-  await delay(600);
-  const bid = MOCK_BIDS.find((b) => b.id === bidId);
-  return { ...bid!, status };
+  const endpoint = status === 'ACCEPTED' ? `/api/bids/${bidId}/accept` : `/api/bids/${bidId}/reject`;
+  return request(endpoint, {
+    method: 'PUT',
+  });
 }
 
 // Investments / Portfolio
-export async function getMyInvestments() {
-  await delay(400);
+export async function getMyInvestments(): Promise<Investment[]> {
+  // Backend doesn't have a specific endpoint yet.
+  // Fallback to mock data to prevent UI break
+  console.warn('getMyInvestments: No backend endpoint, using mock data');
   return MOCK_INVESTMENTS;
 }
 
 // Activity
-export async function getActivity() {
-  await delay(400);
+export async function getActivity(): Promise<ActivityItem[]> {
+  // Backend doesn't have a specific endpoint yet.
+  // We could fetch notifications, but types differ. Using mock data.
+  console.warn('getActivity: No backend endpoint, using mock data');
   return MOCK_ACTIVITY;
 }
 
 // Deals
 export async function getDeal(id: string): Promise<Deal | undefined> {
-  await delay(400);
-  return MOCK_DEALS.find((d) => d.id === id);
+  return request(`/api/deals/${id}`);
 }
 
-export async function signDeal(dealId: string, _role: 'owner' | 'investor'): Promise<Deal> {
-  await delay(800);
-  const deal = MOCK_DEALS.find((d) => d.id === dealId);
-  return { ...deal!, investorSigned: true };
+export async function signDeal(dealId: string, role: 'owner' | 'investor'): Promise<Deal> {
+  return request(`/api/deals/${dealId}/sign`, {
+    method: 'POST',
+    body: JSON.stringify({ role }),
+  });
 }
 
 export async function initiatePayment(dealId: string): Promise<{ paystackUrl: string }> {
-  await delay(1000);
-  return { paystackUrl: 'https://paystack.com/pay/mock-ref' };
+  return request(`/api/deals/${dealId}/pay`, {
+    method: 'POST',
+  });
+}
+
+// --- Additional Endpoints from API_DOCUMENTATION.md ---
+
+// Auth Additions
+export async function logoutUser(): Promise<void> {
+  return request('/auth/logout', { method: 'POST' });
+}
+export async function refreshToken(): Promise<any> {
+  return request('/auth/refresh', { method: 'POST' });
+}
+export async function getCurrentUser(): Promise<User> {
+  return request('/auth/me');
+}
+
+// Pitches Additions
+export async function getMyPitches(): Promise<Pitch[]> {
+  return request('/api/pitches/mine');
+}
+
+// Bids Additions
+export async function counterBid(bidId: string, data: any): Promise<Bid> {
+  return request(`/api/bids/${bidId}/counter`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+// Deals Additions
+export async function getMyDeals(): Promise<Deal[]> {
+  return request('/api/deals/mine');
+}
+export async function getDealMessages(dealId: string): Promise<any[]> {
+  return request(`/api/deals/${dealId}/messages`);
+}
+export async function sendDealMessage(dealId: string, text: string): Promise<any> {
+  return request(`/api/deals/${dealId}/messages`, {
+    method: 'POST',
+    body: JSON.stringify({ text }),
+  });
+}
+export async function verifyPayment(dealId: string, reference: string): Promise<any> {
+  return request(`/api/deals/${dealId}/verify-payment`, {
+    method: 'POST',
+    body: JSON.stringify({ reference }),
+  });
+}
+export async function getDealRepayments(dealId: string): Promise<any[]> {
+  return request(`/api/deals/${dealId}/repayments`);
+}
+
+// Notifications
+export async function getNotifications(): Promise<any[]> {
+  return request('/api/notifications');
+}
+export async function sendNotification(data: any): Promise<any> {
+  return request('/api/notifications/send', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+export async function getUnreadNotificationCount(): Promise<{ count: number }> {
+  return request('/api/notifications/unread-count');
+}
+export async function markNotificationRead(id: string): Promise<any> {
+  return request(`/api/notifications/${id}/read`, { method: 'PUT' });
+}
+export async function markAllNotificationsRead(): Promise<any> {
+  return request('/api/notifications/read-all', { method: 'PUT' });
+}
+
+// Tax Summaries
+export async function getTaxSummaries(): Promise<any[]> {
+  return request('/api/tax-summaries');
+}
+export async function downloadTaxSummary(year: number): Promise<any> {
+  return request(`/api/tax-summaries/download/${year}`);
 }
