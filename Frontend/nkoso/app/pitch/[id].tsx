@@ -7,12 +7,14 @@ import {
   ScrollView,
   Image,
   TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/Colors';
-import { MOCK_PITCHES } from '@/services/mockData';
+import { useQuery } from '@tanstack/react-query';
+import { getPitch } from '@/services/api';
 import { Badge } from '@/components/ui/Badge';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { Button } from '@/components/ui/Button';
@@ -21,7 +23,18 @@ import { useAuthStore } from '@/store/authStore';
 export default function PitchDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuthStore();
-  const pitch = MOCK_PITCHES.find((p) => p.id === id);
+  const { data: pitch, isLoading } = useQuery({
+    queryKey: ['pitch', id],
+    queryFn: () => getPitch(id as string),
+  });
+
+  if (isLoading) {
+    return (
+      <SafeAreaView style={[styles.safe, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={Colors.primary} />
+      </SafeAreaView>
+    );
+  }
 
   if (!pitch) {
     return (
@@ -43,7 +56,7 @@ export default function PitchDetailScreen() {
     { label: 'Equity offered', value: `${pitch.offerValue}%` },
     { label: 'Pre-money valuation', value: `GH₵${pitch.preMoneyValuation.toLocaleString()}` },
     { label: 'Minimum investment', value: `GH₵${pitch.minimumInvestment.toLocaleString()}` },
-    { label: 'Campaign ends', value: pitch.campaignEndDate },
+    { label: 'Campaign ends', value: new Date(pitch.campaignEndDate).toLocaleDateString() },
   ];
 
   return (

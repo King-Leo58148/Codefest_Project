@@ -11,7 +11,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/Colors';
 import { PitchCard } from '@/components/pitch/PitchCard';
-import { MOCK_PITCHES } from '@/services/mockData';
+import { useQuery } from '@tanstack/react-query';
+import { getPitches } from '@/services/api';
 import { Industry, Pitch } from '@/types';
 
 const INDUSTRIES: Industry[] = [
@@ -29,15 +30,18 @@ export default function ExploreScreen() {
   const [selectedIndustry, setSelectedIndustry] = useState<Industry>('All');
   const [search, setSearch] = useState('');
 
-  const filtered = MOCK_PITCHES.filter((p) => {
-    const matchIndustry =
-      selectedIndustry === 'All' || p.industry === selectedIndustry;
+  const { data: pitches = [], isLoading } = useQuery({
+    queryKey: ['pitches', selectedIndustry],
+    queryFn: () => getPitches(selectedIndustry),
+  });
+
+  const filtered = pitches.filter((p) => {
     const matchSearch =
       !search ||
       p.businessName.toLowerCase().includes(search.toLowerCase()) ||
       p.shortDescription.toLowerCase().includes(search.toLowerCase()) ||
       p.location.toLowerCase().includes(search.toLowerCase());
-    return matchIndustry && matchSearch;
+    return matchSearch;
   });
 
   const renderHeader = useCallback(
@@ -101,7 +105,7 @@ export default function ExploreScreen() {
         )}
 
         <Text style={styles.resultCount}>
-          {filtered.length} {filtered.length === 1 ? 'opportunity' : 'opportunities'}
+          {isLoading ? 'Loading...' : `${filtered.length} ${filtered.length === 1 ? 'opportunity' : 'opportunities'}`}
         </Text>
       </>
     ),
@@ -113,6 +117,8 @@ export default function ExploreScreen() {
       <FlatList
         data={filtered}
         keyExtractor={(item) => item.id}
+        refreshing={isLoading}
+        onRefresh={() => {}}
         renderItem={({ item }) => (
           <View style={styles.cardWrapper}>
             <PitchCard pitch={item} />

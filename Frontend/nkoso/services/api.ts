@@ -1,7 +1,5 @@
 import { Pitch, Bid, Deal, User, Industry, BidStatus, ActivityItem, Investment } from '@/types';
 import { request } from './backendClient';
-import { MOCK_INVESTMENTS, MOCK_ACTIVITY } from './mockData';
-
 // Auth
 export async function loginUser(email: string, password: string): Promise<{ token: string; user: User }> {
   return request('/auth/login', {
@@ -77,6 +75,10 @@ export async function getBidsForPitch(pitchId: string): Promise<Bid[]> {
   return request(`/api/pitches/${pitchId}/bids`);
 }
 
+export async function getBid(id: string): Promise<Bid | undefined> {
+  return request(`/api/bids/${id}`);
+}
+
 export async function getMyBids(investorId: string): Promise<Bid[]> {
   return request('/api/bids/mine');
 }
@@ -98,18 +100,43 @@ export async function updateBidStatus(bidId: string, status: BidStatus): Promise
 
 // Investments / Portfolio
 export async function getMyInvestments(): Promise<Investment[]> {
-  // Backend doesn't have a specific endpoint yet.
-  // Fallback to mock data to prevent UI break
-  console.warn('getMyInvestments: No backend endpoint, using mock data');
-  return MOCK_INVESTMENTS;
+  try {
+    const deals = await request('/api/deals/mine');
+    // Map deals to Investment format. 
+    // Since backend might not return pitch details in deal, we handle it as best effort
+    // In a real app, backend would return a dedicated portfolio/investments endpoint.
+    return deals.map((deal: any) => ({
+      pitchId: deal.pitchId,
+      businessName: deal.businessName || 'Business',
+      industry: 'Technology', // Defaulting as backend deal might not have industry
+      imageUrl: 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=800&q=80',
+      amount: deal.amount,
+      currentValue: deal.amount, // Simplified, assume no change for now
+      change: 0,
+      changePercent: 0,
+    }));
+  } catch (error) {
+    console.warn('Failed to fetch investments, returning empty array', error);
+    return [];
+  }
 }
 
 // Activity
 export async function getActivity(): Promise<ActivityItem[]> {
-  // Backend doesn't have a specific endpoint yet.
-  // We could fetch notifications, but types differ. Using mock data.
-  console.warn('getActivity: No backend endpoint, using mock data');
-  return MOCK_ACTIVITY;
+  try {
+    const notifications = await request('/api/notifications');
+    return notifications.map((n: any) => ({
+      id: n.id || Math.random().toString(),
+      type: 'business_update',
+      businessName: 'System',
+      imageUrl: 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=800&q=80',
+      description: n.message || n.text || 'Notification received',
+      date: new Date(n.createdAt || Date.now()).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+    }));
+  } catch (error) {
+    console.warn('Failed to fetch activity, returning empty array', error);
+    return [];
+  }
 }
 
 // Deals

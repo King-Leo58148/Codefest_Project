@@ -12,16 +12,26 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/Colors';
 import { MiniChart } from '@/components/portfolio/MiniChart';
-import { MOCK_INVESTMENTS, CHART_DATA } from '@/services/mockData';
+import { CHART_DATA } from '@/services/mockData';
+import { useQuery } from '@tanstack/react-query';
+import { getMyInvestments } from '@/services/api';
+import { ActivityIndicator } from 'react-native';
 
 const TIME_FILTERS = ['1D', '1W', '1M', '1Y', 'All'];
 
 export default function PortfolioScreen() {
   const [activeFilter, setActiveFilter] = useState('All');
 
-  const totalValue = MOCK_INVESTMENTS.reduce((s, i) => s + i.currentValue, 0);
-  const totalChange = MOCK_INVESTMENTS.reduce((s, i) => s + i.change, 0);
-  const totalPercent = ((totalChange / (totalValue - totalChange)) * 100).toFixed(1);
+  const { data: investments = [], isLoading } = useQuery({
+    queryKey: ['myInvestments'],
+    queryFn: () => getMyInvestments(),
+  });
+
+  const totalValue = investments.reduce((s, i) => s + i.currentValue, 0);
+  const totalChange = investments.reduce((s, i) => s + i.change, 0);
+  const totalPercent = totalValue - totalChange > 0 
+    ? ((totalChange / (totalValue - totalChange)) * 100).toFixed(1)
+    : '0.0';
   const isPositive = totalChange >= 0;
 
   return (
@@ -34,7 +44,9 @@ export default function PortfolioScreen() {
         {/* Portfolio Card */}
         <View style={styles.portfolioCard}>
           <Text style={styles.totalLabel}>Total value</Text>
-          <Text style={styles.totalValue}>GH₵{totalValue.toLocaleString()}</Text>
+          <Text style={styles.totalValue}>
+            {isLoading ? 'Loading...' : `GH₵${totalValue.toLocaleString()}`}
+          </Text>
           <View style={styles.changeRow}>
             <Ionicons
               name={isPositive ? 'arrow-up' : 'arrow-down'}
@@ -78,55 +90,61 @@ export default function PortfolioScreen() {
 
         {/* Investments */}
         <Text style={styles.sectionTitle}>Your investments</Text>
-        {MOCK_INVESTMENTS.map((inv) => (
-          <View
-            key={inv.pitchId}
-            style={styles.investmentRowWrapper}
-          >
-            <TouchableOpacity
-              style={styles.investmentRow}
-              onPress={() => router.push(`/pitch/${inv.pitchId}`)}
-              activeOpacity={0.8}
+        {isLoading ? (
+          <ActivityIndicator size="large" color={Colors.primary} style={{ marginTop: 20 }} />
+        ) : investments.length === 0 ? (
+          <Text style={{ textAlign: 'center', color: Colors.textMuted, marginTop: 20 }}>No investments yet</Text>
+        ) : (
+          investments.map((inv) => (
+            <View
+              key={inv.pitchId}
+              style={styles.investmentRowWrapper}
             >
-            <Image source={{ uri: inv.imageUrl }} style={styles.investImg} />
-            <View style={styles.investInfo}>
-              <Text style={styles.investName}>{inv.businessName}</Text>
-              <Text style={styles.investIndustry}>{inv.industry}</Text>
-            </View>
-            <View style={styles.investValues}>
-              <Text style={styles.investValue}>GH₵{inv.currentValue.toLocaleString()}</Text>
-              <View style={styles.changeChip}>
-                <Ionicons
-                  name={inv.change >= 0 ? 'arrow-up' : 'arrow-down'}
-                  size={10}
-                  color={inv.change >= 0 ? Colors.accent : Colors.accentRed}
-                />
-                <Text
-                  style={[
-                    styles.changeChipText,
-                    {
-                      color:
-                        inv.change >= 0 ? Colors.accent : Colors.accentRed,
-                    },
-                  ]}
+              <TouchableOpacity
+                style={styles.investmentRow}
+                onPress={() => router.push(`/pitch/${inv.pitchId}`)}
+                activeOpacity={0.8}
+              >
+              <Image source={{ uri: inv.imageUrl }} style={styles.investImg} />
+              <View style={styles.investInfo}>
+                <Text style={styles.investName}>{inv.businessName}</Text>
+                <Text style={styles.investIndustry}>{inv.industry}</Text>
+              </View>
+              <View style={styles.investValues}>
+                <Text style={styles.investValue}>GH₵{inv.currentValue.toLocaleString()}</Text>
+                <View style={styles.changeChip}>
+                  <Ionicons
+                    name={inv.change >= 0 ? 'arrow-up' : 'arrow-down'}
+                    size={10}
+                    color={inv.change >= 0 ? Colors.accent : Colors.accentRed}
+                  />
+                  <Text
+                    style={[
+                      styles.changeChipText,
+                      {
+                        color:
+                          inv.change >= 0 ? Colors.accent : Colors.accentRed,
+                      },
+                    ]}
+                  >
+                    {Math.abs(inv.changePercent).toFixed(1)}%
+                  </Text>
+                </View>
+              </View>
+              </TouchableOpacity>
+              
+              <View style={styles.investmentActions}>
+                <TouchableOpacity 
+                  style={styles.actionBtn}
+                  onPress={() => router.push(`/repayments/${inv.pitchId}` as any)}
                 >
-                  {Math.abs(inv.changePercent).toFixed(1)}%
-                </Text>
+                  <Ionicons name="calendar-outline" size={14} color={Colors.primary} />
+                  <Text style={styles.actionBtnText}>View Repayments</Text>
+                </TouchableOpacity>
               </View>
             </View>
-            </TouchableOpacity>
-            
-            <View style={styles.investmentActions}>
-              <TouchableOpacity 
-                style={styles.actionBtn}
-                onPress={() => router.push(`/repayments/${inv.pitchId}` as any)}
-              >
-                <Ionicons name="calendar-outline" size={14} color={Colors.primary} />
-                <Text style={styles.actionBtnText}>View Repayments</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        ))}
+          ))
+        )}
 
         <View style={{ height: 24 }} />
       </ScrollView>

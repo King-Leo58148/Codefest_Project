@@ -5,18 +5,32 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/Colors';
-import { MOCK_DEALS } from '@/services/mockData';
+import { useQuery } from '@tanstack/react-query';
+import { getMyDeals } from '@/services/api';
 
 export default function RepaymentScheduleScreen() {
   const { pitchId } = useLocalSearchParams<{ pitchId: string }>();
+
+  const { data: myDeals = [], isLoading } = useQuery({
+    queryKey: ['myDeals'],
+    queryFn: () => getMyDeals(),
+  });
   
-  // Find the deal associated with this pitch
-  const deal = MOCK_DEALS.find((d) => d.pitchId === pitchId);
+  const deal = myDeals.find((d) => d.pitchId === pitchId);
+
+  if (isLoading) {
+    return (
+      <SafeAreaView style={[styles.safe, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={Colors.primary} />
+      </SafeAreaView>
+    );
+  }
 
   if (!deal) {
     return (
@@ -34,7 +48,7 @@ export default function RepaymentScheduleScreen() {
     );
   }
 
-  const { repaymentSchedule } = deal;
+  const repaymentSchedule = deal.repaymentSchedule || [];
 
   const getStatusColor = (status: string) => {
     switch (status) {

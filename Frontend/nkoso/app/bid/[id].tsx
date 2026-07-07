@@ -7,34 +7,77 @@ import {
   TouchableOpacity,
   TextInput,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/Colors';
-import { MOCK_BIDS } from '@/services/mockData';
 import { Button } from '@/components/ui/Button';
+import { getBid, counterBid } from '@/services/api';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 export default function BidDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const bid = MOCK_BIDS.find((b) => b.id === id) ?? MOCK_BIDS[0];
+  const queryClient = useQueryClient();
 
-  const [counterAmount, setCounterAmount] = useState(bid.amount.toString());
-  const [counterReturn, setCounterReturn] = useState(bid.returnValue.toString());
-  const [counterTimeline, setCounterTimeline] = useState(bid.timelineMonths.toString());
+  const { data: bid, isLoading: loadingBid } = useQuery({
+    queryKey: ['bid', id],
+    queryFn: () => getBid(id as string),
+  });
+
+  const [counterAmount, setCounterAmount] = useState('');
+  const [counterReturn, setCounterReturn] = useState('');
+  const [counterTimeline, setCounterTimeline] = useState('');
   const [note, setNote] = useState('');
-  const [loading, setLoading] = useState(false);
 
-  const handleCounter = async () => {
-    setLoading(true);
-    await new Promise((r) => setTimeout(r, 800));
-    setLoading(false);
-    Alert.alert(
-      'Counter-offer sent!',
-      'Your counter-offer has been sent to the investor. They will review and respond.',
-      [{ text: 'OK', onPress: () => router.back() }]
-    );
+  React.useEffect(() => {
+    if (bid) {
+      setCounterAmount(bid.amount.toString());
+      setCounterReturn(bid.returnValue.toString());
+      setCounterTimeline(bid.timelineMonths.toString());
+    }
+  }, [bid]);
+
+  const counterMutation = useMutation({
+    mutationFn: () => counterBid(id as string, {
+      amount: parseFloat(counterAmount),
+      returnValue: parseFloat(counterReturn),
+      timelineMonths: parseInt(counterTimeline, 10),
+      note
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['bid', id] });
+      Alert.alert(
+        'Counter-offer sent!',
+        'Your counter-offer has been sent to the investor. They will review and respond.',
+        [{ text: 'OK', onPress: () => router.back() }]
+      );
+    },
+    onError: () => {
+      Alert.alert('Error', 'Failed to send counter-offer.');
+    }
+  });
+
+  const handleCounter = () => {
+    counterMutation.mutate();
   };
+
+  if (loadingBid) {
+    return (
+      <SafeAreaView style={[styles.safe, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={Colors.primary} />
+      </SafeAreaView>
+    );
+  }
+
+  if (!bid) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <Text style={{ textAlign: 'center', marginTop: 40 }}>Bid not found.</Text>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -50,11 +93,11 @@ export default function BidDetailScreen() {
         {/* Investor info */}
         <View style={styles.investorCard}>
           <View style={styles.investorAvatar}>
-            <Text style={styles.investorAvatarText}>{bid.investorName[0]}</Text>
+            <Text style={styles.investorAvatarText}>{bid.investorName ? bid.investorName[0] : 'I'}</Text>
           </View>
           <View style={styles.investorInfo}>
-            <Text style={styles.investorName}>{bid.investorName}</Text>
-            <Text style={styles.bidDate}>Bid placed {bid.createdAt}</Text>
+            <Text style={styles.investorName}>{bid.investorName || 'Investor'}</Text>
+            <Text style={styles.bidDate}>Bid placed {new Date(bid.createdAt || Date.now()).toLocaleDateString()}</Text>
           </View>
           <View style={[styles.statusBadge, { backgroundColor: getStatusBg(bid.status) }]}>
             <Text style={[styles.statusText, { color: getStatusColor(bid.status) }]}>
@@ -153,7 +196,7 @@ export default function BidDetailScreen() {
             <Button
               title="Send counter-offer"
               onPress={handleCounter}
-              loading={loading}
+              loading={counterMutation.isPending}
             />
           </>
         )}

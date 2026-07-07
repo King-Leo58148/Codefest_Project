@@ -6,41 +6,71 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/Colors';
-import { MOCK_DEALS } from '@/services/mockData';
 import { Button } from '@/components/ui/Button';
-import { signDeal, initiatePayment } from '@/services/api';
+import { signDeal, initiatePayment, getDeal } from '@/services/api';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/store/authStore';
 
 export default function DealRoomScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuthStore();
-  const deal = MOCK_DEALS.find((d) => d.id === id) ?? MOCK_DEALS[0];
+  const queryClient = useQueryClient();
 
-  const [ownerSigned, setOwnerSigned] = useState(deal.ownerSigned);
-  const [investorSigned, setInvestorSigned] = useState(deal.investorSigned);
-  const [mfiApproved, setMfiApproved] = useState(deal.mfiApproved);
+  const { data: deal, isLoading: loadingDeal } = useQuery({
+    queryKey: ['deal', id],
+    queryFn: () => getDeal(id as string),
+  });
+
+  const [ownerSigned, setOwnerSigned] = useState(false);
+  const [investorSigned, setInvestorSigned] = useState(false);
+  const [mfiApproved, setMfiApproved] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  React.useEffect(() => {
+    if (deal) {
+      setOwnerSigned(deal.ownerSigned);
+      setInvestorSigned(deal.investorSigned);
+      setMfiApproved(deal.mfiApproved);
+    }
+  }, [deal]);
 
   const isOwner = user?.role === 'OWNER';
   const isInvestor = user?.role === 'INVESTOR';
 
+  if (loadingDeal) {
+    return (
+      <SafeAreaView style={[styles.safe, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={Colors.primary} />
+      </SafeAreaView>
+    );
+  }
+
+  if (!deal) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <Text style={{ textAlign: 'center', marginTop: 40 }}>Deal not found.</Text>
+      </SafeAreaView>
+    );
+  }
+
   const canSign = isOwner ? !ownerSigned : !investorSigned;
   const bothSigned = ownerSigned && investorSigned;
 
-  const handleSign = async () => {
-    setLoading(true);
-    try {
-      await signDeal(deal.id, isOwner ? 'owner' : 'investor');
+  const signMutation = useMutation({
+    mutationFn: () => signDeal(deal.id, isOwner ? 'owner' : 'investor'),
+    onSuccess: () => {
       if (isOwner) {
         setOwnerSigned(true);
       } else {
         setInvestorSigned(true);
       }
+      queryClient.invalidateQueries({ queryKey: ['deal', id] });
       Alert.alert(
         'Signed!',
         'You have signed the deal agreement. ' +
@@ -49,11 +79,14 @@ export default function DealRoomScreen() {
             : 'The deal has been submitted to our MFI partner for legal review.'),
         [{ text: 'OK' }]
       );
-    } catch {
+    },
+    onError: () => {
       Alert.alert('Error', 'Failed to sign. Please try again.');
-    } finally {
-      setLoading(false);
     }
+  });
+
+  const handleSign = () => {
+    signMutation.mutate();
   };
 
   const handleMfiApprove = () => {
@@ -62,20 +95,23 @@ export default function DealRoomScreen() {
     ]);
   };
 
-  const handlePayment = async () => {
-    setLoading(true);
-    try {
-      const { paystackUrl } = await initiatePayment(deal.id);
+  const payMutation = useMutation({
+    mutationFn: () => initiatePayment(deal.id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['deal', id] });
       Alert.alert(
         'Payment initiated',
         `Payment of GH₵${deal.amount.toLocaleString()} + platform fee has been initiated via Paystack. Funds will be disbursed to the business owner's MoMo account upon confirmation.`,
         [{ text: 'OK' }]
       );
-    } catch {
+    },
+    onError: () => {
       Alert.alert('Error', 'Payment initiation failed.');
-    } finally {
-      setLoading(false);
     }
+  });
+
+  const handlePayment = () => {
+    payMutation.mutate();
   };
 
   const steps = [
@@ -254,7 +290,7 @@ export default function DealRoomScreen() {
           <Button
             title={`Sign as ${isOwner ? 'Business Owner' : 'Investor'}`}
             onPress={handleSign}
-            loading={loading}
+            loading={signMutation.isPending}
           />
         )}
 
@@ -270,7 +306,7 @@ export default function DealRoomScreen() {
           <Button
             title="Proceed with payment"
             onPress={handlePayment}
-            loading={loading}
+            loading={payMutation.isPending}
           />
         )}
 

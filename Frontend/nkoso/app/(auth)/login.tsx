@@ -19,18 +19,13 @@ import { loginUser } from '@/services/api';
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const { setUser, setToken } = useAuthStore();
 
   const handleLogin = async () => {
-    if (!email.trim() || !password.trim() || !confirmPassword.trim()) {
+    if (!email.trim() || !password.trim()) {
       setError('Please fill in all fields.');
-      return;
-    }
-    if (password !== confirmPassword) {
-      setError('Passwords do not match.');
       return;
     }
     setError('');
@@ -89,14 +84,6 @@ export default function LoginScreen() {
             placeholder="Enter your password"
             value={password}
             onChangeText={setPassword}
-            secure
-            leftIcon="lock-closed-outline"
-          />
-          <Input
-            label="Confirm Password"
-            placeholder="Re-enter your password"
-            value={confirmPassword}
-            onChangeText={setConfirmPassword}
             secure
             leftIcon="lock-closed-outline"
           />

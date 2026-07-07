@@ -9,14 +9,16 @@ import {
   Alert,
   Modal,
   TextInput,
-  KeyboardAvoidingView,
   Platform,
   ScrollView as ScrollV,
+  ActivityIndicator,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/Colors';
-import { MOCK_PITCHES } from '@/services/mockData';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { getMyPitches, createPitch } from '@/services/api';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -24,7 +26,12 @@ import { Input } from '@/components/ui/Input';
 
 export default function PitchesScreen() {
   const [showCreate, setShowCreate] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const queryClient = useQueryClient();
+
+  const { data: pitches = [], isLoading: loadingPitches } = useQuery({
+    queryKey: ['myPitches'],
+    queryFn: () => getMyPitches(),
+  });
 
   const [businessName, setBusinessName] = useState('');
   const [description, setDescription] = useState('');
@@ -34,8 +41,28 @@ export default function PitchesScreen() {
   const [location, setLocation] = useState('');
   const [videoUri, setVideoUri] = useState<string | null>(null);
 
-  const myPitch = MOCK_PITCHES[0];
-  const fundedPercent = (myPitch.amountRaised / myPitch.amountNeeded) * 100;
+  const createMutation = useMutation({
+    mutationFn: (data: any) => createPitch(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['myPitches'] });
+      setShowCreate(false);
+      setBusinessName('');
+      setDescription('');
+      setMonthlyIncome('');
+      setAmountNeeded('');
+      setOfferValue('');
+      setLocation('');
+      setVideoUri(null);
+      Alert.alert(
+        'Pitch submitted!',
+        'Your pitch has been submitted for admin review. You will be notified once it goes live.',
+        [{ text: 'OK' }]
+      );
+    },
+    onError: (error: any) => {
+      Alert.alert('Error', error.message || 'Failed to submit pitch');
+    }
+  });
 
   const handlePickVideo = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -54,22 +81,17 @@ export default function PitchesScreen() {
       Alert.alert('Missing fields', 'Please fill in all required fields.');
       return;
     }
-    setLoading(true);
-    await new Promise((r) => setTimeout(r, 1000));
-    setLoading(false);
-    setShowCreate(false);
-    setBusinessName('');
-    setDescription('');
-    setMonthlyIncome('');
-    setAmountNeeded('');
-    setOfferValue('');
-    setLocation('');
-    setVideoUri(null);
-    Alert.alert(
-      'Pitch submitted!',
-      'Your pitch has been submitted for admin review. You will be notified once it goes live.',
-      [{ text: 'OK' }]
-    );
+    createMutation.mutate({
+      businessName,
+      description,
+      monthlyIncome: Number(monthlyIncome),
+      amountNeeded: Number(amountNeeded),
+      offerType: 'EQUITY',
+      offerValue: Number(offerValue) || 0,
+      location,
+      industry: 'Technology', // Default since no picker exists yet
+      image: videoUri ? { uri: videoUri } : undefined, // Currently API uses 'image'
+    });
   };
 
   return (
@@ -86,66 +108,75 @@ export default function PitchesScreen() {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
-        {/* Existing pitch */}
-        <View style={styles.pitchCard}>
-          <View style={styles.pitchCardHeader}>
-            <View style={styles.pitchInfo}>
-              <Text style={styles.pitchName}>{myPitch.businessName}</Text>
-              <Badge label={myPitch.industry} industry={myPitch.industry} />
-            </View>
-            <View style={styles.liveBadge}>
-              <View style={styles.liveDot} />
-              <Text style={styles.liveText}>LIVE</Text>
-            </View>
-          </View>
+        {/* Pitches */}
+        {loadingPitches ? (
+          <ActivityIndicator size="large" color={Colors.primary} style={{ marginTop: 20 }} />
+        ) : pitches.length > 0 ? (
+          pitches.map((pitch) => {
+            const percent = pitch.amountNeeded > 0 ? (pitch.amountRaised / pitch.amountNeeded) * 100 : 0;
+            return (
+              <View key={pitch.id} style={styles.pitchCard}>
+                <View style={styles.pitchCardHeader}>
+                  <View style={styles.pitchInfo}>
+                    <Text style={styles.pitchName}>{pitch.businessName}</Text>
+                    <Badge label={pitch.industry} industry={pitch.industry} />
+                  </View>
+                  <View style={styles.liveBadge}>
+                    <View style={styles.liveDot} />
+                    <Text style={styles.liveText}>{pitch.status === 'LIVE' ? 'LIVE' : pitch.status}</Text>
+                  </View>
+                </View>
 
-          <Text style={styles.pitchDesc} numberOfLines={3}>
-            {myPitch.description}
-          </Text>
+                <Text style={styles.pitchDesc} numberOfLines={3}>
+                  {pitch.description}
+                </Text>
 
-          <View style={styles.fundingSection}>
-            <View style={styles.fundingRow}>
-              <Text style={styles.fundingLabel}>Raised</Text>
-              <Text style={styles.fundingLabel}>Goal</Text>
-            </View>
-            <View style={styles.fundingRow}>
-              <Text style={styles.fundingValue}>
-                GH₵{myPitch.amountRaised.toLocaleString()}
-              </Text>
-              <Text style={styles.fundingValue}>
-                GH₵{myPitch.amountNeeded.toLocaleString()}
-              </Text>
-            </View>
-            <ProgressBar percent={fundedPercent} height={8} />
-            <Text style={styles.fundedPercent}>{fundedPercent.toFixed(0)}% funded</Text>
-          </View>
+                <View style={styles.fundingSection}>
+                  <View style={styles.fundingRow}>
+                    <Text style={styles.fundingLabel}>Raised</Text>
+                    <Text style={styles.fundingLabel}>Goal</Text>
+                  </View>
+                  <View style={styles.fundingRow}>
+                    <Text style={styles.fundingValue}>
+                      GH₵{pitch.amountRaised.toLocaleString()}
+                    </Text>
+                    <Text style={styles.fundingValue}>
+                      GH₵{pitch.amountNeeded.toLocaleString()}
+                    </Text>
+                  </View>
+                  <ProgressBar percent={percent} height={8} />
+                  <Text style={styles.fundedPercent}>{percent.toFixed(0)}% funded</Text>
+                </View>
 
-          <View style={styles.pitchMeta}>
-            <View style={styles.metaItem}>
-              <Ionicons name="location-outline" size={14} color={Colors.textMuted} />
-              <Text style={styles.metaText}>{myPitch.location}</Text>
-            </View>
-            <View style={styles.metaItem}>
-              <Ionicons name="calendar-outline" size={14} color={Colors.textMuted} />
-              <Text style={styles.metaText}>Ends {myPitch.campaignEndDate}</Text>
-            </View>
-          </View>
+                <View style={styles.pitchMeta}>
+                  <View style={styles.metaItem}>
+                    <Ionicons name="location-outline" size={14} color={Colors.textMuted} />
+                    <Text style={styles.metaText}>{pitch.location}</Text>
+                  </View>
+                  <View style={styles.metaItem}>
+                    <Ionicons name="calendar-outline" size={14} color={Colors.textMuted} />
+                    <Text style={styles.metaText}>Ends {new Date(pitch.campaignEndDate).toLocaleDateString()}</Text>
+                  </View>
+                </View>
 
-          <View style={styles.pitchActions}>
-            <TouchableOpacity style={styles.pitchActionBtn} activeOpacity={0.7}>
-              <Ionicons name="create-outline" size={16} color={Colors.primary} />
-              <Text style={styles.pitchActionText}>Edit</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.pitchActionBtn} activeOpacity={0.7}>
-              <Ionicons name="analytics-outline" size={16} color={Colors.primary} />
-              <Text style={styles.pitchActionText}>Stats</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.pitchActionBtn} activeOpacity={0.7}>
-              <Ionicons name="share-social-outline" size={16} color={Colors.primary} />
-              <Text style={styles.pitchActionText}>Share</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+                <View style={styles.pitchActions}>
+                  <TouchableOpacity style={styles.pitchActionBtn} activeOpacity={0.7}>
+                    <Ionicons name="create-outline" size={16} color={Colors.primary} />
+                    <Text style={styles.pitchActionText}>Edit</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.pitchActionBtn} activeOpacity={0.7}>
+                    <Ionicons name="analytics-outline" size={16} color={Colors.primary} />
+                    <Text style={styles.pitchActionText}>Stats</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.pitchActionBtn} activeOpacity={0.7}>
+                    <Ionicons name="share-social-outline" size={16} color={Colors.primary} />
+                    <Text style={styles.pitchActionText}>Share</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            );
+          })
+        ) : null}
 
         {/* No more pitches message */}
         <View style={styles.emptyCard}>
@@ -257,7 +288,7 @@ export default function PitchesScreen() {
             <Button
               title="Submit Pitch for Review"
               onPress={handleCreate}
-              loading={loading}
+              loading={createMutation.isPending}
             />
             <View style={{ height: 20 }} />
           </ScrollV>

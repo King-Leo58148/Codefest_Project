@@ -7,21 +7,26 @@ import {
   TouchableOpacity,
   TextInput,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/Colors';
-import { MOCK_PITCHES } from '@/services/mockData';
 import { Button } from '@/components/ui/Button';
-import { placeBid } from '@/services/api';
+import { placeBid, getPitch } from '@/services/api';
+import { useQuery, useMutation } from '@tanstack/react-query';
 
 const PRESET_AMOUNTS = [100, 250, 500, 1000, 2000, 5000];
 const RETURN_TYPES = ['EQUITY', 'REVENUE_SHARE', 'FIXED'] as const;
 
 export default function InvestScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const pitch = MOCK_PITCHES.find((p) => p.id === id);
+  
+  const { data: pitch, isLoading: loadingPitch } = useQuery({
+    queryKey: ['pitch', id],
+    queryFn: () => getPitch(id as string),
+  });
 
   const [amount, setAmount] = useState(500);
   const [customAmount, setCustomAmount] = useState('');
@@ -31,6 +36,14 @@ export default function InvestScreen() {
   const [note, setNote] = useState('');
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState<'amount' | 'terms' | 'review'>('amount');
+
+  if (loadingPitch) {
+    return (
+      <SafeAreaView style={[styles.safe, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={Colors.primary} />
+      </SafeAreaView>
+    );
+  }
 
   if (!pitch) {
     return (
@@ -45,31 +58,33 @@ export default function InvestScreen() {
   const finalAmount = customAmount ? parseInt(customAmount, 10) || amount : amount;
   const platformFee = Math.min(finalAmount * 0.01, 100);
 
-  const handleSubmit = async () => {
-    if (!returnValue) {
-      Alert.alert('Missing details', 'Please enter your expected return value.');
-      return;
-    }
-    setLoading(true);
-    try {
-      await placeBid({
-        pitchId: pitch.id,
-        amount: finalAmount,
-        returnType,
-        returnValue: parseFloat(returnValue),
-        timelineMonths: parseInt(timelineMonths, 10),
-        note,
-      });
+  const mutation = useMutation({
+    mutationFn: (data: any) => placeBid(data),
+    onSuccess: () => {
       Alert.alert(
         'Bid placed!',
         `Your bid of GH₵${finalAmount.toLocaleString()} has been sent to ${pitch.businessName}. You'll be notified when they respond.`,
         [{ text: 'OK', onPress: () => router.replace('/(investor)/portfolio') }]
       );
-    } catch {
+    },
+    onError: () => {
       Alert.alert('Error', 'Failed to place bid. Please try again.');
-    } finally {
-      setLoading(false);
     }
+  });
+
+  const handleSubmit = () => {
+    if (!returnValue) {
+      Alert.alert('Missing details', 'Please enter your expected return value.');
+      return;
+    }
+    mutation.mutate({
+      pitchId: pitch.id,
+      amount: finalAmount,
+      returnType,
+      returnValue: parseFloat(returnValue),
+      timelineMonths: parseInt(timelineMonths, 10),
+      note,
+    });
   };
 
   return (
@@ -310,7 +325,7 @@ export default function InvestScreen() {
               </Text>
             </View>
 
-            <Button title="Place bid" onPress={handleSubmit} loading={loading} />
+            <Button title="Place bid" onPress={handleSubmit} loading={mutation.isPending} />
             <Text style={styles.ctaDisclaimer}>
               By placing a bid, you agree to the Nkɔso investment terms.
             </Text>

@@ -10,8 +10,10 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/Colors';
-import { MOCK_ACTIVITY } from '@/services/mockData';
 import { ActivityItem } from '@/types';
+import { useQuery } from '@tanstack/react-query';
+import { getActivity } from '@/services/api';
+import { ActivityIndicator } from 'react-native';
 
 function ActivityRow({ item }: { item: ActivityItem }) {
   const isInvestment = item.type === 'investment_completed';
@@ -73,10 +75,15 @@ function ActivityRow({ item }: { item: ActivityItem }) {
 }
 
 export default function ActivityScreen() {
+  const { data: activity = [], isLoading } = useQuery({
+    queryKey: ['activity'],
+    queryFn: () => getActivity(),
+  });
+
   const grouped: { label: string; items: ActivityItem[] }[] = [];
   const seenLabels = new Set<string>();
 
-  for (const item of MOCK_ACTIVITY) {
+  for (const item of activity) {
     if (item.monthLabel && !seenLabels.has(item.monthLabel)) {
       seenLabels.add(item.monthLabel);
       grouped.push({ label: item.monthLabel, items: [] });
@@ -92,26 +99,30 @@ export default function ActivityScreen() {
           <Text style={styles.filterText}>All</Text>
         </TouchableOpacity>
       </View>
-      <FlatList
-        data={MOCK_ACTIVITY}
-        keyExtractor={(item) => item.id}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.list}
-        renderItem={({ item, index }) => (
-          <>
-            {item.monthLabel && (
-              <Text style={styles.monthLabel}>{item.monthLabel}</Text>
-            )}
-            <ActivityRow item={item} />
-          </>
-        )}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <Ionicons name="pulse-outline" size={44} color={Colors.textMuted} />
-            <Text style={styles.emptyText}>No activity yet</Text>
-          </View>
-        }
-      />
+      {isLoading ? (
+        <ActivityIndicator size="large" color={Colors.primary} style={{ marginTop: 40 }} />
+      ) : (
+        <FlatList
+          data={activity}
+          keyExtractor={(item) => item.id}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.list}
+          renderItem={({ item, index }) => (
+            <>
+              {item.monthLabel && (
+                <Text style={styles.monthLabel}>{item.monthLabel}</Text>
+              )}
+              <ActivityRow item={item} />
+            </>
+          )}
+          ListEmptyComponent={
+            <View style={styles.empty}>
+              <Ionicons name="pulse-outline" size={44} color={Colors.textMuted} />
+              <Text style={styles.emptyText}>No activity yet</Text>
+            </View>
+          }
+        />
+      )}
     </SafeAreaView>
   );
 }

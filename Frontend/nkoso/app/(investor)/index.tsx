@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
+  ActivityIndicator,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -14,17 +15,31 @@ import { Colors } from '@/constants/Colors';
 import { MiniChart } from '@/components/portfolio/MiniChart';
 import { PitchCard } from '@/components/pitch/PitchCard';
 import { useAuthStore } from '@/store/authStore';
-import { MOCK_PITCHES, CHART_DATA, MOCK_INVESTMENTS } from '@/services/mockData';
+import { useQuery } from '@tanstack/react-query';
+import { getPitches, getMyInvestments } from '@/services/api';
+import { CHART_DATA } from '@/services/mockData';
 
 export default function HomeScreen() {
   const { user } = useAuthStore();
   const firstName = user?.name.split(' ')[0] ?? 'Investor';
 
-  const totalValue = MOCK_INVESTMENTS.reduce((s, i) => s + i.currentValue, 0);
-  const totalChange = MOCK_INVESTMENTS.reduce((s, i) => s + i.change, 0);
-  const totalPercent = ((totalChange / (totalValue - totalChange)) * 100).toFixed(1);
+  const { data: pitches = [], isLoading: isLoadingPitches } = useQuery({
+    queryKey: ['pitches'],
+    queryFn: () => getPitches(),
+  });
 
-  const featuredPitch = MOCK_PITCHES[1];
+  const { data: investments = [], isLoading: isLoadingInvestments } = useQuery({
+    queryKey: ['myInvestments'],
+    queryFn: () => getMyInvestments(),
+  });
+
+  const totalValue = investments.reduce((s, i) => s + i.currentValue, 0);
+  const totalChange = investments.reduce((s, i) => s + i.change, 0);
+  const totalPercent = totalValue - totalChange > 0
+    ? ((totalChange / (totalValue - totalChange)) * 100).toFixed(1)
+    : '0.0';
+
+  const featuredPitch = pitches.length > 0 ? pitches[0] : null;
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -56,7 +71,7 @@ export default function HomeScreen() {
         <View style={styles.portfolioCard}>
           <Text style={styles.portfolioLabel}>Portfolio value</Text>
           <Text style={styles.portfolioValue}>
-            GH₵{totalValue.toLocaleString()}
+            {isLoadingInvestments ? 'Loading...' : `GH₵${totalValue.toLocaleString()}`}
           </Text>
           <View style={styles.changeRow}>
             <Ionicons name="arrow-up" size={12} color={Colors.accent} />
@@ -97,31 +112,45 @@ export default function HomeScreen() {
         </View>
 
         {/* Featured hero card */}
-        <TouchableOpacity
-          style={styles.featuredHero}
-          onPress={() => router.push(`/pitch/${featuredPitch.id}`)}
-          activeOpacity={0.9}
-        >
-          <Image source={{ uri: featuredPitch.imageUrl }} style={styles.featuredImg} />
-          <View style={styles.featuredOverlay}>
-            <View style={styles.featuredBadge}>
-              <Text style={styles.featuredBadgeText}>{featuredPitch.industry}</Text>
+        {featuredPitch ? (
+          <TouchableOpacity
+            style={styles.featuredHero}
+            onPress={() => router.push(`/pitch/${featuredPitch.id}`)}
+            activeOpacity={0.9}
+          >
+            <Image source={{ uri: featuredPitch.imageUrl }} style={styles.featuredImg} />
+            <View style={styles.featuredOverlay}>
+              <View style={styles.featuredBadge}>
+                <Text style={styles.featuredBadgeText}>{featuredPitch.industry}</Text>
+              </View>
+              <Text style={styles.featuredName}>{featuredPitch.businessName}</Text>
+              <Text style={styles.featuredDesc} numberOfLines={2}>
+                {featuredPitch.shortDescription}
+              </Text>
+              <Text style={styles.featuredFunded}>
+                {Math.round((featuredPitch.amountRaised / featuredPitch.amountNeeded) * 100)}% funded
+              </Text>
             </View>
-            <Text style={styles.featuredName}>{featuredPitch.businessName}</Text>
-            <Text style={styles.featuredDesc} numberOfLines={2}>
-              {featuredPitch.shortDescription}
-            </Text>
-            <Text style={styles.featuredFunded}>
-              {Math.round((featuredPitch.amountRaised / featuredPitch.amountNeeded) * 100)}% funded
-            </Text>
+          </TouchableOpacity>
+        ) : (
+          <View style={[styles.featuredHero, { justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.surface }]}>
+            {isLoadingPitches ? (
+              <ActivityIndicator color={Colors.primary} />
+            ) : (
+              <Text style={{ color: Colors.textMuted }}>No featured opportunities</Text>
+            )}
           </View>
-        </TouchableOpacity>
+        )}
 
         {/* Pitch list */}
         <View style={styles.pitchList}>
-          {MOCK_PITCHES.slice(0, 4).map((pitch) => (
-            <PitchCard key={pitch.id} pitch={pitch} compact />
-          ))}
+          {isLoadingPitches ? (
+            <ActivityIndicator size="large" color={Colors.primary} style={{ marginTop: 20 }} />
+          ) : (
+            pitches.slice(0, 4).map((pitch) => (
+              <PitchCard key={pitch.id} pitch={pitch} compact />
+            ))
+          )}
         </View>
 
         <View style={{ height: 20 }} />
