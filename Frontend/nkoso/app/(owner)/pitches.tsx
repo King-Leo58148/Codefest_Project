@@ -113,7 +113,9 @@ export default function PitchesScreen() {
           <ActivityIndicator size="large" color={Colors.primary} style={{ marginTop: 20 }} />
         ) : pitches.length > 0 ? (
           pitches.map((pitch) => {
-            const percent = pitch.amountNeeded > 0 ? (pitch.amountRaised / pitch.amountNeeded) * 100 : 0;
+            const raisedAmount = Number(pitch.amountRaised ?? 0);
+            const neededAmount = Number(pitch.amountNeeded ?? 0);
+            const percent = neededAmount > 0 ? (raisedAmount / neededAmount) * 100 : 0;
             return (
               <View key={pitch.id} style={styles.pitchCard}>
                 <View style={styles.pitchCardHeader}>
@@ -138,10 +140,10 @@ export default function PitchesScreen() {
                   </View>
                   <View style={styles.fundingRow}>
                     <Text style={styles.fundingValue}>
-                      GH₵{pitch.amountRaised.toLocaleString()}
+                      GH₵{formatCurrency(pitch.amountRaised)}
                     </Text>
                     <Text style={styles.fundingValue}>
-                      GH₵{pitch.amountNeeded.toLocaleString()}
+                      GH₵{formatCurrency(pitch.amountNeeded)}
                     </Text>
                   </View>
                   <ProgressBar percent={percent} height={8} />
@@ -155,7 +157,7 @@ export default function PitchesScreen() {
                   </View>
                   <View style={styles.metaItem}>
                     <Ionicons name="calendar-outline" size={14} color={Colors.textMuted} />
-                    <Text style={styles.metaText}>Ends {new Date(pitch.campaignEndDate).toLocaleDateString()}</Text>
+                    <Text style={styles.metaText}>Ends {formatDate(pitch.campaignEndDate)}</Text>
                   </View>
                 </View>
 
@@ -296,6 +298,20 @@ export default function PitchesScreen() {
       </Modal>
     </SafeAreaView>
   );
+}
+
+function formatCurrency(value: number | string | null | undefined) {
+  const numericValue = typeof value === 'number' ? value : Number(value ?? 0);
+  if (!Number.isFinite(numericValue)) {
+    return '0';
+  }
+  return numericValue.toLocaleString();
+}
+
+function formatDate(value: string | null | undefined) {
+  if (!value) return 'TBD';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? 'TBD' : date.toLocaleDateString();
 }
 
 const styles = StyleSheet.create({

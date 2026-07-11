@@ -34,6 +34,9 @@ export default function LoginScreen() {
       const res = await loginUser(email.trim(), password);
       setToken(res.token);
       setUser(res.user);
+
+      const destination = res.user?.role === 'OWNER' ? '/(owner)' : '/(investor)';
+      router.replace(destination);
     } catch {
       setError('Invalid email or password. Please try again.');
     } finally {

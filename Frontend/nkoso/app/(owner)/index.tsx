@@ -19,7 +19,7 @@ import { ProgressBar } from '@/components/ui/ProgressBar';
 
 export default function OwnerDashboardScreen() {
   const { user } = useAuthStore();
-  const firstName = user?.name.split(' ')[0] ?? 'Owner';
+  const firstName = user?.name?.split(' ')[0] ?? 'Owner';
 
   const { data: myPitches = [], isLoading: loadingPitches } = useQuery({
     queryKey: ['myPitches'],
@@ -35,7 +35,9 @@ export default function OwnerDashboardScreen() {
   });
 
   const pendingBids = myBids.filter((b) => b.status === 'PENDING').length;
-  const fundedPercent = myPitch ? (myPitch.amountRaised / myPitch.amountNeeded) * 100 : 0;
+  const raisedAmount = Number(myPitch?.amountRaised ?? 0);
+  const neededAmount = Number(myPitch?.amountNeeded ?? 0);
+  const fundedPercent = neededAmount > 0 ? (raisedAmount / neededAmount) * 100 : 0;
 
   if (loadingPitches || loadingBids) {
     return (
@@ -62,7 +64,7 @@ export default function OwnerDashboardScreen() {
         {/* Stats Row */}
         <View style={styles.statsRow}>
           <View style={styles.statCard}>
-            <Text style={styles.statValue}>GH₵{myPitch ? myPitch.amountRaised.toLocaleString() : 0}</Text>
+            <Text style={styles.statValue}>GH₵{myPitch ? formatCurrency(myPitch.amountRaised) : 0}</Text>
             <Text style={styles.statLabel}>Total raised</Text>
           </View>
           <View style={styles.statCard}>
@@ -102,10 +104,10 @@ export default function OwnerDashboardScreen() {
 
               <View style={styles.pitchAmounts}>
                 <Text style={styles.pitchRaised}>
-                  GH₵{myPitch.amountRaised.toLocaleString()}
+                  GH₵{formatCurrency(myPitch.amountRaised)}
                 </Text>
                 <Text style={styles.pitchGoal}>
-                  of GH₵{myPitch.amountNeeded.toLocaleString()}
+                  of GH₵{formatCurrency(myPitch.amountNeeded)}
                 </Text>
               </View>
 
@@ -121,7 +123,7 @@ export default function OwnerDashboardScreen() {
                 <Text style={styles.pitchMetaText}>{myPitch.location}</Text>
                 <Ionicons name="calendar-outline" size={12} color="rgba(255,255,255,0.6)" />
                 <Text style={styles.pitchMetaText}>
-                  Ends {new Date(myPitch.campaignEndDate).toLocaleDateString()}
+                  Ends {formatDate(myPitch.campaignEndDate)}
                 </Text>
               </View>
             </LinearGradient>
@@ -190,7 +192,7 @@ export default function OwnerDashboardScreen() {
               <View style={styles.bidInfo}>
                 <Text style={styles.bidInvestor}>{bid.investorName || 'Investor'}</Text>
                 <Text style={styles.bidDetails}>
-                  GH₵{bid.amount.toLocaleString()} · {bid.returnType} · {bid.timelineMonths}mo
+                  GH₵{formatCurrency(bid.amount)} · {bid.returnType} · {bid.timelineMonths}mo
                 </Text>
               </View>
               <View style={[styles.bidStatus, { backgroundColor: getBidStatusBg(bid.status) }]}>
@@ -219,6 +221,20 @@ export default function OwnerDashboardScreen() {
       </ScrollView>
     </SafeAreaView>
   );
+}
+
+function formatCurrency(value: number | string | null | undefined) {
+  const numericValue = typeof value === 'number' ? value : Number(value ?? 0);
+  if (!Number.isFinite(numericValue)) {
+    return '0';
+  }
+  return numericValue.toLocaleString();
+}
+
+function formatDate(value: string | null | undefined) {
+  if (!value) return 'TBD';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? 'TBD' : date.toLocaleDateString();
 }
 
 function getBidStatusBg(status: string) {

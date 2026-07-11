@@ -1,11 +1,27 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Pitch, Bid, Deal, User, Industry, BidStatus, ActivityItem, Investment } from '@/types';
 import { request } from './backendClient';
+
+async function getAuthenticatedUser(): Promise<User> {
+  return request('/auth/me');
+}
+
 // Auth
 export async function loginUser(email: string, password: string): Promise<{ token: string; user: User }> {
-  return request('/auth/login', {
+  const res = await request('/auth/login', {
     method: 'POST',
     body: JSON.stringify({ email, password }),
   });
+
+  const token = res?.accessToken || res?.token;
+  if (!token) {
+    throw new Error('Login failed: no access token returned by the backend.');
+  }
+
+  await AsyncStorage.setItem('token', token);
+  const user = await getAuthenticatedUser();
+
+  return { token, user };
 }
 
 export async function registerUser(
@@ -14,10 +30,25 @@ export async function registerUser(
   password: string,
   role: 'INVESTOR' | 'OWNER'
 ): Promise<{ token: string; user: User }> {
-  return request('/auth/signup', {
+  await request('/auth/signup', {
     method: 'POST',
-    body: JSON.stringify({ name, email, password, role }),
+    body: JSON.stringify({ name, email, password, confirmPassword: password, role }),
   });
+
+  const res = await request('/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ email, password }),
+  });
+
+  const token = res?.accessToken || res?.token;
+  if (!token) {
+    throw new Error('Registration succeeded, but login failed to return an access token.');
+  }
+
+  await AsyncStorage.setItem('token', token);
+  const user = await getAuthenticatedUser();
+
+  return { token, user };
 }
 
 export async function verifyGhanaCard(ghanaCardNumber: string): Promise<boolean> {
