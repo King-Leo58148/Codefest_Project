@@ -1,8 +1,11 @@
 package com.codewithlouis.codefest_project.controllers;
 
+import com.codewithlouis.codefest_project.dto.EmailCodeRequest;
+import com.codewithlouis.codefest_project.dto.ForgotPasswordRequest;
 import com.codewithlouis.codefest_project.dto.LoginResponseDto;
 import com.codewithlouis.codefest_project.dto.LoginUserDto;
 import com.codewithlouis.codefest_project.dto.RegisterUserDto;
+import com.codewithlouis.codefest_project.dto.ResetPasswordRequest;
 import com.codewithlouis.codefest_project.model.RefreshToken;
 import com.codewithlouis.codefest_project.model.User;
 import com.codewithlouis.codefest_project.repository.UserRepository;
@@ -11,6 +14,7 @@ import com.codewithlouis.codefest_project.services.JwtService;
 import com.codewithlouis.codefest_project.services.RefreshTokenService;
 import com.codewithlouis.codefest_project.services.TokenBlacklistService;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -30,15 +34,47 @@ public class AuthenticationController {
     private final UserRepository userRepository;
 
     @PostMapping("/signup")
-    public ResponseEntity<User> register(@RequestBody RegisterUserDto registerUserDto) {
+    public ResponseEntity<Map<String, Object>> register(@RequestBody RegisterUserDto registerUserDto) {
         User registeredUser = authenticationService.signup(registerUserDto);
-        return ResponseEntity.ok(registeredUser);
+        return ResponseEntity.ok(Map.of(
+                "email", registeredUser.getEmail(),
+                "verificationRequired", !registeredUser.isEmailVerified()
+        ));
     }
 
     @PostMapping("/login")
     public ResponseEntity<LoginResponseDto> login(@RequestBody LoginUserDto input) {
         LoginResponseDto response = authenticationService.login(input);
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/verify-email")
+    public ResponseEntity<Map<String, String>> verifyEmail(@Valid @RequestBody EmailCodeRequest request) {
+        authenticationService.verifyEmail(request);
+        return ResponseEntity.ok(Map.of("message", "Email verified successfully"));
+    }
+
+    @PostMapping("/resend-verification-code")
+    public ResponseEntity<Map<String, String>> resendVerificationCode(
+            @Valid @RequestBody ForgotPasswordRequest request
+    ) {
+        authenticationService.resendVerificationCode(request);
+        return ResponseEntity.ok(Map.of("message", "Verification code sent successfully"));
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<Map<String, String>> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        authenticationService.forgotPassword(request);
+        return ResponseEntity.ok(Map.of(
+                "message",
+                "If an account exists for that email, a password reset code has been sent"
+        ));
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<Map<String, String>> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        authenticationService.resetPassword(request);
+        return ResponseEntity.ok(Map.of("message", "Password reset successfully"));
     }
 
     @PostMapping("/refresh")
