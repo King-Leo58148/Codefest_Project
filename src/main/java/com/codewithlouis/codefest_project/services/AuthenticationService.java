@@ -21,6 +21,8 @@ import java.util.Locale;
 @Service
 @RequiredArgsConstructor
 public class AuthenticationService {
+    private static final String VERIFICATION_CODE_COOLDOWN_MESSAGE =
+            "A verification code was already sent recently";
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
@@ -40,7 +42,7 @@ public class AuthenticationService {
             if (existingUser.isEmailVerified()) {
                 throw new RuntimeException("Email already in use");
             }
-            codeService.issue(existingUser.getEmail(), VerificationPurpose.SIGNUP_EMAIL);
+            issueSignupCode(existingUser.getEmail());
             return existingUser;
         }
 
@@ -52,19 +54,20 @@ public class AuthenticationService {
         user.setEmailVerified(false);
 
         User savedUser = userRepository.save(user);
-        codeService.issue(savedUser.getEmail(), VerificationPurpose.SIGNUP_EMAIL);
+        issueSignupCode(savedUser.getEmail());
         return savedUser;
     }
 
     public LoginResponseDto login(LoginUserDto input) {
+        String normalizedEmail = normalizeEmail(input.getEmail());
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
-                        input.getEmail(),
+                        normalizedEmail,
                         input.getPassword()
                 )
         );
 
-        User user = userRepository.findByEmail(normalizeEmail(input.getEmail()))
+        User user = userRepository.findByEmail(normalizedEmail)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         if (!user.isEmailVerified()) {
@@ -130,5 +133,15 @@ public class AuthenticationService {
             throw new IllegalArgumentException("Email is required");
         }
         return email.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private void issueSignupCode(String email) {
+        try {
+            codeService.issue(email, VerificationPurpose.SIGNUP_EMAIL);
+        } catch (IllegalStateException exception) {
+            if (!VERIFICATION_CODE_COOLDOWN_MESSAGE.equals(exception.getMessage())) {
+                throw exception;
+            }
+        }
     }
 }

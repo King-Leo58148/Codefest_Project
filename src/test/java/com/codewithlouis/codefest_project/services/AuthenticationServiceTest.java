@@ -11,6 +11,7 @@ import com.codewithlouis.codefest_project.model.Role;
 import com.codewithlouis.codefest_project.model.User;
 import com.codewithlouis.codefest_project.model.VerificationPurpose;
 import com.codewithlouis.codefest_project.repository.UserRepository;
+import jakarta.persistence.Column;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -18,10 +19,13 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.hibernate.annotations.ColumnDefault;
 
+import java.lang.reflect.Field;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -33,6 +37,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -59,6 +64,9 @@ class AuthenticationServiceTest {
 
     @Captor
     private ArgumentCaptor<User> userCaptor;
+
+    @Captor
+    private ArgumentCaptor<UsernamePasswordAuthenticationToken> authenticationTokenCaptor;
 
     private AuthenticationService service;
 
@@ -107,6 +115,21 @@ class AuthenticationServiceTest {
     }
 
     @Test
+    void signupForExistingUnverifiedEmailReturnsExistingUserWhenCodeIsOnCooldown() {
+        RegisterUserDto request = registerRequest("pending@example.com");
+        User existingUser = user("pending@example.com");
+        existingUser.setEmailVerified(false);
+        when(userRepository.findByEmail("pending@example.com")).thenReturn(Optional.of(existingUser));
+        doThrow(new IllegalStateException("A verification code was already sent recently"))
+                .when(codeService).issue("pending@example.com", VerificationPurpose.SIGNUP_EMAIL);
+
+        User returned = assertDoesNotThrow(() -> service.signup(request));
+
+        assertSame(existingUser, returned);
+        verify(userRepository, never()).save(any(User.class));
+    }
+
+    @Test
     void signupRejectsExistingVerifiedEmail() {
         RegisterUserDto request = registerRequest("taken@example.com");
         User existingUser = user("taken@example.com");
@@ -135,7 +158,7 @@ class AuthenticationServiceTest {
 
     @Test
     void loginReturnsTokensForVerifiedUser() {
-        LoginUserDto loginDto = loginRequest("user@example.com");
+        LoginUserDto loginDto = loginRequest(" User@Example.com ");
         User user = user("user@example.com");
         user.setEmailVerified(true);
         RefreshToken refreshToken = new RefreshToken();
@@ -151,6 +174,19 @@ class AuthenticationServiceTest {
         assertEquals("access-token", response.getAccessToken());
         assertEquals("refresh-token", response.getRefreshToken());
         assertEquals(3600L, response.getExpiresIn());
+        verify(authenticationManager).authenticate(authenticationTokenCaptor.capture());
+        assertEquals("user@example.com", authenticationTokenCaptor.getValue().getPrincipal());
+    }
+
+    @Test
+    void emailVerifiedUsesDatabaseDefaultTrueForSchemaUpdates() throws NoSuchFieldException {
+        Field emailVerifiedField = User.class.getDeclaredField("emailVerified");
+        Column column = emailVerifiedField.getAnnotation(Column.class);
+        ColumnDefault columnDefault = emailVerifiedField.getAnnotation(ColumnDefault.class);
+
+        assertEquals("boolean default true", column.columnDefinition());
+        assertEquals("true", columnDefault.value());
+        assertTrue(new User().isEmailVerified());
     }
 
     @Test
