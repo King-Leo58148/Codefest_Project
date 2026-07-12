@@ -16,6 +16,8 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -128,6 +130,23 @@ class VerificationCodeServiceTest {
     }
 
     @Test
+    void codeExpiringExactlyNowIsRejected() {
+        VerificationCode activeCode = activeCode("user@example.com", VerificationPurpose.SIGNUP_EMAIL, "hashed-654321");
+        activeCode.setExpiresAt(now);
+        when(verificationCodeRepository.findByEmailAndPurposeAndConsumedAtIsNullOrderByCreatedAtDesc(
+                "user@example.com", VerificationPurpose.SIGNUP_EMAIL)).thenAnswer(invocation ->
+                activeCode.getConsumedAt() == null ? List.of(activeCode) : List.of());
+        when(verificationCodeRepository.save(any(VerificationCode.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0, VerificationCode.class));
+
+        assertThrows(IllegalArgumentException.class,
+                () -> service.consume("user@example.com", VerificationPurpose.SIGNUP_EMAIL, "654321"));
+
+        assertEquals(now, activeCode.getConsumedAt());
+        verify(passwordEncoder, never()).matches(any(String.class), any(String.class));
+    }
+
+    @Test
     void issuingWithinSixtySecondsIsRejected() {
         VerificationCode recentCode = activeCode("user@example.com", VerificationPurpose.SIGNUP_EMAIL, "hashed-111111");
         recentCode.setCreatedAt(now.minusSeconds(59));
@@ -165,6 +184,44 @@ class VerificationCodeServiceTest {
         assertEquals(now.plusMinutes(10), savedCodes.get(2).getExpiresAt());
     }
 
+    @Test
+    void emailSendFailureConsumesFreshCodeAndAllowsImmediateRetry() {
+        List<VerificationCode> storedCodes = new ArrayList<>();
+        recordingEmailService.failNextSend(new RuntimeException("SMTP down"));
+
+        when(verificationCodeRepository.findByEmailAndPurposeAndConsumedAtIsNullOrderByCreatedAtDesc(
+                "user@example.com", VerificationPurpose.SIGNUP_EMAIL)).thenAnswer(invocation ->
+                storedCodes.stream()
+                        .filter(code -> code.getConsumedAt() == null)
+                        .sorted(Comparator.comparing(VerificationCode::getCreatedAt).reversed())
+                        .toList());
+        when(passwordEncoder.encode(any(String.class)))
+                .thenAnswer(invocation -> "hashed-" + invocation.getArgument(0, String.class));
+        when(verificationCodeRepository.save(any(VerificationCode.class)))
+                .thenAnswer(invocation -> {
+                    VerificationCode code = invocation.getArgument(0, VerificationCode.class);
+                    if (!storedCodes.contains(code)) {
+                        storedCodes.add(code);
+                    }
+                    return code;
+                });
+
+        RuntimeException failure = assertThrows(RuntimeException.class,
+                () -> service.issue("user@example.com", VerificationPurpose.SIGNUP_EMAIL));
+        assertEquals("SMTP down", failure.getMessage());
+
+        VerificationCode failedCode = storedCodes.get(0);
+        assertEquals(now, failedCode.getConsumedAt());
+
+        assertDoesNotThrow(() -> service.issue("user@example.com", VerificationPurpose.SIGNUP_EMAIL));
+
+        assertEquals(2, storedCodes.size());
+        VerificationCode retriedCode = storedCodes.get(1);
+        assertNull(retriedCode.getConsumedAt());
+        assertEquals(now.plusMinutes(10), retriedCode.getExpiresAt());
+        assertEquals(2, recordingEmailService.sendCount);
+    }
+
     private VerificationCode activeCode(String email, VerificationPurpose purpose, String codeHash) {
         VerificationCode code = new VerificationCode();
         code.setEmail(email);
@@ -181,9 +238,14 @@ class VerificationCodeServiceTest {
         private String lastCode;
         private VerificationPurpose lastPurpose;
         private int sendCount;
+        private RuntimeException nextFailure;
 
         private RecordingEmailService() {
             super(null);
+        }
+
+        private void failNextSend(RuntimeException failure) {
+            nextFailure = failure;
         }
 
         @Override
@@ -192,6 +254,11 @@ class VerificationCodeServiceTest {
             lastCode = code;
             lastPurpose = purpose;
             sendCount++;
+            if (nextFailure != null) {
+                RuntimeException failure = nextFailure;
+                nextFailure = null;
+                throw failure;
+            }
         }
     }
 }

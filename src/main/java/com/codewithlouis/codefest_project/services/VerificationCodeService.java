@@ -53,7 +53,13 @@ public class VerificationCodeService {
         verificationCode.setAttemptCount(0);
 
         verificationCodeRepository.save(verificationCode);
-        emailService.sendVerificationCode(normalizedEmail, rawCode, purpose);
+        try {
+            emailService.sendVerificationCode(normalizedEmail, rawCode, purpose);
+        } catch (RuntimeException exception) {
+            verificationCode.setConsumedAt(LocalDateTime.now(clock));
+            verificationCodeRepository.save(verificationCode);
+            throw exception;
+        }
     }
 
     public void consume(String email, VerificationPurpose purpose, String rawCode) {
@@ -71,7 +77,7 @@ public class VerificationCodeService {
             invalidateCodes(activeCodes.subList(1, activeCodes.size()), now);
         }
 
-        if (currentCode.getExpiresAt() != null && now.isAfter(currentCode.getExpiresAt())) {
+        if (currentCode.getExpiresAt() != null && !now.isBefore(currentCode.getExpiresAt())) {
             currentCode.setConsumedAt(now);
             verificationCodeRepository.save(currentCode);
             throw new IllegalArgumentException("Invalid verification code");
