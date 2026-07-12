@@ -1,6 +1,7 @@
 package com.codewithlouis.codefest_project.services;
 
 import com.codewithlouis.codefest_project.model.Deal;
+import com.codewithlouis.codefest_project.model.VerificationPurpose;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
@@ -66,5 +67,41 @@ public class EmailService {
         } catch (Exception e) {
             throw new RuntimeException("Failed to send MFI email: " + e.getMessage());
         }
+    }
+
+    public void sendVerificationCode(String email, String code, VerificationPurpose purpose) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true);
+
+            helper.setFrom("nkosobusiness@gmail.com");
+            helper.setTo(email);
+            helper.setSubject(getVerificationSubject(purpose));
+            helper.setText("""
+                    <h2>%s</h2>
+                    <p>Your verification code is:</p>
+                    <p style="font-size: 24px; font-weight: bold; letter-spacing: 4px;">%s</p>
+                    <p>This code expires in 10 minutes.</p>
+                    <p>If you did not request this, you can ignore this email.</p>
+                    """.formatted(getVerificationHeading(purpose), code), true);
+
+            mailSender.send(message);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to send verification email: " + e.getMessage());
+        }
+    }
+
+    private String getVerificationSubject(VerificationPurpose purpose) {
+        return switch (purpose) {
+            case SIGNUP_EMAIL -> "Nkoso account verification code";
+            case PASSWORD_RESET -> "Nkoso password reset code";
+        };
+    }
+
+    private String getVerificationHeading(VerificationPurpose purpose) {
+        return switch (purpose) {
+            case SIGNUP_EMAIL -> "Verify your Nkoso account";
+            case PASSWORD_RESET -> "Reset your Nkoso password";
+        };
     }
 }
