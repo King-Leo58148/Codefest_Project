@@ -39,6 +39,8 @@ export const useAuthStore = create<AuthState>((set) => ({
     await Promise.all([
       AsyncStorage.removeItem('user'),
       AsyncStorage.removeItem('token'),
+      AsyncStorage.removeItem('refreshToken'),
+      AsyncStorage.removeItem('tokenExpiresIn'),
     ]);
     set({ user: null, token: null });
   },

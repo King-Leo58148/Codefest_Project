@@ -1,27 +1,40 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Pitch, Bid, Deal, User, Industry, BidStatus, ActivityItem, Investment } from '@/types';
 import { request } from './backendClient';
+import { AuthSession, buildAuthenticatedSession, getAccessToken } from './authSession';
 
 async function getAuthenticatedUser(): Promise<User> {
   return request('/auth/me');
 }
 
+async function persistAuthSession(session: AuthSession): Promise<void> {
+  const writes = [AsyncStorage.setItem('token', session.token)];
+
+  if (session.refreshToken) {
+    writes.push(AsyncStorage.setItem('refreshToken', session.refreshToken));
+  }
+
+  if (session.expiresIn != null) {
+    writes.push(AsyncStorage.setItem('tokenExpiresIn', String(session.expiresIn)));
+  }
+
+  await Promise.all(writes);
+}
+
 // Auth
-export async function loginUser(email: string, password: string): Promise<{ token: string; user: User }> {
-  const res = await request('/auth/login', {
+export async function loginUser(email: string, password: string): Promise<AuthSession> {
+  const loginResponse = await request('/auth/login', {
     method: 'POST',
+    auth: false,
     body: JSON.stringify({ email, password }),
   });
 
-  const token = res?.accessToken || res?.token;
-  if (!token) {
-    throw new Error('Login failed: no access token returned by the backend.');
-  }
+  await AsyncStorage.setItem('token', getAccessToken(loginResponse));
+  const userResponse = await getAuthenticatedUser();
+  const session = buildAuthenticatedSession(loginResponse, userResponse);
+  await persistAuthSession(session);
 
-  await AsyncStorage.setItem('token', token);
-  const user = await getAuthenticatedUser();
-
-  return { token, user };
+  return session;
 }
 
 export async function registerUser(
@@ -29,26 +42,25 @@ export async function registerUser(
   email: string,
   password: string,
   role: 'INVESTOR' | 'OWNER'
-): Promise<{ token: string; user: User }> {
+): Promise<AuthSession> {
   await request('/auth/signup', {
     method: 'POST',
+    auth: false,
     body: JSON.stringify({ name, email, password, confirmPassword: password, role }),
   });
 
-  const res = await request('/auth/login', {
+  const loginResponse = await request('/auth/login', {
     method: 'POST',
+    auth: false,
     body: JSON.stringify({ email, password }),
   });
 
-  const token = res?.accessToken || res?.token;
-  if (!token) {
-    throw new Error('Registration succeeded, but login failed to return an access token.');
-  }
+  await AsyncStorage.setItem('token', getAccessToken(loginResponse));
+  const userResponse = await getAuthenticatedUser();
+  const session = buildAuthenticatedSession(loginResponse, userResponse);
+  await persistAuthSession(session);
 
-  await AsyncStorage.setItem('token', token);
-  const user = await getAuthenticatedUser();
-
-  return { token, user };
+  return session;
 }
 
 export async function verifyGhanaCard(ghanaCardNumber: string): Promise<boolean> {
