@@ -1,4 +1,9 @@
-import type { ProfileUpdateInput, User, VerificationAsset } from '../types';
+import type {
+  ProfileUpdateInput,
+  SignupVerificationResponse,
+  User,
+  VerificationAsset,
+} from '../types';
 
 type RequestOptions = RequestInit & {
   auth?: boolean;
@@ -6,6 +11,7 @@ type RequestOptions = RequestInit & {
 
 type RequestFn = (path: string, options?: RequestOptions) => Promise<unknown>;
 type NormalizeUserFn = (user: unknown) => User;
+type SignupRole = 'INVESTOR' | 'OWNER';
 
 type FormDataValue =
   | string
@@ -42,6 +48,66 @@ function readMessage(response: unknown, fallback: string): { message: string } {
   }
 
   return { message: fallback };
+}
+
+function readOptionalString(response: unknown, key: string): string | undefined {
+  if (!response || typeof response !== 'object' || !(key in response)) {
+    return undefined;
+  }
+
+  const value = (response as Record<string, unknown>)[key];
+  return typeof value === 'string' && value.trim().length > 0 ? value : undefined;
+}
+
+function readBooleanFlag(response: unknown, key: string): boolean | undefined {
+  if (!response || typeof response !== 'object' || !(key in response)) {
+    return undefined;
+  }
+
+  const value = (response as Record<string, unknown>)[key];
+
+  if (typeof value === 'boolean') {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === 'true') {
+      return true;
+    }
+    if (normalized === 'false') {
+      return false;
+    }
+  }
+
+  if (typeof value === 'number') {
+    if (value === 1) {
+      return true;
+    }
+    if (value === 0) {
+      return false;
+    }
+  }
+
+  return undefined;
+}
+
+function readSignupResponse(
+  response: unknown,
+  fallbackEmail: string
+): SignupVerificationResponse {
+  const verificationRequired =
+    readBooleanFlag(response, 'verificationRequired') ??
+    !(
+      readBooleanFlag(response, 'emailVerified') ??
+      false
+    );
+
+  return {
+    email: readOptionalString(response, 'email') ?? fallbackEmail,
+    verificationRequired,
+    message: readOptionalString(response, 'message'),
+  };
 }
 
 export function buildProfileUpdatePayload(input: ProfileUpdateInput): ProfileUpdateInput {
@@ -103,6 +169,28 @@ export function buildGhanaCardVerificationFormData(
 
 export function createAccountApi(request: RequestFn, normalizeUser: NormalizeUserFn) {
   return {
+    async signup(
+      name: string,
+      email: string,
+      password: string,
+      role: SignupRole
+    ): Promise<SignupVerificationResponse> {
+      const normalizedEmail = email.trim();
+      const response = await request('/auth/signup', {
+        method: 'POST',
+        auth: false,
+        body: JSON.stringify({
+          name: name.trim(),
+          email: normalizedEmail,
+          password,
+          confirmPassword: password,
+          role,
+        }),
+      });
+
+      return readSignupResponse(response, normalizedEmail);
+    },
+
     async verifySignupEmail(email: string, code: string): Promise<{ message: string }> {
       const response = await request('/auth/verify-email', {
         method: 'POST',
@@ -166,8 +254,14 @@ export function createAccountApi(request: RequestFn, normalizeUser: NormalizeUse
         body: buildGhanaCardVerificationFormData(cardNumber, asset) as BodyInit,
       });
 
-      if (response && typeof response === 'object' && 'success' in response) {
-        return Boolean((response as { success?: unknown }).success);
+      const verified = readBooleanFlag(response, 'verified');
+      if (verified != null) {
+        return verified;
+      }
+
+      const success = readBooleanFlag(response, 'success');
+      if (success != null) {
+        return success;
       }
 
       return true;

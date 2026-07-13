@@ -7,6 +7,7 @@ import {
   Industry,
   Investment,
   Pitch,
+  SignupVerificationResponse,
   User,
   VerificationAsset,
 } from '@/types';
@@ -62,25 +63,8 @@ export async function registerUser(
   email: string,
   password: string,
   role: 'INVESTOR' | 'OWNER'
-): Promise<AuthSession> {
-  await request('/auth/signup', {
-    method: 'POST',
-    auth: false,
-    body: JSON.stringify({ name, email, password, confirmPassword: password, role }),
-  });
-
-  const loginResponse = await request('/auth/login', {
-    method: 'POST',
-    auth: false,
-    body: JSON.stringify({ email, password }),
-  });
-
-  await AsyncStorage.setItem('token', getAccessToken(loginResponse as any));
-  const userResponse = await getAuthenticatedUser();
-  const session = buildAuthenticatedSession(loginResponse as any, userResponse);
-  await persistAuthSession(session);
-
-  return session;
+): Promise<SignupVerificationResponse> {
+  return accountApi.signup(name, email, password, role);
 }
 
 export const verifySignupEmail = accountApi.verifySignupEmail;
@@ -91,12 +75,8 @@ export const updateProfile = accountApi.updateProfile;
 
 export async function verifyGhanaCard(
   ghanaCardNumber: string,
-  asset?: VerificationAsset
+  asset: VerificationAsset
 ): Promise<boolean> {
-  if (!asset) {
-    throw new Error('Ghana Card image is required.');
-  }
-
   return accountApi.verifyGhanaCard(ghanaCardNumber, asset);
 }
 

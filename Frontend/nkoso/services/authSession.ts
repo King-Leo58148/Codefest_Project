@@ -27,16 +27,45 @@ export function getAccessToken(response: BackendLoginResponse): string {
   return token;
 }
 
+function normalizeBoolean(value: unknown): boolean | undefined {
+  if (typeof value === 'boolean') {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === 'true') {
+      return true;
+    }
+    if (normalized === 'false') {
+      return false;
+    }
+  }
+
+  if (typeof value === 'number') {
+    if (value === 1) {
+      return true;
+    }
+    if (value === 0) {
+      return false;
+    }
+  }
+
+  return undefined;
+}
+
 export function normalizeBackendUser(user: BackendUserResponse): User {
-  const ghanaCardVerified = Boolean(user.ghanaCardVerified);
-  const momoVerified = Boolean(user.momoVerified);
+  const ghanaCardVerified = normalizeBoolean(user.ghanaCardVerified) ?? false;
+  const momoVerified = normalizeBoolean(user.momoVerified) ?? false;
+  const emailVerified = normalizeBoolean(user.emailVerified) ?? true;
 
   const normalized: User = {
     id: user.id == null ? '' : String(user.id),
     name: user.name ?? '',
     email: user.email ?? '',
     role: user.role ?? 'INVESTOR',
-    isVerified: user.isVerified ?? (ghanaCardVerified && momoVerified),
+    isVerified: normalizeBoolean(user.isVerified) ?? (ghanaCardVerified && momoVerified),
+    emailVerified,
     ghanaCardVerified,
     momoVerified,
   };

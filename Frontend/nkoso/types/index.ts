@@ -57,6 +57,12 @@ export interface VerificationAsset {
   type?: string;
 }
 
+export interface SignupVerificationResponse {
+  email: string;
+  verificationRequired: boolean;
+  message?: string;
+}
+
 export interface ProfileUpdateInput {
   name?: string;
   currentPassword?: string;
