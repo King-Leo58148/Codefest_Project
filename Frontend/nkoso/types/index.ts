@@ -7,17 +7,27 @@ export interface User {
   role: UserRole;
   avatarUrl?: string;
   isVerified: boolean;
+  emailVerified?: boolean;
   ghanaCardVerified: boolean;
   momoVerified: boolean;
   momoNumber?: string;
   ghanaCardNumber?: string;
 }
 
-export type PitchStatus = 'PENDING' | 'LIVE' | 'FUNDED';
+export type PitchStatus = 'PENDING' | 'LIVE' | 'FUNDED' | 'EXPIRED' | 'REJECTED';
 export type OfferType = 'EQUITY' | 'REVENUE_SHARE' | 'FIXED';
 export type ReturnType = 'EQUITY' | 'REVENUE_SHARE' | 'FIXED';
 export type BidStatus = 'PENDING' | 'COUNTERED' | 'ACCEPTED' | 'REJECTED';
-export type DealStatus = 'PENDING_MFI' | 'MFI_APPROVED' | 'FUNDED' | 'ACTIVE' | 'COMPLETED' | 'DEFAULTED';
+export type DealStatus =
+  | 'PENDING_SIGNATURES'
+  | 'PENDING_MFI'
+  | 'MFI_APPROVED'
+  | 'PAYMENT_PENDING'
+  | 'FUNDED'
+  | 'ACTIVE'
+  | 'COMPLETED'
+  | 'DEFAULTED'
+  | 'CANCELLED';
 export type RepaymentStatus = 'PENDING' | 'COLLECTED' | 'MISSED';
 
 export type Industry =
@@ -28,7 +38,32 @@ export type Industry =
   | 'Sustainability'
   | 'Fitness'
   | 'Agriculture'
-  | 'Retail';
+  | 'Retail'
+  | 'Transport'
+  | 'Fashion'
+  | 'Beauty & Cosmetics'
+  | 'Construction'
+  | 'Education'
+  | 'Entertainment'
+  | 'Hospitality'
+  | 'Manufacturing'
+  | 'Other';
+
+export interface VerificationAsset {
+  uri: string;
+  fileName?: string;
+  mimeType?: string;
+  name?: string;
+  type?: string;
+}
+
+export interface ProfileUpdateInput {
+  name?: string;
+  currentPassword?: string;
+  newPassword?: string;
+  confirmPassword?: string;
+  momoNumber?: string;
+}
 
 export interface Pitch {
   id: string;
