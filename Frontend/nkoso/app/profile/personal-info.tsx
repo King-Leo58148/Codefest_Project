@@ -1,186 +1,62 @@
-import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-} from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/Colors';
-import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { getCurrentUser, updateProfile } from '@/services/api';
 import { useAuthStore } from '@/store/authStore';
+
+const digits = (value: string) => value.replace(/\D/g, '');
+export const didMomoChange = (original?: string, next?: string) => Boolean(next?.trim()) && digits(original || '') !== digits(next || '');
 
 export default function PersonalInfoScreen() {
   const { user, setUser } = useAuthStore();
-  const [name, setName] = useState(user?.name ?? '');
-  const [email, setEmail] = useState(user?.email ?? '');
-  const [phone, setPhone] = useState('024 000 0000');
-  const [dob, setDob] = useState('');
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(user?.name || '');
+  const [momoNumber, setMomoNumber] = useState(user?.momoNumber || '');
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const momoChanged = useMemo(() => didMomoChange(user?.momoNumber, momoNumber), [user?.momoNumber, momoNumber]);
 
-  const handleSave = async () => {
-    if (!name.trim() || !email.trim()) {
-      Alert.alert('Required', 'Name and email are required.');
-      return;
+  const save = async () => {
+    if (!name.trim()) return Alert.alert('Name required', 'Enter your display name.');
+    if (newPassword || confirmPassword || currentPassword) {
+      if (!currentPassword || !newPassword || !confirmPassword) return Alert.alert('Password required', 'Enter your current password and confirm the new password.');
+      if (newPassword !== confirmPassword) return Alert.alert('Passwords do not match', 'Enter matching new passwords.');
     }
+    if (momoNumber.trim() && digits(momoNumber).length !== 10) return Alert.alert('Invalid MoMo number', 'Enter a 10-digit MoMo number.');
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 800));
-    setUser({ ...user!, name: name.trim(), email: email.trim() });
-    setLoading(false);
-    Alert.alert('Saved', 'Your personal information has been updated.', [
-      { text: 'OK', onPress: () => router.back() },
-    ]);
+    try {
+      const updated = await updateProfile({ name, momoNumber, currentPassword, newPassword, confirmPassword });
+      const serverUser = await getCurrentUser().catch(() => updated);
+      setUser(serverUser);
+      setEditing(false);
+      if (momoChanged) {
+        Alert.alert('MoMo verification needed', 'Your changed MoMo number must be verified again.', [{ text: 'Verify now', onPress: () => router.replace('/profile/verification') }]);
+      } else Alert.alert('Saved', 'Your personal information has been updated.');
+    } catch (error) { Alert.alert('Could not save', error instanceof Error ? error.message : 'Please try again.'); }
+    finally { setLoading(false); }
   };
 
-  return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} activeOpacity={0.7}>
-            <Ionicons name="arrow-back" size={22} color={Colors.textPrimary} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Personal information</Text>
-          <View style={{ width: 38 }} />
-        </View>
-
-        <ScrollView
-          contentContainerStyle={styles.content}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Avatar */}
-          <View style={styles.avatarSection}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>
-                {name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)}
-              </Text>
-            </View>
-            <TouchableOpacity style={styles.changePhotoBtn} activeOpacity={0.7}>
-              <Text style={styles.changePhotoText}>Change photo</Text>
-            </TouchableOpacity>
-          </View>
-
-          <Input
-            label="Full name"
-            value={name}
-            onChangeText={setName}
-            placeholder="Kwame Mensah"
-            leftIcon="person-outline"
-          />
-          <Input
-            label="Email address"
-            value={email}
-            onChangeText={setEmail}
-            placeholder="you@example.com"
-            keyboardType="email-address"
-            autoCapitalize="none"
-            leftIcon="mail-outline"
-          />
-          <Input
-            label="Phone number"
-            value={phone}
-            onChangeText={setPhone}
-            placeholder="024 XXX XXXX"
-            keyboardType="phone-pad"
-            leftIcon="call-outline"
-          />
-          <Input
-            label="Date of birth"
-            value={dob}
-            onChangeText={setDob}
-            placeholder="DD / MM / YYYY"
-            leftIcon="calendar-outline"
-          />
-
-          {user?.ghanaCardNumber && (
-            <View style={styles.readOnlyField}>
-              <Text style={styles.readOnlyLabel}>Ghana Card number</Text>
-              <View style={styles.readOnlyValue}>
-                <Ionicons name="card-outline" size={16} color={Colors.textMuted} />
-                <Text style={styles.readOnlyText}>{user.ghanaCardNumber}</Text>
-                <View style={styles.verifiedBadge}>
-                  <Ionicons name="checkmark-circle" size={14} color={Colors.accent} />
-                  <Text style={styles.verifiedText}>Verified</Text>
-                </View>
-              </View>
-            </View>
-          )}
-
-          <Button
-            title="Save changes"
-            onPress={handleSave}
-            loading={loading}
-            style={styles.saveBtn}
-          />
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
-  );
+  return <SafeAreaView style={styles.safe} edges={['top']}><KeyboardAvoidingView style={styles.safe} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <View style={styles.header}><TouchableOpacity onPress={() => router.back()} style={styles.icon}><Ionicons name="arrow-back" size={22} color={Colors.textPrimary} /></TouchableOpacity><Text style={styles.title}>Personal information</Text><TouchableOpacity onPress={() => setEditing((value) => !value)} style={styles.edit}><Text style={styles.editText}>{editing ? 'Cancel' : 'Edit'}</Text></TouchableOpacity></View>
+    <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <Field label="Email address" value={user?.email || ''} icon="mail-outline" /><Field label="Account role" value={user?.role || ''} icon="business-outline" />
+      {editing ? <><Input label="Display name" value={name} onChangeText={setName} leftIcon="person-outline" />
+        <Input label="MoMo number" value={momoNumber} onChangeText={setMomoNumber} keyboardType="phone-pad" leftIcon="phone-portrait-outline" />
+        {momoChanged ? <Text style={styles.note}>Changing this number requires MoMo verification again.</Text> : null}
+        <Text style={styles.subheading}>Change password</Text><Input label="Current password" value={currentPassword} onChangeText={setCurrentPassword} secure leftIcon="lock-closed-outline" />
+        <Input label="New password" value={newPassword} onChangeText={setNewPassword} secure leftIcon="lock-closed-outline" />
+        <Input label="Confirm new password" value={confirmPassword} onChangeText={setConfirmPassword} secure leftIcon="lock-closed-outline" />
+        <Button title="Save changes" onPress={save} loading={loading} />
+      </> : <><Field label="Display name" value={user?.name || ''} icon="person-outline" /><Field label="MoMo number" value={user?.momoNumber || 'Not added'} icon="phone-portrait-outline" /><Text style={styles.hint}>Use Edit to update your display name, password, or MoMo number.</Text></>}
+    </ScrollView>
+  </KeyboardAvoidingView></SafeAreaView>;
 }
-
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.background },
-  flex: { flex: 1 },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: Colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  backBtn: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: {
-    flex: 1,
-    fontSize: 17,
-    fontWeight: '700',
-    color: Colors.textPrimary,
-    textAlign: 'center',
-  },
-  content: { padding: 20, paddingBottom: 40 },
-  avatarSection: { alignItems: 'center', marginBottom: 28, gap: 10 },
-  avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: Colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarText: { fontSize: 28, fontWeight: '700', color: '#fff' },
-  changePhotoBtn: { paddingVertical: 6, paddingHorizontal: 16 },
-  changePhotoText: { fontSize: 14, fontWeight: '600', color: Colors.primary },
-  readOnlyField: { marginBottom: 16 },
-  readOnlyLabel: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: Colors.textSecondary,
-    marginBottom: 6,
-  },
-  readOnlyValue: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    backgroundColor: Colors.borderLight,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 13,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  readOnlyText: { flex: 1, fontSize: 15, color: Colors.textSecondary },
-  verifiedBadge: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  verifiedText: { fontSize: 12, fontWeight: '600', color: Colors.accent },
-  saveBtn: { marginTop: 8 },
-});
+function Field({ label, value, icon }: { label: string; value: string; icon: keyof typeof Ionicons.glyphMap }) { return <View style={styles.field}><Text style={styles.label}>{label}</Text><View style={styles.fieldValue}><Ionicons name={icon} size={17} color={Colors.textMuted} /><Text style={styles.value}>{value}</Text></View></View>; }
+const styles = StyleSheet.create({safe:{flex:1,backgroundColor:Colors.background},header:{height:62,paddingHorizontal:16,backgroundColor:Colors.surface,flexDirection:'row',alignItems:'center',borderBottomWidth:1,borderBottomColor:Colors.border},icon:{width:40},title:{flex:1,textAlign:'center',fontSize:17,fontWeight:'700',color:Colors.textPrimary},edit:{width:52,alignItems:'flex-end'},editText:{fontSize:14,fontWeight:'700',color:Colors.primary},content:{padding:20,gap:14},field:{gap:6},label:{fontSize:13,color:Colors.textSecondary,fontWeight:'600'},fieldValue:{height:48,paddingHorizontal:14,backgroundColor:Colors.borderLight,borderRadius:8,flexDirection:'row',gap:10,alignItems:'center'},value:{color:Colors.textPrimary,fontSize:15,flex:1},hint:{fontSize:13,lineHeight:19,color:Colors.textSecondary},note:{fontSize:13,color:'#B45309',lineHeight:18},subheading:{marginTop:6,fontSize:15,fontWeight:'700',color:Colors.textPrimary} });

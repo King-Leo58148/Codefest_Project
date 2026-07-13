@@ -58,6 +58,7 @@ export default function OwnerTabLayout() {
           ),
         }}
       />
+      <Tabs.Screen name="deals" options={{ href: null }} />
     </Tabs>
   );
 }

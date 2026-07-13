@@ -22,7 +22,7 @@ public class ProfileService {
             throw new IllegalArgumentException("Profile update is required");
         }
 
-        User user = userRepository.findByEmail(normalizeEmail(authenticatedEmail))
+        User user = userRepository.findByEmailIgnoreCase(normalizeEmail(authenticatedEmail))
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         updateName(user, request.getName());

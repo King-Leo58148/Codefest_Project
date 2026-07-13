@@ -104,22 +104,16 @@ export async function getPitch(id: string): Promise<Pitch | undefined> {
 
 export async function createPitch(data: any): Promise<Pitch> {
   const formData = new FormData();
-  Object.keys(data).forEach((key) => {
-    if (data[key] !== undefined) {
-      if (key === 'image' && data[key].uri) {
-        formData.append(
-          'image',
-          {
-            uri: data[key].uri,
-            name: 'pitch_image.jpg',
-            type: 'image/jpeg',
-          } as any
-        );
-      } else {
-        formData.append(key, data[key]);
-      }
-    }
-  });
+  if (!data?.video?.uri) {
+    throw new Error('A pitch video is required.');
+  }
+
+  formData.append('data', JSON.stringify(data.data));
+  formData.append('video', {
+    uri: data.video.uri,
+    name: data.video.fileName || 'pitch-video.mp4',
+    type: data.video.mimeType || 'video/mp4',
+  } as any);
 
   return ownerDataApi.normalizePitch(
     await request('/api/pitches', {

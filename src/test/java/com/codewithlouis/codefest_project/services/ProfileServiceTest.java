@@ -48,7 +48,7 @@ class ProfileServiceTest {
         User user = user("owner@example.com");
         user.setMomoNumber("0550001111");
         user.setMomoVerified(true);
-        when(userRepository.findByEmail("owner@example.com")).thenReturn(Optional.of(user));
+        when(userRepository.findByEmailIgnoreCase("owner@example.com")).thenReturn(Optional.of(user));
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0, User.class));
 
         ProfileUpdateRequest request = new ProfileUpdateRequest();
@@ -70,7 +70,7 @@ class ProfileServiceTest {
         User user = user("owner@example.com");
         user.setMomoNumber("0550001111");
         user.setMomoVerified(true);
-        when(userRepository.findByEmail("owner@example.com")).thenReturn(Optional.of(user));
+        when(userRepository.findByEmailIgnoreCase("owner@example.com")).thenReturn(Optional.of(user));
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0, User.class));
 
         ProfileUpdateRequest request = new ProfileUpdateRequest();
@@ -86,7 +86,7 @@ class ProfileServiceTest {
     @Test
     void updateProfileRejectsInvalidMomoNumber() {
         User user = user("owner@example.com");
-        when(userRepository.findByEmail("owner@example.com")).thenReturn(Optional.of(user));
+        when(userRepository.findByEmailIgnoreCase("owner@example.com")).thenReturn(Optional.of(user));
 
         ProfileUpdateRequest request = new ProfileUpdateRequest();
         request.setMomoNumber("12345");
@@ -103,7 +103,7 @@ class ProfileServiceTest {
         User user = user("owner@example.com");
         user.setMomoNumber("0550001111");
         user.setMomoVerified(true);
-        when(userRepository.findByEmail("owner@example.com")).thenReturn(Optional.of(user));
+        when(userRepository.findByEmailIgnoreCase("owner@example.com")).thenReturn(Optional.of(user));
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0, User.class));
 
         ProfileUpdateRequest request = new ProfileUpdateRequest();
@@ -125,7 +125,7 @@ class ProfileServiceTest {
     @Test
     void updateProfileRejectsPasswordChangeWhenCurrentPasswordIsWrong() {
         User user = user("owner@example.com");
-        when(userRepository.findByEmail("owner@example.com")).thenReturn(Optional.of(user));
+        when(userRepository.findByEmailIgnoreCase("owner@example.com")).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("WrongPassword1!", "encoded-current-password")).thenReturn(false);
 
         ProfileUpdateRequest request = new ProfileUpdateRequest();
@@ -143,7 +143,7 @@ class ProfileServiceTest {
     @Test
     void updateProfileEncodesPasswordWhenChangeIsValid() {
         User user = user("owner@example.com");
-        when(userRepository.findByEmail("owner@example.com")).thenReturn(Optional.of(user));
+        when(userRepository.findByEmailIgnoreCase("owner@example.com")).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("CurrentPassword1!", "encoded-current-password")).thenReturn(true);
         when(passwordEncoder.encode("NewPassword1!")).thenReturn("encoded-new-password");
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0, User.class));

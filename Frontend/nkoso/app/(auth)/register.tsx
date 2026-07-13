@@ -13,8 +13,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
-import { useAuthStore } from '@/store/authStore';
 import { registerUser } from '@/services/api';
+import { passwordsMatch } from '@/services/accountValidation';
 
 type Role = 'INVESTOR' | 'OWNER';
 
@@ -26,14 +26,21 @@ export default function RegisterScreen() {
   const [role, setRole] = useState<Role>('INVESTOR');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const { setUser, setToken } = useAuthStore();
+
+  const getErrorMessage = (value: unknown, fallback: string) => {
+    if (value instanceof Error && value.message.trim().length > 0) {
+      return value.message;
+    }
+
+    return fallback;
+  };
 
   const handleRegister = async () => {
     if (!name.trim() || !email.trim() || !password.trim() || !confirmPassword.trim()) {
       setError('Please fill in all fields.');
       return;
     }
-    if (password !== confirmPassword) {
+    if (!passwordsMatch(password, confirmPassword)) {
       setError('Passwords do not match.');
       return;
     }
@@ -44,12 +51,13 @@ export default function RegisterScreen() {
     setError('');
     setLoading(true);
     try {
-      const res = await registerUser(name.trim(), email.trim(), password, role);
-      setToken(res.token);
-      setUser(res.user);
-      router.push('/(auth)/verify-ghana-card');
-    } catch {
-      setError('Registration failed. Please try again.');
+      await registerUser(name.trim(), email.trim(), password, role);
+      router.push({
+        pathname: '/(auth)/verify-email',
+        params: { email: email.trim() },
+      });
+    } catch (caught) {
+      setError(getErrorMessage(caught, 'Registration failed. Please try again.'));
     } finally {
       setLoading(false);
     }

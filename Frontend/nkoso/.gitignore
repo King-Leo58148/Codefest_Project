@@ -35,6 +35,8 @@ yarn-error.*
 
 # typescript
 *.tsbuildinfo
+.tmp-*/
+expo-web.*.log
 
 # generated native folders
 /ios
