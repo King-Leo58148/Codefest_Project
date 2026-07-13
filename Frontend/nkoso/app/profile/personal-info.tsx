@@ -8,9 +8,8 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { getCurrentUser, updateProfile } from '@/services/api';
 import { useAuthStore } from '@/store/authStore';
+import { buildProfileUpdate, didMomoChange } from '@/services/profileHelpers';
 
-const digits = (value: string) => value.replace(/\D/g, '');
-export const didMomoChange = (original?: string, next?: string) => Boolean(next?.trim()) && digits(original || '') !== digits(next || '');
 
 export default function PersonalInfoScreen() {
   const { user, setUser } = useAuthStore();
@@ -29,10 +28,10 @@ export default function PersonalInfoScreen() {
       if (!currentPassword || !newPassword || !confirmPassword) return Alert.alert('Password required', 'Enter your current password and confirm the new password.');
       if (newPassword !== confirmPassword) return Alert.alert('Passwords do not match', 'Enter matching new passwords.');
     }
-    if (momoNumber.trim() && digits(momoNumber).length !== 10) return Alert.alert('Invalid MoMo number', 'Enter a 10-digit MoMo number.');
+    if (momoNumber.trim() && momoNumber.replace(/\D/g, '').length !== 10) return Alert.alert('Invalid MoMo number', 'Enter a 10-digit MoMo number.');
     setLoading(true);
     try {
-      const updated = await updateProfile({ name, momoNumber, currentPassword, newPassword, confirmPassword });
+      const updated = await updateProfile(buildProfileUpdate({ name, momoNumber, currentPassword, newPassword, confirmPassword }));
       const serverUser = await getCurrentUser().catch(() => updated);
       setUser(serverUser);
       setEditing(false);

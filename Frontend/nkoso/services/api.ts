@@ -108,7 +108,10 @@ export async function createPitch(data: any): Promise<Pitch> {
     throw new Error('A pitch video is required.');
   }
 
-  formData.append('data', JSON.stringify(data.data));
+  formData.append(
+    'data',
+    new Blob([JSON.stringify(data.data)], { type: 'application/json' }) as any
+  );
   formData.append('video', {
     uri: data.video.uri,
     name: data.video.fileName || 'pitch-video.mp4',

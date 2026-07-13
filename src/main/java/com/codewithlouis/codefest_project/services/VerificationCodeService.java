@@ -6,6 +6,7 @@ import com.codewithlouis.codefest_project.repository.VerificationCodeRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
 import java.time.Clock;
@@ -28,6 +29,7 @@ public class VerificationCodeService {
 
     private final SecureRandom secureRandom = new SecureRandom();
 
+    @Transactional
     public void issue(String email, VerificationPurpose purpose) {
         String normalizedEmail = normalizeEmail(email);
         LocalDateTime now = LocalDateTime.now(clock);
@@ -62,6 +64,7 @@ public class VerificationCodeService {
         }
     }
 
+    @Transactional
     public void consume(String email, VerificationPurpose purpose, String rawCode) {
         String normalizedEmail = normalizeEmail(email);
         LocalDateTime now = LocalDateTime.now(clock);
