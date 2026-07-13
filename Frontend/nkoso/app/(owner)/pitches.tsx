@@ -28,7 +28,7 @@ export default function PitchesScreen() {
   const [showCreate, setShowCreate] = useState(false);
   const queryClient = useQueryClient();
 
-  const { data: pitches = [], isLoading: loadingPitches } = useQuery({
+  const { data: pitches = [], isLoading: loadingPitches, isError, error, refetch } = useQuery({
     queryKey: ['myPitches'],
     queryFn: () => getMyPitches(),
   });
@@ -77,20 +77,22 @@ export default function PitchesScreen() {
   };
 
   const handleCreate = async () => {
-    if (!businessName || !description || !monthlyIncome || !amountNeeded) {
-      Alert.alert('Missing fields', 'Please fill in all required fields.');
+    if (!businessName || !description || !monthlyIncome || !amountNeeded || !videoUri) {
+      Alert.alert('Missing fields', 'Please fill in all required fields and choose a pitch video.');
       return;
     }
     createMutation.mutate({
-      businessName,
-      description,
-      monthlyIncome: Number(monthlyIncome),
-      amountNeeded: Number(amountNeeded),
-      offerType: 'EQUITY',
-      offerValue: Number(offerValue) || 0,
-      location,
-      industry: 'Technology', // Default since no picker exists yet
-      image: videoUri ? { uri: videoUri } : undefined, // Currently API uses 'image'
+      data: {
+        businessName,
+        description,
+        monthlyIncome: Number(monthlyIncome),
+        amountNeeded: Number(amountNeeded),
+        offerType: 'EQUITY',
+        offerValue: Number(offerValue) || 0,
+        location,
+        industry: 'TECHNOLOGY',
+      },
+      video: { uri: videoUri, fileName: 'pitch-video.mp4', mimeType: 'video/mp4' },
     });
   };
 
@@ -111,6 +113,15 @@ export default function PitchesScreen() {
         {/* Pitches */}
         {loadingPitches ? (
           <ActivityIndicator size="large" color={Colors.primary} style={{ marginTop: 20 }} />
+        ) : isError ? (
+          <View style={styles.emptyCard}>
+            <Ionicons name="alert-circle-outline" size={32} color={Colors.accentRed} />
+            <Text style={styles.emptyText}>Could not load your pitches</Text>
+            <Text style={styles.emptyDesc}>{error instanceof Error ? error.message : 'Please try again.'}</Text>
+            <TouchableOpacity style={styles.createBtn} onPress={() => refetch()} activeOpacity={0.8}>
+              <Text style={styles.createBtnText}>Retry</Text>
+            </TouchableOpacity>
+          </View>
         ) : pitches.length > 0 ? (
           pitches.map((pitch) => {
             const raisedAmount = Number(pitch.amountRaised ?? 0);
@@ -178,10 +189,16 @@ export default function PitchesScreen() {
               </View>
             );
           })
-        ) : null}
+        ) : (
+          <View style={styles.emptyCard}>
+            <Ionicons name="megaphone-outline" size={32} color={Colors.textMuted} />
+            <Text style={styles.emptyText}>No pitches yet</Text>
+            <Text style={styles.emptyDesc}>Create your first pitch to start raising capital.</Text>
+          </View>
+        )}
 
         {/* No more pitches message */}
-        <View style={styles.emptyCard}>
+        {pitches.length > 0 && !isError ? <View style={styles.emptyCard}>
           <Ionicons name="add-circle-outline" size={32} color={Colors.textMuted} />
           <Text style={styles.emptyText}>Create another pitch</Text>
           <Text style={styles.emptyDesc}>
@@ -194,7 +211,7 @@ export default function PitchesScreen() {
           >
             <Text style={styles.createBtnText}>+ New Pitch</Text>
           </TouchableOpacity>
-        </View>
+        </View> : null}
       </ScrollView>
 
       {/* Create Pitch Modal */}

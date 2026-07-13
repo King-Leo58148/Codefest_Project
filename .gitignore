@@ -31,6 +31,8 @@ build/
 
 ### VS Code ###
 .vscode/
+.worktrees/
+.superpowers/
 # Node / React
 node_modules/
 dist/

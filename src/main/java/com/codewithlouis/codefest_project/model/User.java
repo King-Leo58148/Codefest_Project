@@ -2,6 +2,7 @@ package com.codewithlouis.codefest_project.model;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
+import org.hibernate.annotations.ColumnDefault;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -49,6 +50,10 @@ public class User implements UserDetails {
 
     @Column(nullable = false)
     private boolean suspended = false;
+
+    @Column(nullable = false, columnDefinition = "boolean default true")
+    @ColumnDefault("true")
+    private boolean emailVerified = true;
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {

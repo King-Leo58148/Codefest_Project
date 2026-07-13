@@ -1,4 +1,4 @@
-import { Pitch, Bid, Deal, ActivityItem, Investment, User } from '@/types';
+import { Pitch, Deal, ActivityItem, Investment, User } from '@/types';
 
 export const MOCK_PITCHES: Pitch[] = [
   {
@@ -269,47 +269,6 @@ export const MOCK_ACTIVITY: ActivityItem[] = [
     isCredit: false,
     description: 'Investment completed',
     date: 'Apr 15',
-  },
-];
-
-export const MOCK_BIDS: Bid[] = [
-  {
-    id: 'b1',
-    pitchId: 'p1',
-    investorId: 'u1',
-    investorName: 'Alex Smith',
-    amount: 5000,
-    returnType: 'EQUITY',
-    returnValue: 2.5,
-    timelineMonths: 24,
-    status: 'PENDING',
-    note: 'I love the sustainable farming model and see great growth potential in the Ashanti Region.',
-    createdAt: '2024-03-15',
-  },
-  {
-    id: 'b2',
-    pitchId: 'p1',
-    investorId: 'u2',
-    investorName: 'Diana Owusu',
-    amount: 3000,
-    returnType: 'EQUITY',
-    returnValue: 1.5,
-    timelineMonths: 18,
-    status: 'COUNTERED',
-    note: 'Interested in the cold chain logistics aspect.',
-    createdAt: '2024-03-16',
-  },
-  {
-    id: 'b3',
-    pitchId: 'p2',
-    investorId: 'u1',
-    investorName: 'Alex Smith',
-    amount: 2000,
-    returnType: 'REVENUE_SHARE',
-    returnValue: 8,
-    timelineMonths: 12,
-    status: 'ACCEPTED',
-    createdAt: '2024-03-10',
   },
 ];
 

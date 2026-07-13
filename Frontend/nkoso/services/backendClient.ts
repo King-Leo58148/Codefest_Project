@@ -2,15 +2,20 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export const BASE_URL = process.env.EXPO_PUBLIC_API_URL || "https://codefest-project.onrender.com";
 
-export async function request(path: string, options: RequestInit = {}) {
-  const token = await AsyncStorage.getItem('token');
+type BackendRequestOptions = RequestInit & {
+  auth?: boolean;
+};
+
+export async function request(path: string, options: BackendRequestOptions = {}) {
+  const { auth = true, ...fetchOptions } = options;
+  const token = auth ? await AsyncStorage.getItem('token') : null;
   
   // Create headers, don't set Content-Type if body is FormData
-  const isFormData = options.body instanceof FormData;
+  const isFormData = fetchOptions.body instanceof FormData;
   
   const headers: Record<string, string> = {
     ...(!isFormData && { 'Content-Type': 'application/json' }),
-    ...(options.headers as Record<string, string> || {}),
+    ...(fetchOptions.headers as Record<string, string> || {}),
   };
 
   if (token) {
@@ -18,7 +23,7 @@ export async function request(path: string, options: RequestInit = {}) {
   }
 
   const response = await fetch(`${BASE_URL}${path}`, {
-    ...options,
+    ...fetchOptions,
     headers,
   });
 

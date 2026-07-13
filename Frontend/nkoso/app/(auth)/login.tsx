@@ -8,7 +8,7 @@ import {
   Platform,
   ScrollView,
 } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { Input } from '@/components/ui/Input';
@@ -17,11 +17,21 @@ import { useAuthStore } from '@/store/authStore';
 import { loginUser } from '@/services/api';
 
 export default function LoginScreen() {
-  const [email, setEmail] = useState('');
+  const params = useLocalSearchParams<{ email?: string | string[] }>();
+  const routeEmail = Array.isArray(params.email) ? params.email[0] : params.email;
+  const [email, setEmail] = useState(routeEmail?.trim() ?? '');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const { setUser, setToken } = useAuthStore();
+
+  const getErrorMessage = (value: unknown, fallback: string) => {
+    if (value instanceof Error && value.message.trim().length > 0) {
+      return value.message;
+    }
+
+    return fallback;
+  };
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
@@ -37,8 +47,8 @@ export default function LoginScreen() {
 
       const destination = res.user?.role === 'OWNER' ? '/(owner)' : '/(investor)';
       router.replace(destination);
-    } catch {
-      setError('Invalid email or password. Please try again.');
+    } catch (caught) {
+      setError(getErrorMessage(caught, 'Invalid email or password. Please try again.'));
     } finally {
       setLoading(false);
     }
@@ -93,7 +103,16 @@ export default function LoginScreen() {
 
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-          <TouchableOpacity style={styles.forgotBtn} activeOpacity={0.7}>
+          <TouchableOpacity
+            style={styles.forgotBtn}
+            onPress={() =>
+              router.push({
+                pathname: '/(auth)/forgot-password',
+                params: email.trim() ? { email: email.trim() } : undefined,
+              })
+            }
+            activeOpacity={0.7}
+          >
             <Text style={styles.forgotText}>Forgot password?</Text>
           </TouchableOpacity>
 

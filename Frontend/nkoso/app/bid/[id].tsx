@@ -42,12 +42,16 @@ export default function BidDetailScreen() {
   const counterMutation = useMutation({
     mutationFn: () => counterBid(id as string, {
       amount: parseFloat(counterAmount),
+      returnType: bid?.returnType,
       returnValue: parseFloat(counterReturn),
       timelineMonths: parseInt(counterTimeline, 10),
       note
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bid', id] });
+      queryClient.invalidateQueries({ queryKey: ['ownerBids'] });
+      queryClient.invalidateQueries({ queryKey: ['myPitches'] });
+      queryClient.invalidateQueries({ queryKey: ['ownerDeals'] });
       Alert.alert(
         'Counter-offer sent!',
         'Your counter-offer has been sent to the investor. They will review and respond.',
@@ -205,16 +209,9 @@ export default function BidDetailScreen() {
           <View style={styles.acceptedBanner}>
             <Ionicons name="checkmark-circle" size={22} color={Colors.accent} />
             <View style={styles.acceptedInfo}>
-              <Text style={styles.acceptedTitle}>Bid accepted!</Text>
-              <Text style={styles.acceptedDesc}>
-                The deal has been moved to the deal room for signatures and MFI review.
-              </Text>
+              <Text style={styles.acceptedTitle}>Bid accepted</Text>
+              <Text style={styles.acceptedDesc}>Find the matching deal in Active deals.</Text>
             </View>
-            <Button
-              title="Open deal room"
-              onPress={() => router.push('/deal/d1')}
-              style={styles.dealRoomBtn}
-            />
           </View>
         )}
 

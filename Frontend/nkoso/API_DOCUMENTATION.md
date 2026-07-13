@@ -1,7 +1,7 @@
 # Mobile App Backend API Guide
 
 ## Current status
-The mobile app in `Frontend/nkoso` currently uses mock services in `services/api.ts` and does not call the backend directly.
+The mobile app uses `services/backendClient.ts` and typed adapters in `services/api.ts` for the documented backend endpoints. Owner pitches, incoming bids, and active deals use backend data; request failures are surfaced to the user rather than replaced with placeholders.
 
 ## Recommended integration approach
 1. Create a shared API client file in the mobile app, for example `services/backendClient.ts`.
@@ -26,6 +26,11 @@ The Spring backend exposes these main endpoints:
 - `POST /auth/refresh`
 - `POST /auth/logout`
 - `GET /auth/me`
+- `POST /auth/verify-email` (six-digit email code)
+- `POST /auth/resend-verification-code`
+- `POST /auth/forgot-password` (always returns a neutral response)
+- `POST /auth/reset-password` (email, six-digit code, new/confirm password)
+- `PATCH /api/profile` (only display name, current/new/confirm password, and MoMo number)
 
 ### Pitches
 - `POST /api/pitches` (multipart/form-data for pitch creation)
@@ -60,7 +65,7 @@ The Spring backend exposes these main endpoints:
 - `PUT /api/notifications/read-all`
 
 ### Verification & other
-- `POST /api/verify/ghana-card`
+- `POST /api/verify/ghana-card` (`multipart/form-data` with `cardNumber` and `cardImage`)
 - `POST /api/verify/momo`
 - `GET /api/tax-summaries`
 - `GET /api/tax-summaries/download/{year}`
@@ -100,11 +105,8 @@ export async function loginUser(email: string, password: string) {
 }
 ```
 
-## Next steps for mobile app developer
-1. Add a real HTTP client file, e.g. `services/backendClient.ts`.
-2. Use `BASE_URL` set to the deployed Render backend.
-3. Replace mock returns in `services/api.ts` with calls to the backend.
-4. Store and send the auth token in the `Authorization` header.
+## Owner bid behavior
+The owner bid list first loads `GET /api/pitches/mine`, then loads `GET /api/pitches/{pitchId}/bids` for each returned pitch, deduplicating the combined results. `GET /api/bids/mine` is reserved for an investor's own bids.
 
 ## Notes
 - The backend currently allows local React and Expo hosts in CORS/security config.
