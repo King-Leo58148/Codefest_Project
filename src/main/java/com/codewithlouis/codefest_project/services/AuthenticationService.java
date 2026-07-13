@@ -37,7 +37,7 @@ public class AuthenticationService {
         }
 
         String normalizedEmail = normalizeEmail(input.getEmail());
-        User existingUser = userRepository.findByEmail(normalizedEmail).orElse(null);
+        User existingUser = userRepository.findByEmailIgnoreCase(normalizedEmail).orElse(null);
         if (existingUser != null) {
             if (existingUser.isEmailVerified()) {
                 throw new RuntimeException("Email already in use");
@@ -67,7 +67,7 @@ public class AuthenticationService {
                 )
         );
 
-        User user = userRepository.findByEmail(normalizedEmail)
+        User user = userRepository.findByEmailIgnoreCase(normalizedEmail)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         if (!user.isEmailVerified()) {
@@ -84,7 +84,7 @@ public class AuthenticationService {
     }
 
     public void logout(String email) {
-        User user = userRepository.findByEmail(normalizeEmail(email))
+        User user = userRepository.findByEmailIgnoreCase(normalizeEmail(email))
                 .orElseThrow(() -> new RuntimeException("User not found"));
         refreshTokenService.deleteByUser(user);
     }
@@ -93,14 +93,14 @@ public class AuthenticationService {
         String normalizedEmail = normalizeEmail(request.getEmail());
         codeService.consume(normalizedEmail, VerificationPurpose.SIGNUP_EMAIL, request.getCode());
 
-        User user = userRepository.findByEmail(normalizedEmail)
+        User user = userRepository.findByEmailIgnoreCase(normalizedEmail)
                 .orElseThrow(() -> new RuntimeException("User not found"));
         user.setEmailVerified(true);
         userRepository.save(user);
     }
 
     public void resendVerificationCode(ForgotPasswordRequest request) {
-        User user = userRepository.findByEmail(normalizeEmail(request.getEmail()))
+        User user = userRepository.findByEmailIgnoreCase(normalizeEmail(request.getEmail()))
                 .orElseThrow(() -> new RuntimeException("User not found"));
         if (user.isEmailVerified()) {
             throw new IllegalStateException("Email already verified");
@@ -109,8 +109,8 @@ public class AuthenticationService {
     }
 
     public void forgotPassword(ForgotPasswordRequest request) {
-        userRepository.findByEmail(normalizeEmail(request.getEmail()))
-                .ifPresent(user -> codeService.issue(user.getEmail(), VerificationPurpose.PASSWORD_RESET));
+        userRepository.findByEmailIgnoreCase(normalizeEmail(request.getEmail()))
+                .ifPresent(user -> issueCodeIgnoringCooldown(user.getEmail(), VerificationPurpose.PASSWORD_RESET));
     }
 
     public void resetPassword(ResetPasswordRequest request) {
@@ -121,7 +121,7 @@ public class AuthenticationService {
         String normalizedEmail = normalizeEmail(request.getEmail());
         codeService.consume(normalizedEmail, VerificationPurpose.PASSWORD_RESET, request.getCode());
 
-        User user = userRepository.findByEmail(normalizedEmail)
+        User user = userRepository.findByEmailIgnoreCase(normalizedEmail)
                 .orElseThrow(() -> new RuntimeException("User not found"));
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
@@ -136,8 +136,12 @@ public class AuthenticationService {
     }
 
     private void issueSignupCode(String email) {
+        issueCodeIgnoringCooldown(email, VerificationPurpose.SIGNUP_EMAIL);
+    }
+
+    private void issueCodeIgnoringCooldown(String email, VerificationPurpose purpose) {
         try {
-            codeService.issue(email, VerificationPurpose.SIGNUP_EMAIL);
+            codeService.issue(email, purpose);
         } catch (IllegalStateException exception) {
             if (!VERIFICATION_CODE_COOLDOWN_MESSAGE.equals(exception.getMessage())) {
                 throw exception;

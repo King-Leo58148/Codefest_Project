@@ -127,3 +127,36 @@ GREEN output:
 - The required `mvnw.cmd` command now passes locally after a small wrapper fix for non-link `.m2` directories. That wrapper repair was only needed to execute the brief's required command and is not part of the Task 2 source/test commit.
 - Mockito still emits Java 25 dynamic-agent warnings during the successful test run. The tests pass, but the build/test toolchain likely wants a more permanent Java 25-compatible Mockito/Byte Buddy setup later.
 - For retried signup on an existing unverified email, I followed the brief/design literally: resend the signup code without duplicating or mutating the stored account. The spec did not say to overwrite the pending account's name/password/role on retry.
+
+## Review fixes
+
+- Hardened `User.emailVerified` with a schema-level default via `@Column(columnDefinition = "boolean default true")` and `@ColumnDefault("true")`, while keeping the Java-side default. This gives Hibernate `ddl-auto=update` a database default/backfill path for existing rows instead of relying only on a field initializer.
+- Updated `AuthenticationService.signup` so retrying an existing unverified email still returns the normal verification-required success state when the signup-code resend is inside the cooldown window. The stored user is reused and no duplicate account is created; once the cooldown expires, the existing resend path still issues a fresh code.
+- Updated `AuthenticationService.login` to normalize the email before `AuthenticationManager.authenticate(...)`, so mixed-case login input matches lowercased stored emails consistently.
+- Added focused regression tests for the cooldown retry path, pre-auth email normalization, and a directly testable mapping assertion for the `emailVerified` database default.
+
+## Final review fixes
+
+- Added `UserRepository.findByEmailIgnoreCase(...)` and switched auth-critical lookups in `ApplicationConfiguration` and `AuthenticationService` to use it. This lets legacy mixed-case stored email rows authenticate and resolve correctly without mutating the existing row first.
+- Updated `AuthenticationService.forgotPassword(...)` to swallow only the verification-code cooldown exception, so existing accounts on reset-code cooldown and nonexistent accounts both return the same neutral success path.
+- Added a controller regression test that hits the real forgot-password service path and confirms first existing request, repeated existing request during cooldown, and nonexistent-account request all return identical HTTP 200 status/body.
+- Added an auth login regression test through `ApplicationConfiguration.authenticationProvider()` plus `AuthenticationService.login(...)` that proves a mixed-case stored email row can be found and authenticated from lowercased user input.
+
+### Focused auth verification for final review fixes
+
+Standard Maven focused test execution is currently blocked by a pre-existing unrelated compile failure in `src/test/java/com/codewithlouis/codefest_project/services/ProfileServiceTest.java` (`ProfileUpdateRequest` / `ProfileService` missing in this worktree), so the usual `mvn test` path cannot isolate the auth slice here.
+
+To verify the requested review fixes anyway, I:
+
+1. Built the test dependency classpath with Maven.
+2. Compiled only the auth-focused test classes directly against `target/classes`.
+3. Ran those compiled tests with a temporary JUnit Platform launcher under `target/`.
+
+Focused auth result:
+
+```text
+[        21 tests found           ]
+[        21 tests started         ]
+[        21 tests successful      ]
+[         0 tests failed          ]
+```

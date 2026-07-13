@@ -85,7 +85,7 @@ class AuthenticationServiceTest {
     @Test
     void signupCreatesUnverifiedUserAndIssuesSignupCode() {
         RegisterUserDto request = registerRequest("new@example.com");
-        when(userRepository.findByEmail("new@example.com")).thenReturn(Optional.empty());
+        when(userRepository.findByEmailIgnoreCase("new@example.com")).thenReturn(Optional.empty());
         when(passwordEncoder.encode("Password1!")).thenReturn("encoded-password");
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0, User.class));
 
@@ -105,7 +105,7 @@ class AuthenticationServiceTest {
         RegisterUserDto request = registerRequest("pending@example.com");
         User existingUser = user("pending@example.com");
         existingUser.setEmailVerified(false);
-        when(userRepository.findByEmail("pending@example.com")).thenReturn(Optional.of(existingUser));
+        when(userRepository.findByEmailIgnoreCase("pending@example.com")).thenReturn(Optional.of(existingUser));
 
         User returned = service.signup(request);
 
@@ -119,7 +119,7 @@ class AuthenticationServiceTest {
         RegisterUserDto request = registerRequest("pending@example.com");
         User existingUser = user("pending@example.com");
         existingUser.setEmailVerified(false);
-        when(userRepository.findByEmail("pending@example.com")).thenReturn(Optional.of(existingUser));
+        when(userRepository.findByEmailIgnoreCase("pending@example.com")).thenReturn(Optional.of(existingUser));
         doThrow(new IllegalStateException("A verification code was already sent recently"))
                 .when(codeService).issue("pending@example.com", VerificationPurpose.SIGNUP_EMAIL);
 
@@ -134,7 +134,7 @@ class AuthenticationServiceTest {
         RegisterUserDto request = registerRequest("taken@example.com");
         User existingUser = user("taken@example.com");
         existingUser.setEmailVerified(true);
-        when(userRepository.findByEmail("taken@example.com")).thenReturn(Optional.of(existingUser));
+        when(userRepository.findByEmailIgnoreCase("taken@example.com")).thenReturn(Optional.of(existingUser));
 
         RuntimeException error = assertThrows(RuntimeException.class, () -> service.signup(request));
 
@@ -148,7 +148,7 @@ class AuthenticationServiceTest {
         User user = user("user@example.com");
         user.setEmailVerified(false);
         when(authenticationManager.authenticate(any())).thenReturn(mockAuthentication());
-        when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.of(user));
+        when(userRepository.findByEmailIgnoreCase("user@example.com")).thenReturn(Optional.of(user));
 
         IllegalStateException error = assertThrows(IllegalStateException.class, () -> service.login(loginDto));
 
@@ -164,7 +164,7 @@ class AuthenticationServiceTest {
         RefreshToken refreshToken = new RefreshToken();
         refreshToken.setToken("refresh-token");
         when(authenticationManager.authenticate(any())).thenReturn(mockAuthentication());
-        when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.of(user));
+        when(userRepository.findByEmailIgnoreCase("user@example.com")).thenReturn(Optional.of(user));
         when(refreshTokenService.createRefreshToken("user@example.com")).thenReturn(refreshToken);
         when(jwtService.generateToken(user)).thenReturn("access-token");
         when(jwtService.getExpirationTime()).thenReturn(3600L);
@@ -196,7 +196,7 @@ class AuthenticationServiceTest {
         request.setCode("123456");
         User user = user("user@example.com");
         user.setEmailVerified(false);
-        when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.of(user));
+        when(userRepository.findByEmailIgnoreCase("user@example.com")).thenReturn(Optional.of(user));
 
         service.verifyEmail(request);
 
@@ -209,7 +209,7 @@ class AuthenticationServiceTest {
     void forgotPasswordDoesNothingWhenAccountDoesNotExist() {
         ForgotPasswordRequest request = new ForgotPasswordRequest();
         request.setEmail("missing@example.com");
-        when(userRepository.findByEmail("missing@example.com")).thenReturn(Optional.empty());
+        when(userRepository.findByEmailIgnoreCase("missing@example.com")).thenReturn(Optional.empty());
 
         assertDoesNotThrow(() -> service.forgotPassword(request));
 
@@ -220,11 +220,22 @@ class AuthenticationServiceTest {
     void forgotPasswordIssuesResetCodeWhenAccountExists() {
         ForgotPasswordRequest request = new ForgotPasswordRequest();
         request.setEmail("user@example.com");
-        when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.of(user("user@example.com")));
+        when(userRepository.findByEmailIgnoreCase("user@example.com")).thenReturn(Optional.of(user("user@example.com")));
 
         service.forgotPassword(request);
 
         verify(codeService).issue("user@example.com", VerificationPurpose.PASSWORD_RESET);
+    }
+
+    @Test
+    void forgotPasswordReturnsNeutralSuccessWhenResetCodeIsOnCooldown() {
+        ForgotPasswordRequest request = new ForgotPasswordRequest();
+        request.setEmail("user@example.com");
+        when(userRepository.findByEmailIgnoreCase("user@example.com")).thenReturn(Optional.of(user("Legacy@Example.com")));
+        doThrow(new IllegalStateException("A verification code was already sent recently"))
+                .when(codeService).issue("Legacy@Example.com", VerificationPurpose.PASSWORD_RESET);
+
+        assertDoesNotThrow(() -> service.forgotPassword(request));
     }
 
     @Test
@@ -242,7 +253,7 @@ class AuthenticationServiceTest {
     void resetPasswordConsumesResetCodeAndRevokesRefreshTokens() {
         ResetPasswordRequest request = resetPasswordRequest("user@example.com");
         User user = user("user@example.com");
-        when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.of(user));
+        when(userRepository.findByEmailIgnoreCase("user@example.com")).thenReturn(Optional.of(user));
         when(passwordEncoder.encode("NewPassword1!")).thenReturn("encoded-new-password");
 
         service.resetPassword(request);
