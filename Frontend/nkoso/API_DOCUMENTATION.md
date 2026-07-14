@@ -17,6 +17,17 @@ https://codefest-project.onrender.com
 
 If the Render service URL is different, substitute it here.
 
+## Live API documentation
+
+After the backend is deployed, the generated OpenAPI specification and interactive
+Swagger UI are available at:
+
+- `GET /v3/api-docs`
+- `GET /v3/api-docs.yaml`
+- `/swagger-ui/index.html`
+
+The deployment health check is available without authentication at `GET /actuator/health`.
+
 ## Suggested API endpoints
 The Spring backend exposes these main endpoints:
 
