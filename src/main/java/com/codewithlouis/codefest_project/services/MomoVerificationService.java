@@ -6,14 +6,17 @@ import com.codewithlouis.codefest_project.dto.MomoVerificationResponse;
 import com.codewithlouis.codefest_project.model.User;
 import com.codewithlouis.codefest_project.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.*;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestTemplate;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class MomoVerificationService {
 
     private final MomoConfig momoConfig;
@@ -22,15 +25,19 @@ public class MomoVerificationService {
     private final UserRepository userRepository;
 
     public MomoVerificationResponse verifyAccount(String momoNumber) {
-        String accessToken = momoTokenService.getAccessToken();
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.set("Authorization", "Bearer " + accessToken);
-        headers.set("Ocp-Apim-Subscription-Key", momoConfig.subscriptionKey);
-        headers.set("X-Target-Environment", momoConfig.targetEnvironment);
+        if (momoConfig.mockMode) {
+            return mockVerify(momoNumber);
+        }
 
         boolean isActive;
         try {
+            String accessToken = momoTokenService.getAccessToken();
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("Authorization", "Bearer " + accessToken);
+            headers.set("Ocp-Apim-Subscription-Key", momoConfig.subscriptionKey);
+            headers.set("X-Target-Environment", momoConfig.targetEnvironment);
+
             ResponseEntity<Void> response = restTemplate.exchange(
                     momoConfig.baseUrl + "/collection/v1_0/accountholder/msisdn/" + momoNumber + "/active",
                     HttpMethod.GET,
@@ -40,8 +47,22 @@ public class MomoVerificationService {
             isActive = response.getStatusCode().is2xxSuccessful();
         } catch (HttpClientErrorException.NotFound e) {
             isActive = false;
+        } catch (HttpServerErrorException e) {
+            log.error("MoMo sandbox unavailable, falling back to mock: {}", e.getMessage());
+            return mockVerify(momoNumber);
         }
 
+        return finalizeVerification(momoNumber, isActive);
+    }
+
+    private MomoVerificationResponse mockVerify(String momoNumber) {
+        boolean isActive = momoNumber != null
+                && momoNumber.replaceAll("[^0-9]", "").matches("^(233|0)?(24|25|53|54|59)\\d{7}$");
+        log.info("MoMo mock verification for {}: {}", momoNumber, isActive);
+        return finalizeVerification(momoNumber, isActive);
+    }
+
+    private MomoVerificationResponse finalizeVerification(String momoNumber, boolean isActive) {
         if (isActive) {
             String email = SecurityContextHolder.getContext().getAuthentication().getName();
             User user = userRepository.findByEmail(email)

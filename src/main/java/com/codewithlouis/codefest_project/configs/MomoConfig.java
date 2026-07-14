@@ -23,6 +23,9 @@ public class MomoConfig {
     @Value("${momo.target-environment}")
     public String targetEnvironment;
 
+    @Value("${momo.mock-mode:false}")
+    public boolean mockMode;
+
     @Bean
     public RestTemplate restTemplate() {
         return new RestTemplate();
