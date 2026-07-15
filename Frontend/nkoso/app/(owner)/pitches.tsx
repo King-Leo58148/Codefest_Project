@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import * as ImagePicker from 'expo-image-picker';
+import { Video, ResizeMode } from 'expo-av';
 import {
   View,
   Text,
@@ -48,6 +49,7 @@ function formatOfferType(offerType: string | undefined) {
 
 export default function PitchesScreen() {
   const [showCreate, setShowCreate] = useState(false);
+  const [playingVideo, setPlayingVideo] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   const { data: pitches = [], isLoading: loadingPitches, isError, error, refetch } = useQuery({
@@ -152,8 +154,22 @@ export default function PitchesScreen() {
           pitches.map((pitch) => {
             return (
               <View key={pitch.id} style={styles.pitchCard}>
-                <View style={styles.mediaWrap}>
-                  <Image source={{ uri: pitch.imageUrl }} style={styles.media} />
+                <TouchableOpacity
+                  style={styles.mediaWrap}
+                  activeOpacity={0.9}
+                  disabled={!pitch.videoUrl}
+                  onPress={() => pitch.videoUrl && setPlayingVideo(pitch.videoUrl)}
+                >
+                  {pitch.imageUrl ? (
+                    <Image source={{ uri: pitch.imageUrl }} style={styles.media} />
+                  ) : (
+                    <View style={[styles.media, styles.mediaPlaceholder]}>
+                      <Ionicons name="videocam" size={32} color={Colors.primary} />
+                      <Text style={styles.mediaPlaceholderText}>
+                        {pitch.videoUrl ? 'Tap to watch pitch video' : 'No preview available'}
+                      </Text>
+                    </View>
+                  )}
                   {pitch.videoUrl ? (
                     <View style={styles.playOverlay}>
                       <Ionicons name="play-circle" size={48} color="#fff" />
@@ -163,7 +179,7 @@ export default function PitchesScreen() {
                     <View style={styles.liveDot} />
                     <Text style={styles.liveText}>{pitch.status === 'LIVE' ? 'LIVE' : pitch.status}</Text>
                   </View>
-                </View>
+                </TouchableOpacity>
 
                 <View style={styles.pitchCardBody}>
                   <View style={styles.pitchInfo}>
@@ -386,6 +402,33 @@ export default function PitchesScreen() {
           </ScrollV>
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* Video Player Modal */}
+      <Modal
+        visible={!!playingVideo}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setPlayingVideo(null)}
+      >
+        <View style={styles.videoModalBackdrop}>
+          <TouchableOpacity
+            style={styles.videoCloseBtn}
+            onPress={() => setPlayingVideo(null)}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="close" size={28} color="#fff" />
+          </TouchableOpacity>
+          {playingVideo ? (
+            <Video
+              source={{ uri: playingVideo }}
+              style={styles.videoPlayer}
+              useNativeControls
+              resizeMode={ResizeMode.CONTAIN}
+              shouldPlay
+            />
+          ) : null}
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -450,6 +493,17 @@ const styles = StyleSheet.create({
     height: 200,
     resizeMode: 'cover',
     backgroundColor: Colors.borderLight,
+  },
+  mediaPlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#EFF6FF',
+    gap: 8,
+  },
+  mediaPlaceholderText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.primary,
   },
   playOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -719,5 +773,27 @@ const styles = StyleSheet.create({
   },
   chipTextSelected: {
     color: '#fff',
+  },
+  videoModalBackdrop: {
+    flex: 1,
+    backgroundColor: '#000',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  videoPlayer: {
+    width: '100%',
+    height: '100%',
+  },
+  videoCloseBtn: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    zIndex: 10,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

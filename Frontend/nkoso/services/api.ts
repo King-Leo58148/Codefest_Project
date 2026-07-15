@@ -101,7 +101,6 @@ export async function getPitch(id: string): Promise<Pitch | undefined> {
   const response = await request(`/api/pitches/${id}`);
   return response == null ? undefined : ownerDataApi.normalizePitch(response);
 }
-
 export async function createPitch(data: any): Promise<Pitch> {
   const formData = new FormData();
   if (!data?.video?.uri) {
@@ -115,6 +114,14 @@ export async function createPitch(data: any): Promise<Pitch> {
     type: data.video.mimeType || 'video/mp4',
   } as any);
 
+  if (data?.image?.uri) {
+    formData.append('image', {
+      uri: data.image.uri,
+      name: data.image.fileName || 'pitch-cover.jpg',
+      type: data.image.mimeType || 'image/jpeg',
+    } as any);
+  }
+
   return ownerDataApi.normalizePitch(
     await request('/api/pitches', {
       method: 'POST',
@@ -122,7 +129,6 @@ export async function createPitch(data: any): Promise<Pitch> {
     })
   );
 }
-
 // Bids
 export async function getBidsForPitch(pitchId: string): Promise<Bid[]> {
   return ownerDataApi.getBidsForPitch(pitchId);
