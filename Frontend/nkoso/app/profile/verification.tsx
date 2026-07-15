@@ -1,29 +1,280 @@
-import React, { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
-import { router } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Colors } from '@/constants/Colors';
-import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
-import { getCurrentUser, verifyGhanaCard, verifyMomo } from '@/services/api';
-import { useAuthStore } from '@/store/authStore';
-import type { VerificationAsset } from '@/types';
+import React, { useState } from "react";
+import {
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import * as ImagePicker from "expo-image-picker";
+import { router } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Colors } from "@/constants/Colors";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { getCurrentUser, verifyGhanaCard, verifyMomo } from "@/services/api";
+import { useAuthStore } from "@/store/authStore";
+import type { VerificationAsset } from "@/types";
 
 export default function VerificationScreen() {
   const { user, setUser } = useAuthStore();
-  const [cardNumber, setCardNumber] = useState(''); const [momoNumber, setMomoNumber] = useState(user?.momoNumber || '');
-  const [asset, setAsset] = useState<VerificationAsset | null>(null); const [cardLoading, setCardLoading] = useState(false); const [momoLoading, setMomoLoading] = useState(false);
-  const refreshUser = async () => { const current = await getCurrentUser(); setUser(current); return current; };
-  const chooseImage = async () => { const permission = await ImagePicker.requestMediaLibraryPermissionsAsync(); if (!permission.granted) return Alert.alert('Photo permission needed', 'Allow photo access to upload your Ghana Card.'); const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.8 }); if (!result.canceled) { const picked = result.assets[0]; setAsset({ uri: picked.uri, fileName: picked.fileName ?? undefined, mimeType: picked.mimeType ?? undefined }); } };
-  const verifyCard = async () => { const number = cardNumber.replace(/\s/g, '').toUpperCase(); if (!number || number.length < 10) return Alert.alert('Invalid Ghana Card', 'Enter a valid Ghana Card number.'); if (!asset) return Alert.alert('Image required', 'Choose a clear Ghana Card image before continuing.'); setCardLoading(true); try { const verified = await verifyGhanaCard(number, asset); if (!verified) return Alert.alert('Not verified', 'We could not verify this Ghana Card. Check the details and image.'); await refreshUser(); setCardNumber(''); setAsset(null); Alert.alert('Verified', 'Your Ghana Card has been verified.'); } catch (error) { Alert.alert('Could not verify', error instanceof Error ? error.message : 'Please try again.'); } finally { setCardLoading(false); } };
-  const verifyNumber = async () => { const number = momoNumber.replace(/\D/g, ''); if (number.length !== 10) return Alert.alert('Invalid MoMo number', 'Enter a 10-digit MoMo number.'); setMomoLoading(true); try { const verified = await verifyMomo(number); if (!verified) return Alert.alert('Not verified', 'We could not verify this MoMo number.'); await refreshUser(); Alert.alert('Verified', 'Your MoMo number has been verified.'); } catch (error) { Alert.alert('Could not verify', error instanceof Error ? error.message : 'Please try again.'); } finally { setMomoLoading(false); } };
-  return <SafeAreaView style={styles.safe} edges={['top']}><View style={styles.header}><TouchableOpacity onPress={() => router.back()}><Ionicons name="arrow-back" size={22} color={Colors.textPrimary} /></TouchableOpacity><Text style={styles.title}>Identity verification</Text><View style={{width:22}} /></View><ScrollView contentContainerStyle={styles.content}>
-    <View style={styles.banner}><Ionicons name={user?.ghanaCardVerified && user?.momoVerified ? 'shield-checkmark' : 'shield-outline'} size={28} color={Colors.primary}/><Text style={styles.bannerText}>{user?.ghanaCardVerified && user?.momoVerified ? 'Your account is fully verified.' : 'Complete your Ghana Card and MoMo verification.'}</Text></View>
-    <Card title="Ghana Card" subtitle="Upload a clear image of your card" verified={Boolean(user?.ghanaCardVerified)}><Input placeholder="GHA-XXXXXXXXX-X" value={cardNumber} onChangeText={setCardNumber} autoCapitalize="characters" leftIcon="card-outline"/><TouchableOpacity onPress={chooseImage} style={styles.upload}><Ionicons name="image-outline" size={20} color={Colors.primary}/><Text style={styles.uploadText}>{asset ? asset.fileName || 'Ghana Card image selected' : 'Choose Ghana Card image'}</Text></TouchableOpacity><Button title="Verify Ghana Card" onPress={verifyCard} loading={cardLoading}/></Card>
-    <Card title="MoMo" subtitle="Verify the number you use for payments" verified={Boolean(user?.momoVerified)}><Input placeholder="024 XXX XXXX" value={momoNumber} onChangeText={setMomoNumber} keyboardType="phone-pad" leftIcon="phone-portrait-outline"/><Button title="Verify MoMo number" onPress={verifyNumber} loading={momoLoading}/></Card>
-  </ScrollView></SafeAreaView>;
+  const [cardNumber, setCardNumber] = useState("");
+  const [momoNumber, setMomoNumber] = useState(user?.momoNumber || "");
+  const [asset, setAsset] = useState<VerificationAsset | null>(null);
+  const [cardLoading, setCardLoading] = useState(false);
+  const [momoLoading, setMomoLoading] = useState(false);
+  const refreshUser = async () => {
+    const current = await getCurrentUser();
+    setUser(current);
+    return current;
+  };
+  const chooseImage = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted)
+      return Alert.alert(
+        "Photo permission needed",
+        "Allow photo access to upload your Ghana Card.",
+      );
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      quality: 0.8,
+    });
+    if (!result.canceled) {
+      const picked = result.assets[0];
+      setAsset({
+        uri: picked.uri,
+        fileName: picked.fileName ?? undefined,
+        mimeType: picked.mimeType ?? undefined,
+      });
+    }
+  };
+  const verifyCard = async () => {
+    const number = cardNumber.replace(/\s/g, "").toUpperCase();
+    if (!number || number.length < 10)
+      return Alert.alert(
+        "Invalid Ghana Card",
+        "Enter a valid Ghana Card number.",
+      );
+    if (!asset)
+      return Alert.alert(
+        "Image required",
+        "Choose a clear Ghana Card image before continuing.",
+      );
+    setCardLoading(true);
+    try {
+      const verified = await verifyGhanaCard(number, asset);
+      if (!verified)
+        return Alert.alert(
+          "Not verified",
+          "We could not verify this Ghana Card. Check the details and image.",
+        );
+      await refreshUser();
+      setCardNumber("");
+      setAsset(null);
+      Alert.alert("Verified", "Your Ghana Card has been verified.");
+    } catch (error) {
+      Alert.alert(
+        "Could not verify",
+        error instanceof Error ? error.message : "Please try again.",
+      );
+    } finally {
+      setCardLoading(false);
+    }
+  };
+  const verifyNumber = async () => {
+    const number = momoNumber.replace(/\D/g, "");
+    if (number.length !== 10)
+      return Alert.alert(
+        "Invalid MoMo number",
+        "Enter a 10-digit MoMo number.",
+      );
+    setMomoLoading(true);
+    try {
+      const verified = await verifyMomo(number);
+      if (!verified)
+        return Alert.alert(
+          "Not verified",
+          "We could not verify this MoMo number.",
+        );
+      await refreshUser();
+      Alert.alert("Verified", "Your MoMo number has been verified.");
+    } catch (error) {
+      Alert.alert(
+        "Could not verify",
+        error instanceof Error ? error.message : "Please try again.",
+      );
+    } finally {
+      setMomoLoading(false);
+    }
+  };
+  return (
+    <SafeAreaView style={styles.safe} edges={["top"]}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()}>
+          <Ionicons name="arrow-back" size={22} color={Colors.textPrimary} />
+        </TouchableOpacity>
+        <Text style={styles.title}>Identity verification</Text>
+        <View style={{ width: 22 }} />
+      </View>
+      <ScrollView contentContainerStyle={styles.content}>
+        <View style={styles.banner}>
+          <Ionicons
+            name={
+              user?.ghanaCardVerified && user?.momoVerified
+                ? "shield-checkmark"
+                : "shield-outline"
+            }
+            size={28}
+            color={Colors.primary}
+          />
+          <Text style={styles.bannerText}>
+            {user?.ghanaCardVerified && user?.momoVerified
+              ? "Your account is fully verified."
+              : "Complete your Ghana Card and MoMo verification."}
+          </Text>
+        </View>
+        <Card
+          title="Ghana Card"
+          subtitle="Upload a clear image of your card"
+          verified={Boolean(user?.ghanaCardVerified)}
+        >
+          <Input
+            placeholder="GHA-XXXXXXXXX-X"
+            value={cardNumber}
+            onChangeText={setCardNumber}
+            autoCapitalize="characters"
+            leftIcon="card-outline"
+          />
+          <TouchableOpacity onPress={chooseImage} style={styles.upload}>
+            <Ionicons name="image-outline" size={20} color={Colors.primary} />
+            <Text style={styles.uploadText}>
+              {asset
+                ? asset.fileName || "Ghana Card image selected"
+                : "Choose Ghana Card image"}
+            </Text>
+          </TouchableOpacity>
+          <Button
+            title="Verify Ghana Card"
+            onPress={verifyCard}
+            loading={cardLoading}
+          />
+        </Card>
+        <Card
+          title="MoMo"
+          subtitle="Verify the number you use for payments"
+          verified={Boolean(user?.momoVerified)}
+        >
+          <Input
+            placeholder="024 XXX XXXX"
+            value={momoNumber}
+            onChangeText={setMomoNumber}
+            keyboardType="phone-pad"
+            leftIcon="phone-portrait-outline"
+          />
+          <Button
+            title="Verify MoMo number"
+            onPress={verifyNumber}
+            loading={momoLoading}
+          />
+        </Card>
+      </ScrollView>
+    </SafeAreaView>
+  );
 }
-function Card({title,subtitle,verified,children}:{title:string;subtitle:string;verified:boolean;children:React.ReactNode}) { return <View style={styles.card}><View style={styles.cardHeader}><View><Text style={styles.cardTitle}>{title}</Text><Text style={styles.cardSubtitle}>{subtitle}</Text></View><Text style={[styles.badge,verified ? styles.done : styles.pending]}>{verified ? 'Verified' : 'Pending'}</Text></View>{verified ? <Text style={styles.doneText}>Already verified. You can return here if you need to re-verify later.</Text> : children}</View>; }
-const styles=StyleSheet.create({safe:{flex:1,backgroundColor:Colors.background},header:{height:62,paddingHorizontal:18,backgroundColor:Colors.surface,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},title:{fontSize:17,fontWeight:'700',color:Colors.textPrimary},content:{padding:20,gap:16,paddingBottom:40},banner:{backgroundColor:'#EFF6FF',borderRadius:8,padding:16,flexDirection:'row',gap:12,alignItems:'center'},bannerText:{flex:1,fontSize:14,lineHeight:20,color:Colors.textPrimary},card:{padding:16,gap:14,backgroundColor:Colors.surface,borderRadius:8},cardHeader:{flexDirection:'row',justifyContent:'space-between',gap:8},cardTitle:{fontSize:16,fontWeight:'700',color:Colors.textPrimary},cardSubtitle:{marginTop:3,fontSize:13,color:Colors.textSecondary},badge:{fontSize:12,fontWeight:'700',paddingHorizontal:8,paddingVertical:4,borderRadius:8},done:{backgroundColor:'#DCFCE7',color:'#15803D'},pending:{backgroundColor:'#FFF7ED',color:'#C2410C'},upload:{height:48,borderRadius:8,borderWidth:1,borderColor:Colors.primary,borderStyle:'dashed',paddingHorizontal:14,flexDirection:'row',alignItems:'center',gap:10},uploadText:{fontSize:14,color:Colors.primary,fontWeight:'600',flex:1},doneText:{fontSize:13,color:Colors.accent,lineHeight:19} });
+function Card({
+  title,
+  subtitle,
+  verified,
+  children,
+}: {
+  title: string;
+  subtitle: string;
+  verified: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <View style={styles.card}>
+      <View style={styles.cardHeader}>
+        <View>
+          <Text style={styles.cardTitle}>{title}</Text>
+          <Text style={styles.cardSubtitle}>{subtitle}</Text>
+        </View>
+        <Text style={[styles.badge, verified ? styles.done : styles.pending]}>
+          {verified ? "Verified" : "Pending"}
+        </Text>
+      </View>
+      {verified ? (
+        <Text style={styles.doneText}>
+          Already verified. You can return here if you need to re-verify later.
+        </Text>
+      ) : (
+        children
+      )}
+    </View>
+  );
+}
+const styles = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: Colors.background },
+  header: {
+    height: 62,
+    paddingHorizontal: 18,
+    backgroundColor: Colors.surface,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  title: { fontSize: 17, fontWeight: "700", color: Colors.textPrimary },
+  content: { padding: 20, gap: 16, paddingBottom: 40 },
+  banner: {
+    backgroundColor: "#EFF6FF",
+    borderRadius: 8,
+    padding: 16,
+    flexDirection: "row",
+    gap: 12,
+    alignItems: "center",
+  },
+  bannerText: {
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 20,
+    color: Colors.textPrimary,
+  },
+  card: {
+    padding: 16,
+    gap: 14,
+    backgroundColor: Colors.surface,
+    borderRadius: 8,
+  },
+  cardHeader: { flexDirection: "row", justifyContent: "space-between", gap: 8 },
+  cardTitle: { fontSize: 16, fontWeight: "700", color: Colors.textPrimary },
+  cardSubtitle: { marginTop: 3, fontSize: 13, color: Colors.textSecondary },
+  badge: {
+    fontSize: 12,
+    fontWeight: "700",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  done: { backgroundColor: "#DCFCE7", color: "#15803D" },
+  pending: { backgroundColor: "#FFF7ED", color: "#C2410C" },
+  upload: {
+    height: 48,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.primary,
+    borderStyle: "dashed",
+    paddingHorizontal: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  uploadText: {
+    fontSize: 14,
+    color: Colors.primary,
+    fontWeight: "600",
+    flex: 1,
+  },
+  doneText: { fontSize: 13, color: Colors.accent, lineHeight: 19 },
+});

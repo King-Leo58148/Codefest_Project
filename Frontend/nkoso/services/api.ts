@@ -85,7 +85,7 @@ export async function verifyMomo(momoNumber: string): Promise<boolean> {
     method: 'POST',
     body: JSON.stringify({ momoNumber }),
   });
-  return (res as { success?: boolean } | null)?.success || true;
+  return (res as { verified?: boolean } | null)?.verified ?? false;
 }
 
 // Pitches
@@ -108,10 +108,7 @@ export async function createPitch(data: any): Promise<Pitch> {
     throw new Error('A pitch video is required.');
   }
 
-  formData.append(
-    'data',
-    new Blob([JSON.stringify(data.data)], { type: 'application/json' }) as any
-  );
+  formData.append('data', JSON.stringify(data.data));
   formData.append('video', {
     uri: data.video.uri,
     name: data.video.fileName || 'pitch-video.mp4',
