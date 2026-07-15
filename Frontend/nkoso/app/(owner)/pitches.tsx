@@ -10,6 +10,7 @@ import {
   Modal,
   TextInput,
   Platform,
+  Image,
   ScrollView as ScrollV,
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -19,7 +20,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/Colors';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getMyPitches, createPitch } from '@/services/api';
-import { ProgressBar } from '@/components/ui/ProgressBar';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -38,6 +38,12 @@ function formatLabel(value: string) {
     .split('_')
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join(' ');
+}
+
+function formatOfferType(offerType: string | undefined) {
+  if (offerType === 'REVENUE_SHARE') return 'revenue share';
+  if (offerType === 'FIXED') return 'fixed repayment';
+  return 'equity';
 }
 
 export default function PitchesScreen() {
@@ -144,67 +150,70 @@ export default function PitchesScreen() {
           </View>
         ) : pitches.length > 0 ? (
           pitches.map((pitch) => {
-            const raisedAmount = Number(pitch.amountRaised ?? 0);
-            const neededAmount = Number(pitch.amountNeeded ?? 0);
-            const percent = neededAmount > 0 ? (raisedAmount / neededAmount) * 100 : 0;
             return (
               <View key={pitch.id} style={styles.pitchCard}>
-                <View style={styles.pitchCardHeader}>
-                  <View style={styles.pitchInfo}>
-                    <Text style={styles.pitchName}>{pitch.businessName}</Text>
-                    <Badge label={pitch.industry} industry={pitch.industry} />
-                  </View>
+                <View style={styles.mediaWrap}>
+                  <Image source={{ uri: pitch.imageUrl }} style={styles.media} />
+                  {pitch.videoUrl ? (
+                    <View style={styles.playOverlay}>
+                      <Ionicons name="play-circle" size={48} color="#fff" />
+                    </View>
+                  ) : null}
                   <View style={styles.liveBadge}>
                     <View style={styles.liveDot} />
                     <Text style={styles.liveText}>{pitch.status === 'LIVE' ? 'LIVE' : pitch.status}</Text>
                   </View>
                 </View>
 
-                <Text style={styles.pitchDesc} numberOfLines={3}>
-                  {pitch.description}
-                </Text>
+                <View style={styles.pitchCardBody}>
+                  <View style={styles.pitchInfo}>
+                    <Badge label={pitch.industry} industry={pitch.industry} />
+                    <Text style={styles.pitchName}>{pitch.businessName}</Text>
+                  </View>
 
-                <View style={styles.fundingSection}>
-                  <View style={styles.fundingRow}>
-                    <Text style={styles.fundingLabel}>Raised</Text>
-                    <Text style={styles.fundingLabel}>Goal</Text>
-                  </View>
-                  <View style={styles.fundingRow}>
-                    <Text style={styles.fundingValue}>
-                      GH₵{formatCurrency(pitch.amountRaised)}
-                    </Text>
-                    <Text style={styles.fundingValue}>
-                      GH₵{formatCurrency(pitch.amountNeeded)}
-                    </Text>
-                  </View>
-                  <ProgressBar percent={percent} height={8} />
-                  <Text style={styles.fundedPercent}>{percent.toFixed(0)}% funded</Text>
-                </View>
+                  <Text style={styles.pitchDesc} numberOfLines={3}>
+                    {pitch.description}
+                  </Text>
 
-                <View style={styles.pitchMeta}>
-                  <View style={styles.metaItem}>
-                    <Ionicons name="location-outline" size={14} color={Colors.textMuted} />
-                    <Text style={styles.metaText}>{pitch.location}</Text>
+                  <View style={styles.pitchMeta}>
+                    <View style={styles.metaItem}>
+                      <Ionicons name="location-outline" size={14} color={Colors.textMuted} />
+                      <Text style={styles.metaText}>{pitch.location}</Text>
+                    </View>
+                    <View style={styles.metaItem}>
+                      <Ionicons name="calendar-outline" size={14} color={Colors.textMuted} />
+                      <Text style={styles.metaText}>Ends {formatDate(pitch.campaignEndDate)}</Text>
+                    </View>
                   </View>
-                  <View style={styles.metaItem}>
-                    <Ionicons name="calendar-outline" size={14} color={Colors.textMuted} />
-                    <Text style={styles.metaText}>Ends {formatDate(pitch.campaignEndDate)}</Text>
-                  </View>
-                </View>
 
-                <View style={styles.pitchActions}>
-                  <TouchableOpacity style={styles.pitchActionBtn} activeOpacity={0.7}>
-                    <Ionicons name="create-outline" size={16} color={Colors.primary} />
-                    <Text style={styles.pitchActionText}>Edit</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.pitchActionBtn} activeOpacity={0.7}>
-                    <Ionicons name="analytics-outline" size={16} color={Colors.primary} />
-                    <Text style={styles.pitchActionText}>Stats</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.pitchActionBtn} activeOpacity={0.7}>
-                    <Ionicons name="share-social-outline" size={16} color={Colors.primary} />
-                    <Text style={styles.pitchActionText}>Share</Text>
-                  </TouchableOpacity>
+                  <View style={styles.divider} />
+
+                  <View style={styles.statsRow}>
+                    <View>
+                      <Text style={styles.statValue}>GH₵{formatCurrency(pitch.amountNeeded)}</Text>
+                      <Text style={styles.statLabel}>asking</Text>
+                    </View>
+                    <View style={styles.offerPill}>
+                      <Text style={styles.offerPillText}>
+                        {pitch.offerValue}% {formatOfferType(pitch.offerType)}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.pitchActions}>
+                    <TouchableOpacity style={styles.pitchActionBtn} activeOpacity={0.7}>
+                      <Ionicons name="create-outline" size={16} color={Colors.primary} />
+                      <Text style={styles.pitchActionText}>Edit</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.pitchActionBtn} activeOpacity={0.7}>
+                      <Ionicons name="analytics-outline" size={16} color={Colors.primary} />
+                      <Text style={styles.pitchActionText}>Stats</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.pitchActionBtn} activeOpacity={0.7}>
+                      <Ionicons name="share-social-outline" size={16} color={Colors.primary} />
+                      <Text style={styles.pitchActionText}>Share</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
               </View>
             );
@@ -292,19 +301,39 @@ export default function PitchesScreen() {
               onChangeText={setAmountNeeded}
               keyboardType="numeric"
             />
+
+            <View style={styles.textAreaWrapper}>
+              <Text style={styles.textAreaLabel}>Offer type *</Text>
+              <View style={styles.chipWrap}>
+                {OFFER_TYPES.map((item) => (
+                  <TouchableOpacity
+                    key={item}
+                    style={[styles.chip, offerType === item && styles.chipSelected]}
+                    onPress={() => setOfferType(item)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.chipText, offerType === item && styles.chipTextSelected]}>
+                      {formatLabel(item)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
             <Input
-   label={
-    offerType === 'FIXED'
-      ? 'Fixed repayment amount (GH₵)'
-      : offerType === 'REVENUE_SHARE'
-      ? 'Revenue share offered (%)'
-      : 'Equity offered (%)'
-  }
-  placeholder={offerType === 'FIXED' ? 'e.g. 25000' : 'e.g. 7.5'}
-  value={offerValue}
-  onChangeText={setOfferValue}
-  keyboardType="numeric"
-/>
+              label={
+                offerType === 'FIXED'
+                  ? 'Fixed repayment amount (GH₵)'
+                  : offerType === 'REVENUE_SHARE'
+                  ? 'Revenue share offered (%)'
+                  : 'Equity offered (%)'
+              }
+              placeholder={offerType === 'FIXED' ? 'e.g. 25000' : 'e.g. 7.5'}
+              value={offerValue}
+              onChangeText={setOfferValue}
+              keyboardType="numeric"
+            />
+
             <Input
               label="Location"
               placeholder="e.g. Accra, Greater Accra"
@@ -323,24 +352,6 @@ export default function PitchesScreen() {
                     activeOpacity={0.7}
                   >
                     <Text style={[styles.chipText, industry === item && styles.chipTextSelected]}>
-                      {formatLabel(item)}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-
-            <View style={styles.textAreaWrapper}>
-              <Text style={styles.textAreaLabel}>Offer type *</Text>
-              <View style={styles.chipWrap}>
-                {OFFER_TYPES.map((item) => (
-                  <TouchableOpacity
-                    key={item}
-                    style={[styles.chip, offerType === item && styles.chipSelected]}
-                    onPress={() => setOfferType(item)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={[styles.chipText, offerType === item && styles.chipTextSelected]}>
                       {formatLabel(item)}
                     </Text>
                   </TouchableOpacity>
@@ -423,19 +434,32 @@ const styles = StyleSheet.create({
   pitchCard: {
     backgroundColor: Colors.surface,
     borderRadius: 16,
-    padding: 18,
+    overflow: 'hidden',
     marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
     elevation: 3,
-    gap: 12,
   },
-  pitchCardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+  mediaWrap: {
+    position: 'relative',
+  },
+  media: {
+    width: '100%',
+    height: 200,
+    resizeMode: 'cover',
+    backgroundColor: Colors.borderLight,
+  },
+  playOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.15)',
+  },
+  pitchCardBody: {
+    padding: 18,
+    gap: 10,
   },
   pitchInfo: {
     gap: 6,
@@ -446,10 +470,13 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
   },
   liveBadge: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: '#F0FDF4',
+    backgroundColor: '#ffffffee',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 10,
@@ -470,27 +497,6 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     lineHeight: 20,
   },
-  fundingSection: {
-    gap: 6,
-  },
-  fundingRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  fundingLabel: {
-    fontSize: 12,
-    color: Colors.textMuted,
-  },
-  fundingValue: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: Colors.textPrimary,
-  },
-  fundedPercent: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: Colors.accent,
-  },
   pitchMeta: {
     gap: 6,
   },
@@ -503,12 +509,43 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.textMuted,
   },
+  divider: {
+    height: 1,
+    backgroundColor: Colors.borderLight,
+    marginVertical: 2,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  statValue: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: Colors.textPrimary,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: Colors.textMuted,
+  },
+  offerPill: {
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 24,
+  },
+  offerPillText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '700',
+  },
   pitchActions: {
     flexDirection: 'row',
     gap: 8,
     borderTopWidth: 1,
     borderTopColor: Colors.borderLight,
     paddingTop: 12,
+    marginTop: 4,
   },
   pitchActionBtn: {
     flex: 1,

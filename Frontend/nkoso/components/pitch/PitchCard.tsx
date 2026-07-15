@@ -5,16 +5,19 @@ import { Ionicons } from '@expo/vector-icons';
 import { Pitch } from '@/types';
 import { Colors } from '@/constants/Colors';
 import { Badge } from '@/components/ui/Badge';
-import { ProgressBar } from '@/components/ui/ProgressBar';
 
 interface PitchCardProps {
   pitch: Pitch;
   compact?: boolean;
 }
 
-export function PitchCard({ pitch, compact = false }: PitchCardProps) {
-  const fundedPercent = (pitch.amountRaised / pitch.amountNeeded) * 100;
+function formatOfferType(offerType: string | undefined) {
+  if (offerType === 'REVENUE_SHARE') return 'revenue share';
+  if (offerType === 'FIXED') return 'fixed repayment';
+  return 'equity';
+}
 
+export function PitchCard({ pitch, compact = false }: PitchCardProps) {
   const handlePress = () => {
     router.push(`/pitch/${pitch.id}`);
   };
@@ -31,13 +34,9 @@ export function PitchCard({ pitch, compact = false }: PitchCardProps) {
           <Text style={styles.compactDesc} numberOfLines={2}>
             {pitch.shortDescription}
           </Text>
-          <ProgressBar percent={fundedPercent} />
           <View style={styles.compactFooter}>
-            <Text style={styles.fundedLabel}>
-              {fundedPercent.toFixed(0)}% funded
-            </Text>
             <Text style={styles.raisedText}>
-              GH₵{(pitch.amountRaised / 1000).toFixed(0)}k raised
+              GH₵{(pitch.amountNeeded / 1000).toFixed(0)}k for {pitch.offerValue}% {formatOfferType(pitch.offerType)}
             </Text>
           </View>
         </View>
@@ -46,13 +45,19 @@ export function PitchCard({ pitch, compact = false }: PitchCardProps) {
   }
 
   return (
-    <TouchableOpacity style={styles.card} onPress={handlePress} activeOpacity={0.8}>
-      <View style={styles.cardHeader}>
-        <Image source={{ uri: pitch.imageUrl }} style={styles.cardImage} />
+    <TouchableOpacity style={styles.card} onPress={handlePress} activeOpacity={0.85}>
+      <View style={styles.mediaWrap}>
+        <Image source={{ uri: pitch.imageUrl }} style={styles.media} />
+        {pitch.videoUrl ? (
+          <View style={styles.playOverlay}>
+            <Ionicons name="play-circle" size={54} color="#fff" />
+          </View>
+        ) : null}
         <TouchableOpacity style={styles.heartBtn} activeOpacity={0.7}>
           <Ionicons name="heart-outline" size={18} color={Colors.textSecondary} />
         </TouchableOpacity>
       </View>
+
       <View style={styles.cardBody}>
         <Badge label={pitch.industry} industry={pitch.industry} />
         <Text style={styles.businessName}>{pitch.businessName}</Text>
@@ -63,15 +68,19 @@ export function PitchCard({ pitch, compact = false }: PitchCardProps) {
           <Ionicons name="location-outline" size={12} color={Colors.textMuted} />
           <Text style={styles.metaText}>{pitch.location}</Text>
         </View>
-        <ProgressBar percent={fundedPercent} />
-        <View style={styles.fundingRow}>
-          <Text style={styles.fundedPercent}>{fundedPercent.toFixed(0)}% funded</Text>
-          <Text style={styles.raisedAmt}>
-            GH₵{pitch.amountRaised.toLocaleString()} raised
-          </Text>
-          <Text style={styles.goalAmt}>
-            of GH₵{pitch.amountNeeded.toLocaleString()}
-          </Text>
+
+        <View style={styles.divider} />
+
+        <View style={styles.statsRow}>
+          <View>
+            <Text style={styles.statValue}>GH₵{pitch.amountNeeded.toLocaleString()}</Text>
+            <Text style={styles.statLabel}>asking</Text>
+          </View>
+          <TouchableOpacity style={styles.viewBtn} onPress={handlePress} activeOpacity={0.8}>
+            <Text style={styles.viewBtnText}>
+              {pitch.offerValue}% {formatOfferType(pitch.offerType)}
+            </Text>
+          </TouchableOpacity>
         </View>
       </View>
     </TouchableOpacity>
@@ -90,13 +99,20 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 3,
   },
-  cardHeader: {
+  mediaWrap: {
     position: 'relative',
   },
-  cardImage: {
+  media: {
     width: '100%',
-    height: 180,
+    height: 200,
     resizeMode: 'cover',
+    backgroundColor: Colors.borderLight,
+  },
+  playOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.15)',
   },
   heartBtn: {
     position: 'absolute',
@@ -132,25 +148,35 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.textMuted,
   },
-  fundingRow: {
+  divider: {
+    height: 1,
+    backgroundColor: Colors.borderLight,
+    marginVertical: 4,
+  },
+  statsRow: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    gap: 6,
-    marginTop: 4,
   },
-  fundedPercent: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: Colors.accent,
+  statValue: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: Colors.textPrimary,
   },
-  raisedAmt: {
-    fontSize: 12,
-    color: Colors.textSecondary,
-    fontWeight: '500',
-  },
-  goalAmt: {
+  statLabel: {
     fontSize: 12,
     color: Colors.textMuted,
+  },
+  viewBtn: {
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 24,
+  },
+  viewBtnText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '700',
   },
 
   // Compact styles
@@ -191,13 +217,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginTop: 2,
   },
-  fundedLabel: {
-    fontSize: 11,
-    color: Colors.accent,
-    fontWeight: '600',
-  },
   raisedText: {
     fontSize: 11,
     color: Colors.textMuted,
+    fontWeight: '600',
   },
 });
