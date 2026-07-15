@@ -24,6 +24,22 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 
+const INDUSTRIES = [
+  'FOOD_AND_BEVERAGE', 'RETAIL', 'AGRICULTURE', 'TRANSPORT', 'FASHION',
+  'BEAUTY_AND_COSMETICS', 'CONSTRUCTION', 'EDUCATION', 'HEALTH',
+  'TECHNOLOGY', 'ENTERTAINMENT', 'HOSPITALITY', 'MANUFACTURING', 'OTHER',
+];
+
+const OFFER_TYPES = ['EQUITY', 'REVENUE_SHARE', 'FIXED'];
+
+function formatLabel(value: string) {
+  return value
+    .toLowerCase()
+    .split('_')
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
+}
+
 export default function PitchesScreen() {
   const [showCreate, setShowCreate] = useState(false);
   const queryClient = useQueryClient();
@@ -40,6 +56,8 @@ export default function PitchesScreen() {
   const [offerValue, setOfferValue] = useState('');
   const [location, setLocation] = useState('');
   const [videoUri, setVideoUri] = useState<string | null>(null);
+  const [industry, setIndustry] = useState<string>('');
+  const [offerType, setOfferType] = useState<string>('');
 
   const createMutation = useMutation({
     mutationFn: (data: any) => createPitch(data),
@@ -53,6 +71,8 @@ export default function PitchesScreen() {
       setOfferValue('');
       setLocation('');
       setVideoUri(null);
+      setIndustry('');
+      setOfferType('');
       Alert.alert(
         'Pitch submitted!',
         'Your pitch has been submitted for admin review. You will be notified once it goes live.',
@@ -77,8 +97,8 @@ export default function PitchesScreen() {
   };
 
   const handleCreate = async () => {
-    if (!businessName || !description || !monthlyIncome || !amountNeeded || !videoUri) {
-      Alert.alert('Missing fields', 'Please fill in all required fields and choose a pitch video.');
+    if (!businessName || !description || !monthlyIncome || !amountNeeded || !videoUri || !industry || !offerType) {
+      Alert.alert('Missing fields', 'Please fill in all required fields, choose an industry, offer type, and a pitch video.');
       return;
     }
     createMutation.mutate({
@@ -87,10 +107,10 @@ export default function PitchesScreen() {
         description,
         monthlyIncome: Number(monthlyIncome),
         amountNeeded: Number(amountNeeded),
-        offerType: 'EQUITY',
+        offerType,
         offerValue: Number(offerValue) || 0,
         location,
-        industry: 'TECHNOLOGY',
+        industry,
       },
       video: { uri: videoUri, fileName: 'pitch-video.mp4', mimeType: 'video/mp4' },
     });
@@ -273,18 +293,60 @@ export default function PitchesScreen() {
               keyboardType="numeric"
             />
             <Input
-              label="Investor offer (% equity / revenue share)"
-              placeholder="e.g. 7.5"
-              value={offerValue}
-              onChangeText={setOfferValue}
-              keyboardType="numeric"
-            />
+   label={
+    offerType === 'FIXED'
+      ? 'Fixed repayment amount (GH₵)'
+      : offerType === 'REVENUE_SHARE'
+      ? 'Revenue share offered (%)'
+      : 'Equity offered (%)'
+  }
+  placeholder={offerType === 'FIXED' ? 'e.g. 25000' : 'e.g. 7.5'}
+  value={offerValue}
+  onChangeText={setOfferValue}
+  keyboardType="numeric"
+/>
             <Input
               label="Location"
               placeholder="e.g. Accra, Greater Accra"
               value={location}
               onChangeText={setLocation}
             />
+
+            <View style={styles.textAreaWrapper}>
+              <Text style={styles.textAreaLabel}>Industry *</Text>
+              <View style={styles.chipWrap}>
+                {INDUSTRIES.map((item) => (
+                  <TouchableOpacity
+                    key={item}
+                    style={[styles.chip, industry === item && styles.chipSelected]}
+                    onPress={() => setIndustry(item)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.chipText, industry === item && styles.chipTextSelected]}>
+                      {formatLabel(item)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            <View style={styles.textAreaWrapper}>
+              <Text style={styles.textAreaLabel}>Offer type *</Text>
+              <View style={styles.chipWrap}>
+                {OFFER_TYPES.map((item) => (
+                  <TouchableOpacity
+                    key={item}
+                    style={[styles.chip, offerType === item && styles.chipSelected]}
+                    onPress={() => setOfferType(item)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.chipText, offerType === item && styles.chipTextSelected]}>
+                      {formatLabel(item)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
 
             <View style={styles.uploadSection}>
               <Text style={styles.textAreaLabel}>Pitch Video</Text>
@@ -595,5 +657,30 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: Colors.accentRed,
     fontWeight: '600',
+  },
+  chipWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  chip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.inputBg,
+  },
+  chipSelected: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  chipText: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    fontWeight: '600',
+  },
+  chipTextSelected: {
+    color: '#fff',
   },
 });
