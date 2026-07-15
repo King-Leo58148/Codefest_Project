@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import * as ImagePicker from 'expo-image-picker';
+import * as VideoThumbnails from 'expo-video-thumbnails';
 import { Video, ResizeMode } from 'expo-av';
 import {
   View,
@@ -64,6 +65,7 @@ export default function PitchesScreen() {
   const [offerValue, setOfferValue] = useState('');
   const [location, setLocation] = useState('');
   const [videoUri, setVideoUri] = useState<string | null>(null);
+  const [thumbnailUri, setThumbnailUri] = useState<string | null>(null);
   const [industry, setIndustry] = useState<string>('');
   const [offerType, setOfferType] = useState<string>('');
 
@@ -79,6 +81,7 @@ export default function PitchesScreen() {
       setOfferValue('');
       setLocation('');
       setVideoUri(null);
+      setThumbnailUri(null);
       setIndustry('');
       setOfferType('');
       Alert.alert(
@@ -100,7 +103,18 @@ export default function PitchesScreen() {
     });
 
     if (!result.canceled) {
-      setVideoUri(result.assets[0].uri);
+      const uri = result.assets[0].uri;
+      setVideoUri(uri);
+
+      try {
+        const { uri: thumbUri } = await VideoThumbnails.getThumbnailAsync(uri, {
+          time: 1000,
+        });
+        setThumbnailUri(thumbUri);
+      } catch (err) {
+        console.warn('Failed to generate thumbnail', err);
+        setThumbnailUri(null);
+      }
     }
   };
 
@@ -121,6 +135,9 @@ export default function PitchesScreen() {
         industry,
       },
       video: { uri: videoUri, fileName: 'pitch-video.mp4', mimeType: 'video/mp4' },
+      image: thumbnailUri
+        ? { uri: thumbnailUri, fileName: 'pitch-cover.jpg', mimeType: 'image/jpeg' }
+        : undefined,
     });
   };
 
@@ -379,9 +396,13 @@ export default function PitchesScreen() {
               <Text style={styles.textAreaLabel}>Pitch Video</Text>
               {videoUri ? (
                 <View style={styles.videoAttached}>
-                  <Ionicons name="checkmark-circle" size={20} color={Colors.accent} />
+                  {thumbnailUri ? (
+                    <Image source={{ uri: thumbnailUri }} style={styles.thumbnailPreview} />
+                  ) : (
+                    <Ionicons name="checkmark-circle" size={20} color={Colors.accent} />
+                  )}
                   <Text style={styles.videoAttachedText}>Video attached successfully.</Text>
-                  <TouchableOpacity onPress={() => setVideoUri(null)}>
+                  <TouchableOpacity onPress={() => { setVideoUri(null); setThumbnailUri(null); }}>
                     <Text style={styles.removeVideoText}>Remove</Text>
                   </TouchableOpacity>
                 </View>
@@ -737,6 +758,11 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 14,
     gap: 10,
+  },
+  thumbnailPreview: {
+    width: 40,
+    height: 40,
+    borderRadius: 6,
   },
   videoAttachedText: {
     flex: 1,
