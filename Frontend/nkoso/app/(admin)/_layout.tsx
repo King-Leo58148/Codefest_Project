@@ -4,7 +4,7 @@ import { Colors } from '@/constants/Colors';
 import { BlurView } from 'expo-blur';
 import { StyleSheet, Platform } from 'react-native';
 
-export default function InvestorTabLayout() {
+export default function AdminTabLayout() {
   return (
     <Tabs
       screenOptions={{
@@ -33,45 +33,36 @@ export default function InvestorTabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Home',
+          title: 'Dashboard',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home-outline" size={size} color={color} />
+            <Ionicons name="grid-outline" size={size} color={color} />
           ),
         }}
       />
       <Tabs.Screen
-        name="explore"
+        name="pitches"
         options={{
-          title: 'Explore',
+          title: 'Pitches',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="compass-outline" size={size} color={color} />
+            <Ionicons name="document-text-outline" size={size} color={color} />
           ),
         }}
       />
       <Tabs.Screen
-        name="portfolio"
+        name="deals"
         options={{
-          title: 'Portfolio',
+          title: 'Deals',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="briefcase-outline" size={size} color={color} />
           ),
         }}
       />
       <Tabs.Screen
-        name="activity"
+        name="users"
         options={{
-          title: 'Activity',
+          title: 'Users',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="pulse-outline" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: 'Profile',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person-outline" size={size} color={color} />
+            <Ionicons name="people-outline" size={size} color={color} />
           ),
         }}
       />
