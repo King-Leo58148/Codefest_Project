@@ -1,6 +1,7 @@
+import 'text-encoding';
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, FlatList, KeyboardAvoidingView, Platform } from 'react-native';
-import { Stomp } from '@stomp/stompjs';
+import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import { Colors } from '@/constants/Colors';
 import { getDealMessages, sendDealMessage } from '@/services/api';
@@ -27,28 +28,32 @@ export default function DealChat({ dealId }: { dealId: string }) {
     // 2. Connect WebSocket
     const connectWS = async () => {
       const token = await AsyncStorage.getItem('token');
-      const socket = new SockJS(`${BASE_URL}/ws`);
       
-      stompClient.current = Stomp.over(socket);
-      stompClient.current.debug = () => {};
-
-      stompClient.current.connect({ Authorization: `Bearer ${token}` }, () => {
-        setConnected(true);
-        stompClient.current.subscribe(`/topic/deal/${dealId}`, (msg: any) => {
-          const newMsg = JSON.parse(msg.body);
-          setMessages((prev) => [...prev, newMsg]);
-          scrollToBottom();
-        });
-      }, (err: any) => {
-        console.error('STOMP Error:', err);
+      stompClient.current = new Client({
+        webSocketFactory: () => new SockJS(`${BASE_URL}/ws`),
+        connectHeaders: { Authorization: `Bearer ${token}` },
+        debug: () => {},
+        onConnect: () => {
+          setConnected(true);
+          stompClient.current.subscribe(`/topic/deal/${dealId}`, (msg: any) => {
+            const newMsg = JSON.parse(msg.body);
+            setMessages((prev) => [...prev, newMsg]);
+            scrollToBottom();
+          });
+        },
+        onStompError: (frame) => {
+          console.error('STOMP Error:', frame);
+        }
       });
+
+      stompClient.current.activate();
     };
 
     connectWS();
 
     return () => {
       if (stompClient.current) {
-        stompClient.current.disconnect();
+        stompClient.current.deactivate();
       }
     };
   }, [dealId]);

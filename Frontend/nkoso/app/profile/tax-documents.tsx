@@ -12,27 +12,21 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/Colors';
 
-const TAX_YEARS = [
+const TAX_DOCUMENTS = [
   {
+    id: '1',
     year: '2025',
-    totalInvested: 'GH₵ 24,500',
-    totalReturns: 'GH₵ 3,180',
-    deals: 4,
-    status: 'ready',
+    status: 'READY',
   },
   {
+    id: '2',
     year: '2024',
-    totalInvested: 'GH₵ 18,000',
-    totalReturns: 'GH₵ 2,340',
-    deals: 3,
-    status: 'ready',
+    status: 'READY',
   },
   {
+    id: '3',
     year: '2023',
-    totalInvested: 'GH₵ 9,200',
-    totalReturns: 'GH₵ 920',
-    deals: 2,
-    status: 'ready',
+    status: 'READY',
   },
 ];
 
@@ -68,8 +62,8 @@ export default function TaxDocumentsScreen() {
           </Text>
         </View>
 
-        {TAX_YEARS.map((doc, i) => (
-          <View key={doc.year} style={styles.docCard}>
+        {TAX_DOCUMENTS.map((doc) => (
+          <View key={doc.id} style={styles.docCard}>
             <View style={styles.docHeader}>
               <View style={styles.docIconBox}>
                 <Ionicons name="document-text-outline" size={22} color={Colors.primary} />
@@ -84,15 +78,11 @@ export default function TaxDocumentsScreen() {
             </View>
 
             <View style={styles.docStats}>
-              <View style={styles.docStat}>
-                <Text style={styles.docStatLabel}>Total invested</Text>
-                <Text style={styles.docStatValue}>{doc.totalInvested}</Text>
-              </View>
               <View style={styles.docStatDivider} />
               <View style={styles.docStat}>
                 <Text style={styles.docStatLabel}>Returns received</Text>
                 <Text style={[styles.docStatValue, { color: Colors.accent }]}>
-                  {doc.totalReturns}
+                  {doc.status}
                 </Text>
               </View>
               <View style={styles.docStatDivider} />

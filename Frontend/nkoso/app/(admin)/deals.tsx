@@ -5,10 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 
 export default function AdminDealsScreen() {
-  const activeDeals = [
-    { id: 101, businessName: "Kwame's Farm", investor: "John Doe", amount: "5,000", status: "PENDING_MFI" },
-    { id: 102, businessName: "Accra Tech Hub", investor: "Jane Smith", amount: "15,000", status: "ACTIVE" },
-  ];
+  const activeDeals: any[] = [];
 
   return (
     <SafeAreaView style={styles.container}>
@@ -18,46 +15,52 @@ export default function AdminDealsScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {activeDeals.map((deal) => (
-          <View key={deal.id} style={styles.card}>
-            <View style={styles.cardHeader}>
-              <View>
-                <Text style={styles.businessName}>{deal.businessName}</Text>
-                <Text style={styles.dealId}>Deal #{deal.id}</Text>
+        {activeDeals.length === 0 ? (
+          <Text style={{ textAlign: 'center', marginTop: 40, color: Colors.textLight }}>
+            No active deals found.
+          </Text>
+        ) : (
+          activeDeals.map((deal) => (
+            <View key={deal.id} style={styles.card}>
+              <View style={styles.cardHeader}>
+                <View>
+                  <Text style={styles.businessName}>{deal.businessName}</Text>
+                  <Text style={styles.dealId}>Deal #{deal.id}</Text>
+                </View>
+                <View style={deal.status === 'ACTIVE' ? styles.badgeSuccess : styles.badgeWarning}>
+                  <Text style={deal.status === 'ACTIVE' ? styles.badgeTextSuccess : styles.badgeTextWarning}>
+                    {deal.status.replace('_', ' ')}
+                  </Text>
+                </View>
               </View>
-              <View style={deal.status === 'ACTIVE' ? styles.badgeSuccess : styles.badgeWarning}>
-                <Text style={deal.status === 'ACTIVE' ? styles.badgeTextSuccess : styles.badgeTextWarning}>
-                  {deal.status.replace('_', ' ')}
-                </Text>
+              
+              <View style={styles.cardBody}>
+                <View style={styles.row}>
+                  <Text style={styles.label}>Investor:</Text>
+                  <Text style={styles.value}>{deal.investor}</Text>
+                </View>
+                <View style={styles.row}>
+                  <Text style={styles.label}>Amount:</Text>
+                  <Text style={styles.value}>GH₵ {deal.amount}</Text>
+                </View>
               </View>
-            </View>
-            
-            <View style={styles.cardBody}>
-              <View style={styles.row}>
-                <Text style={styles.label}>Investor:</Text>
-                <Text style={styles.value}>{deal.investor}</Text>
-              </View>
-              <View style={styles.row}>
-                <Text style={styles.label}>Amount:</Text>
-                <Text style={styles.value}>GH₵ {deal.amount}</Text>
-              </View>
-            </View>
-
-            <View style={styles.cardFooter}>
-              <TouchableOpacity 
-                style={styles.buttonOutline}
-                onPress={() => router.push(`/deal/${deal.id}`)}
-              >
-                <Text style={styles.buttonTextOutline}>View Details</Text>
-              </TouchableOpacity>
-              {deal.status === 'PENDING_MFI' && (
-                <TouchableOpacity style={styles.buttonApprove}>
-                  <Text style={styles.buttonTextApprove}>Approve MFI</Text>
+  
+              <View style={styles.cardFooter}>
+                <TouchableOpacity 
+                  style={styles.buttonOutline}
+                  onPress={() => router.push(`/deal/${deal.id}`)}
+                >
+                  <Text style={styles.buttonTextOutline}>View Details</Text>
                 </TouchableOpacity>
-              )}
+                {deal.status === 'PENDING_MFI' && (
+                  <TouchableOpacity style={styles.buttonApprove}>
+                    <Text style={styles.buttonTextApprove}>Approve MFI</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
             </View>
-          </View>
-        ))}
+          ))
+        )}
       </ScrollView>
     </SafeAreaView>
   );

@@ -77,6 +77,11 @@ public class AdminController {
         return ResponseEntity.ok(dealService.approveMfi(dealId));
     }
 
+    @PutMapping("/deals/{dealId}/reject-mfi")
+    public ResponseEntity<Deal> rejectMfi(@PathVariable Integer dealId) {
+        return ResponseEntity.ok(dealService.rejectMfi(dealId));
+    }
+
     // REPAYMENTS
     @GetMapping("/repayments")
     public ResponseEntity<List<Repayment>> getAllRepayments() {

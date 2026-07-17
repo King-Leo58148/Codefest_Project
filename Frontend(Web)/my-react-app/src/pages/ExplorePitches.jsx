@@ -14,7 +14,8 @@ function ExplorePitches() {
     async function fetchPitches() {
       try {
         const response = await api.get('/api/pitches')
-        setPitches(response.data)
+        const data = response.data
+        setPitches(Array.isArray(data) ? data : (data?.content || data?.data || []))
       } catch (err) {
         setError('Failed to load available pitches.')
       } finally {
@@ -24,10 +25,10 @@ function ExplorePitches() {
     fetchPitches()
   }, [])
 
-  const uniqueIndustries = [...new Set(pitches.map(p => p.industry).filter(Boolean))]
+  const uniqueIndustries = [...new Set((pitches || []).map(p => p?.industry).filter(Boolean))]
 
-  const filteredPitches = pitches.filter(p => {
-    const matchesSearch = p.businessName?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+  const filteredPitches = (pitches || []).filter(p => {
+    const matchesSearch = p?.businessName?.toLowerCase().includes(searchTerm.toLowerCase()) || 
                           p.description?.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesIndustry = industryFilter === 'ALL' || p.industry === industryFilter
     
@@ -108,9 +109,11 @@ function ExplorePitches() {
                   <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-1 rounded">
                     {pitch.industry || 'General'}
                   </span>
-                  <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-1 rounded">
-                    Accra
-                  </span>
+                  {pitch.location && (
+                    <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-1 rounded">
+                      {pitch.location}
+                    </span>
+                  )}
                 </div>
                 
                 <p className="text-sm text-slate-600 mb-6 line-clamp-3 flex-1">

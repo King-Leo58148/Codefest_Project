@@ -72,7 +72,10 @@ export default function PitchDetailScreen() {
               resizeMode={ResizeMode.COVER}
             />
           ) : (
-            <Image source={{ uri: pitch.imageUrl }} style={styles.heroImage} />
+            <Image 
+              source={{ uri: pitch.imageUrl || 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=800&q=80' }} 
+              style={styles.heroImage} 
+            />
           )}
           <View style={styles.heroOverlay}>
             <TouchableOpacity

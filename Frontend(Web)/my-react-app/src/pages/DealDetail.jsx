@@ -53,13 +53,14 @@ function DealDetail() {
     setSuccessMsg('')
     try {
       // 1. Initiate payment
-      await api.post(`/api/deals/${id}/pay`)
+      const response = await api.post(`/api/deals/${id}/pay`)
       
-      // 2. Simulate payment verification
-      const verifyResponse = await api.post(`/api/deals/${id}/verify-payment?reference=MOCK_WEB_PAYMENT_${Date.now()}`)
-      
-      setDeal(verifyResponse.data)
-      setSuccessMsg('Payment successful! The deal is now active and funds will be disbursed.')
+      // 2. Redirect to real Paystack checkout
+      if (response.data && response.data.paystackUrl) {
+        window.location.href = response.data.paystackUrl
+      } else {
+        setSuccessMsg('Payment initiated. Please check your email for the payment link.')
+      }
     } catch (err) {
       setError('Failed to process payment. Please try again.')
     } finally {

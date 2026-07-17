@@ -4,10 +4,7 @@ import { Colors } from '@/constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
 
 export default function AdminUsersScreen() {
-  const users = [
-    { id: 1, name: "John Doe", role: "INVESTOR", status: "VERIFIED" },
-    { id: 2, name: "Jane Smith", role: "BUSINESS_OWNER", status: "PENDING" },
-  ];
+  const users: any[] = [];
 
   return (
     <SafeAreaView style={styles.container}>
@@ -17,32 +14,38 @@ export default function AdminUsersScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {users.map((user) => (
-          <View key={user.id} style={styles.card}>
-            <View style={styles.userInfo}>
-              <View style={styles.avatar}>
-                <Text style={styles.avatarText}>{user.name.charAt(0)}</Text>
-              </View>
-              <View style={styles.userDetails}>
-                <Text style={styles.name}>{user.name}</Text>
-                <Text style={styles.role}>{user.role.replace('_', ' ')}</Text>
-              </View>
-            </View>
-            
-            <View style={styles.statusRow}>
-              <View style={user.status === 'VERIFIED' ? styles.badgeSuccess : styles.badgeWarning}>
-                <Text style={user.status === 'VERIFIED' ? styles.badgeTextSuccess : styles.badgeTextWarning}>
-                  {user.status}
-                </Text>
+        {users.length === 0 ? (
+          <Text style={{ textAlign: 'center', marginTop: 40, color: Colors.textLight }}>
+            No users found.
+          </Text>
+        ) : (
+          users.map((user) => (
+            <View key={user.id} style={styles.card}>
+              <View style={styles.userInfo}>
+                <View style={styles.avatar}>
+                  <Text style={styles.avatarText}>{user.name.charAt(0)}</Text>
+                </View>
+                <View style={styles.userDetails}>
+                  <Text style={styles.name}>{user.name}</Text>
+                  <Text style={styles.role}>{user.role.replace('_', ' ')}</Text>
+                </View>
               </View>
               
-              <TouchableOpacity style={styles.actionButton}>
-                <Text style={styles.actionButtonText}>View Profile</Text>
-                <Ionicons name="chevron-forward" size={16} color={Colors.textLight} />
-              </TouchableOpacity>
+              <View style={styles.statusRow}>
+                <View style={user.status === 'VERIFIED' ? styles.badgeSuccess : styles.badgeWarning}>
+                  <Text style={user.status === 'VERIFIED' ? styles.badgeTextSuccess : styles.badgeTextWarning}>
+                    {user.status}
+                  </Text>
+                </View>
+                
+                <TouchableOpacity style={styles.actionButton}>
+                  <Text style={styles.actionButtonText}>View Profile</Text>
+                  <Ionicons name="chevron-forward" size={16} color={Colors.textLight} />
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
-        ))}
+          ))
+        )}
       </ScrollView>
     </SafeAreaView>
   );

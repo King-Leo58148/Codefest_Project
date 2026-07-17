@@ -144,6 +144,11 @@ public class DealService {
 
         Deal deal = dealRepository.findById(dealId)
                 .orElseThrow(() -> new RuntimeException("Deal not found"));
+
+        if (deal.getStatus() != DealStatus.PENDING_MFI) {
+            throw new RuntimeException("This deal is not pending MFI review");
+        }
+
         deal.setMfiApproved(true);
         deal.setStatus(DealStatus.PAYMENT_PENDING);
 
@@ -153,6 +158,43 @@ public class DealService {
                 NotificationType.MFI_APPROVED,
                 "MFI Approved",
                 "The deal for " + deal.getPitch().getBusinessName() + " has been approved. Please proceed with payment.",
+                deal.getId()
+        );
+
+        return dealRepository.save(deal);
+    }
+
+    @CacheEvict(value = {"allDeals", "dealsByStatus"}, allEntries = true)
+    public Deal rejectMfi(Integer dealId) {
+        User currentUser = getCurrentUser();
+
+        if (currentUser.getRole() != Role.ADMIN) {
+            throw new RuntimeException("Only admins can reject MFI");
+        }
+
+        Deal deal = dealRepository.findById(dealId)
+                .orElseThrow(() -> new RuntimeException("Deal not found"));
+
+        if (deal.getStatus() != DealStatus.PENDING_MFI) {
+            throw new RuntimeException("This deal is not pending MFI review");
+        }
+
+        deal.setMfiApproved(false);
+        deal.setStatus(DealStatus.CANCELLED);
+
+        // Notify both parties
+        notificationService.createNotification(
+                deal.getOwner(),
+                NotificationType.MFI_APPROVED,
+                "Deal Rejected",
+                "The deal for " + deal.getPitch().getBusinessName() + " was rejected during MFI review.",
+                deal.getId()
+        );
+        notificationService.createNotification(
+                deal.getInvestor(),
+                NotificationType.MFI_APPROVED,
+                "Deal Rejected",
+                "The deal for " + deal.getPitch().getBusinessName() + " was rejected during MFI review.",
                 deal.getId()
         );
 

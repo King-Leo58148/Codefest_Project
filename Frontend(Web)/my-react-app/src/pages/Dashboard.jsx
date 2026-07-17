@@ -6,19 +6,22 @@ function Dashboard() {
   const [users, setUsers] = useState([])
   const [pitches, setPitches] = useState([])
   const [deals, setDeals] = useState([])
+  const [activity, setActivity] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     async function fetchData() {
       try {
-        const [usersRes, pitchesRes, dealsRes] = await Promise.all([
+        const [usersRes, pitchesRes, dealsRes, notificationsRes] = await Promise.all([
           api.get('/api/admin/users'),
           api.get('/api/admin/pitches/pending'),
           api.get('/api/admin/deals/active'),
+          api.get('/api/notifications').catch(() => ({ data: [] }))
         ])
-        setUsers(usersRes.data)
-        setPitches(pitchesRes.data)
-        setDeals(dealsRes.data)
+        setUsers(Array.isArray(usersRes.data) ? usersRes.data : [])
+        setPitches(Array.isArray(pitchesRes.data) ? pitchesRes.data : [])
+        setDeals(Array.isArray(dealsRes.data) ? dealsRes.data : [])
+        setActivity(Array.isArray(notificationsRes.data) ? notificationsRes.data.slice(0, 5) : [])
       } catch (err) {
         console.error('Failed to fetch dashboard data', err)
       } finally {
@@ -52,40 +55,15 @@ function Dashboard() {
       color: 'text-amber-500',
     },
     {
-      label: 'Total Revenue',
-      value: 'GH₵ 0',
+      label: 'Active Users',
+      value: loading ? '...' : users.filter(u => u.status === 'ACTIVE').length,
       icon: TrendingUp,
       bg: 'bg-purple-50',
       color: 'text-purple-500',
     },
   ]
 
-  const activity = [
-    {
-      id: 1,
-      text: 'Ama Owusu submitted a new pitch',
-      time: '2 minutes ago',
-      color: 'bg-amber-400',
-    },
-    {
-      id: 2,
-      text: 'Kofi Mensah placed a bid on Kofi Chop Bar',
-      time: '15 minutes ago',
-      color: 'bg-green-400',
-    },
-    {
-      id: 3,
-      text: 'Deal signed between Abena Boutique and Akosua Frimpong',
-      time: '1 hour ago',
-      color: 'bg-blue-400',
-    },
-    {
-      id: 4,
-      text: 'Kwame Farms missed a repayment',
-      time: '3 hours ago',
-      color: 'bg-red-400',
-    },
-  ]
+
 
   return (
     <div className="space-y-8">
@@ -97,7 +75,7 @@ function Dashboard() {
               <h2 className="mt-3 text-3xl font-semibold text-slate-900">Platform overview</h2>
               <p className="mt-2 text-sm text-slate-500">Your current admin snapshot and top metrics for quick action.</p>
             </div>
-            <div className="rounded-3xl bg-slate-100 px-4 py-3 text-sm text-slate-700">Updated just now</div>
+            <div className="rounded-3xl bg-slate-100 px-4 py-3 text-sm text-slate-700">Live Overview</div>
           </div>
 
           <div className="mt-8 grid gap-4 sm:grid-cols-2">
@@ -141,13 +119,16 @@ function Dashboard() {
           </div>
 
           <div className="mt-6 space-y-4">
+            {activity.length === 0 && (
+              <p className="text-sm text-slate-500">No recent activity.</p>
+            )}
             {activity.map((item) => (
               <div key={item.id} className="rounded-[1.75rem] border border-slate-200 bg-slate-50 p-4">
                 <div className="flex items-start gap-4">
-                  <span className={`mt-1 inline-flex h-3.5 w-3.5 rounded-full ${item.color}`} />
+                  <span className={`mt-1 inline-flex h-3.5 w-3.5 rounded-full bg-blue-400`} />
                   <div>
-                    <p className="text-sm font-medium text-slate-900">{item.text}</p>
-                    <p className="mt-1 text-xs text-slate-500">{item.time}</p>
+                    <p className="text-sm font-medium text-slate-900">{item.message}</p>
+                    <p className="mt-1 text-xs text-slate-500">{new Date(item.createdAt).toLocaleString()}</p>
                   </div>
                 </div>
               </div>

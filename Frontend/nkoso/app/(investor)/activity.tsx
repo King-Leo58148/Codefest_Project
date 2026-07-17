@@ -24,7 +24,10 @@ function ActivityRow({ item }: { item: ActivityItem }) {
     <View style={styles.row}>
       <View style={styles.iconWrapper}>
         {isUpdate ? (
-          <Image source={{ uri: item.imageUrl }} style={styles.businessImg} />
+          <Image 
+            source={{ uri: item.imageUrl || 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=800&q=80' }} 
+            style={styles.businessImg} 
+          />
         ) : (
           <View
             style={[

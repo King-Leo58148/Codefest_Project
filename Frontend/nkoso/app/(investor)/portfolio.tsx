@@ -6,146 +6,77 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
+  ActivityIndicator,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/Colors';
-import { MiniChart } from '@/components/portfolio/MiniChart';
-import { CHART_DATA } from '@/services/mockData';
 import { useQuery } from '@tanstack/react-query';
-import { getMyInvestments } from '@/services/api';
-import { ActivityIndicator } from 'react-native';
-
-const TIME_FILTERS = ['1D', '1W', '1M', '1Y', 'All'];
+import { getMyDeals } from '@/services/api';
 
 export default function PortfolioScreen() {
-  const [activeFilter, setActiveFilter] = useState('All');
-
-  const { data: investments = [], isLoading } = useQuery({
-    queryKey: ['myInvestments'],
-    queryFn: () => getMyInvestments(),
+  const { data: deals = [], isLoading } = useQuery({
+    queryKey: ['myDeals'],
+    queryFn: () => getMyDeals(),
   });
 
-  const totalValue = investments.reduce((s, i) => s + i.currentValue, 0);
-  const totalChange = investments.reduce((s, i) => s + i.change, 0);
-  const totalPercent = totalValue - totalChange > 0 
-    ? ((totalChange / (totalValue - totalChange)) * 100).toFixed(1)
-    : '0.0';
-  const isPositive = totalChange >= 0;
+  const activeDeals = deals.filter(deal => 
+    ['PENDING_SIGNATURES', 'PENDING_MFI', 'MFI_APPROVED', 'PAYMENT_PENDING', 'FUNDED', 'ACTIVE'].includes(deal.status)
+  );
+
+  const totalInvested = activeDeals.reduce((sum, deal) => sum + deal.amount, 0);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <Text style={styles.title}>Portfolio</Text>
+          <Text style={styles.title}>My Deals</Text>
         </View>
 
-        {/* Portfolio Card */}
-        <View style={styles.portfolioCard}>
-          <Text style={styles.totalLabel}>Total value</Text>
-          <Text style={styles.totalValue}>
-            {isLoading ? 'Loading...' : `GH₵${totalValue.toLocaleString()}`}
-          </Text>
-          <View style={styles.changeRow}>
-            <Ionicons
-              name={isPositive ? 'arrow-up' : 'arrow-down'}
-              size={12}
-              color={isPositive ? Colors.accent : Colors.accentRed}
-            />
-            <Text
-              style={[
-                styles.changeText,
-                { color: isPositive ? Colors.accent : Colors.accentRed },
-              ]}
-            >
-              GH₵{Math.abs(totalChange).toLocaleString()} ({Math.abs(Number(totalPercent))}%) All
-              time
+        {/* Main summary */}
+        <View style={styles.summaryContainer}>
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryLabel}>Total Invested</Text>
+            <Text style={styles.summaryValue}>
+              {isLoading ? 'Loading...' : `GH₵${totalInvested.toLocaleString()}`}
             </Text>
           </View>
-
-          {/* Time filter */}
-          <View style={styles.timeFilters}>
-            {TIME_FILTERS.map((f) => (
-              <TouchableOpacity
-                key={f}
-                style={[styles.filterChip, activeFilter === f && styles.filterChipActive]}
-                onPress={() => setActiveFilter(f)}
-                activeOpacity={0.7}
-              >
-                <Text
-                  style={[
-                    styles.filterChipText,
-                    activeFilter === f && styles.filterChipTextActive,
-                  ]}
-                >
-                  {f}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          <MiniChart data={CHART_DATA} width={320} height={100} showFill />
         </View>
 
-        {/* Investments */}
-        <Text style={styles.sectionTitle}>Your investments</Text>
-        {isLoading ? (
-          <ActivityIndicator size="large" color={Colors.primary} style={{ marginTop: 20 }} />
-        ) : investments.length === 0 ? (
-          <Text style={{ textAlign: 'center', color: Colors.textMuted, marginTop: 20 }}>No investments yet</Text>
-        ) : (
-          investments.map((inv) => (
-            <View
-              key={inv.pitchId}
-              style={styles.investmentRowWrapper}
-            >
-              <TouchableOpacity
-                style={styles.investmentRow}
-                onPress={() => router.push(`/pitch/${inv.pitchId}`)}
-                activeOpacity={0.8}
-              >
-              <Image source={{ uri: inv.imageUrl }} style={styles.investImg} />
-              <View style={styles.investInfo}>
-                <Text style={styles.investName}>{inv.businessName}</Text>
-                <Text style={styles.investIndustry}>{inv.industry}</Text>
-              </View>
-              <View style={styles.investValues}>
-                <Text style={styles.investValue}>GH₵{inv.currentValue.toLocaleString()}</Text>
-                <View style={styles.changeChip}>
-                  <Ionicons
-                    name={inv.change >= 0 ? 'arrow-up' : 'arrow-down'}
-                    size={10}
-                    color={inv.change >= 0 ? Colors.accent : Colors.accentRed}
-                  />
-                  <Text
-                    style={[
-                      styles.changeChipText,
-                      {
-                        color:
-                          inv.change >= 0 ? Colors.accent : Colors.accentRed,
-                      },
-                    ]}
-                  >
-                    {Math.abs(inv.changePercent).toFixed(1)}%
-                  </Text>
-                </View>
-              </View>
-              </TouchableOpacity>
-              
-              <View style={styles.investmentActions}>
-                <TouchableOpacity 
-                  style={styles.actionBtn}
-                  onPress={() => router.push(`/repayments/${inv.pitchId}` as any)}
-                >
-                  <Ionicons name="calendar-outline" size={14} color={Colors.primary} />
-                  <Text style={styles.actionBtnText}>View Repayments</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          ))
-        )}
+        {/* Active Deals List */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Active Deals</Text>
+          </View>
 
+          {isLoading ? (
+            <ActivityIndicator size="large" color={Colors.primary} style={{ marginTop: 20 }} />
+          ) : activeDeals.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Ionicons name="briefcase-outline" size={48} color={Colors.textMuted} />
+              <Text style={styles.emptyText}>No active deals yet.</Text>
+            </View>
+          ) : (
+            activeDeals.map((deal) => (
+              <TouchableOpacity
+                key={deal.id}
+                style={styles.investCard}
+                onPress={() => router.push(`/deal/${deal.id}`)}
+                activeOpacity={0.7}
+              >
+                <View style={styles.investInfo}>
+                  <Text style={styles.investName}>{deal.businessName}</Text>
+                  <Text style={styles.investIndustry}>Status: {deal.status.replace(/_/g, ' ')}</Text>
+                </View>
+                <View style={styles.investRight}>
+                  <Text style={styles.investValue}>GH₵{deal.amount.toLocaleString()}</Text>
+                  <Text style={styles.investStatusLabel}>View Room</Text>
+                </View>
+              </TouchableOpacity>
+            ))
+          )}
+        </View>
         <View style={{ height: 24 }} />
       </ScrollView>
     </SafeAreaView>
@@ -164,137 +95,93 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: Colors.textPrimary,
   },
-  portfolioCard: {
-    marginHorizontal: 20,
+  summaryContainer: {
+    paddingHorizontal: 20,
+    marginBottom: 24,
+  },
+  summaryCard: {
     backgroundColor: Colors.surface,
     borderRadius: 20,
-    padding: 20,
-    marginBottom: 24,
+    padding: 24,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
     elevation: 3,
   },
-  totalLabel: {
-    fontSize: 13,
+  summaryLabel: {
+    fontSize: 14,
     color: Colors.textSecondary,
-    marginBottom: 4,
+    marginBottom: 8,
   },
-  totalValue: {
+  summaryValue: {
     fontSize: 34,
     fontWeight: '800',
     color: Colors.textPrimary,
-    marginBottom: 4,
   },
-  changeRow: {
+  section: {
+    paddingHorizontal: 20,
+    marginTop: 16,
+  },
+  sectionHeader: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    gap: 4,
-    marginBottom: 16,
-  },
-  changeText: {
-    fontSize: 13,
-    fontWeight: '500',
-  },
-  timeFilters: {
-    flexDirection: 'row',
-    gap: 6,
     marginBottom: 12,
-  },
-  filterChip: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
-    backgroundColor: Colors.borderLight,
-  },
-  filterChipActive: {
-    backgroundColor: Colors.primary,
-  },
-  filterChipText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: Colors.textSecondary,
-  },
-  filterChipTextActive: {
-    color: '#fff',
   },
   sectionTitle: {
     fontSize: 17,
     fontWeight: '700',
     color: Colors.textPrimary,
-    paddingHorizontal: 20,
-    marginBottom: 8,
   },
-  investmentRowWrapper: {
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+    gap: 12,
+  },
+  emptyText: {
+    fontSize: 15,
+    color: Colors.textMuted,
+  },
+  investCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: Colors.surface,
-    marginHorizontal: 20,
+    padding: 16,
+    borderRadius: 16,
     marginBottom: 12,
-    borderRadius: 14,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04,
     shadowRadius: 4,
     elevation: 1,
   },
-  investmentRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 14,
-    gap: 12,
-  },
-  investImg: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    resizeMode: 'cover',
-  },
   investInfo: {
     flex: 1,
   },
   investName: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '700',
     color: Colors.textPrimary,
-    marginBottom: 2,
+    marginBottom: 4,
   },
   investIndustry: {
-    fontSize: 12,
+    fontSize: 13,
     color: Colors.textSecondary,
   },
-  investValues: {
+  investRight: {
     alignItems: 'flex-end',
-    gap: 4,
   },
   investValue: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '700',
     color: Colors.textPrimary,
   },
-  changeChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-  },
-  changeChipText: {
+  investStatusLabel: {
     fontSize: 12,
-    fontWeight: '600',
-  },
-  investmentActions: {
-    flexDirection: 'row',
-    borderTopWidth: 1,
-    borderTopColor: Colors.borderLight,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  actionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  actionBtnText: {
-    fontSize: 13,
-    fontWeight: '600',
     color: Colors.primary,
+    fontWeight: '600',
+    marginTop: 4,
   },
 });

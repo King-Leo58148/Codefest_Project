@@ -4,10 +4,7 @@ import { Colors } from '@/constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
 
 export default function AdminPitchesScreen() {
-  const pendingPitches = [
-    { id: 1, businessName: "Kwame's Farm", industry: "Agriculture", amount: "5,000", status: "PENDING" },
-    { id: 2, businessName: "Accra Tech Hub", industry: "Technology", amount: "15,000", status: "PENDING" },
-  ];
+  const pendingPitches: any[] = [];
 
   return (
     <SafeAreaView style={styles.container}>
@@ -17,37 +14,43 @@ export default function AdminPitchesScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {pendingPitches.map((pitch) => (
-          <View key={pitch.id} style={styles.card}>
-            <View style={styles.cardHeader}>
-              <View>
-                <Text style={styles.businessName}>{pitch.businessName}</Text>
-                <Text style={styles.industry}>{pitch.industry}</Text>
+        {pendingPitches.length === 0 ? (
+          <Text style={{ textAlign: 'center', marginTop: 40, color: Colors.textLight }}>
+            No pending pitches found.
+          </Text>
+        ) : (
+          pendingPitches.map((pitch) => (
+            <View key={pitch.id} style={styles.card}>
+              <View style={styles.cardHeader}>
+                <View>
+                  <Text style={styles.businessName}>{pitch.businessName}</Text>
+                  <Text style={styles.industry}>{pitch.industry}</Text>
+                </View>
+                <View style={styles.badgeWarning}>
+                  <Text style={styles.badgeTextWarning}>{pitch.status}</Text>
+                </View>
               </View>
-              <View style={styles.badgeWarning}>
-                <Text style={styles.badgeTextWarning}>{pitch.status}</Text>
+              
+              <View style={styles.cardBody}>
+                <View style={styles.amountRow}>
+                  <Text style={styles.label}>Amount Requested:</Text>
+                  <Text style={styles.amount}>GH₵ {pitch.amount}</Text>
+                </View>
+              </View>
+  
+              <View style={styles.cardFooter}>
+                <TouchableOpacity style={[styles.button, styles.buttonReject]}>
+                  <Ionicons name="close" size={16} color="#d32f2f" />
+                  <Text style={styles.buttonTextReject}>Reject</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.button, styles.buttonApprove]}>
+                  <Ionicons name="checkmark" size={16} color="#fff" />
+                  <Text style={styles.buttonTextApprove}>Approve</Text>
+                </TouchableOpacity>
               </View>
             </View>
-            
-            <View style={styles.cardBody}>
-              <View style={styles.amountRow}>
-                <Text style={styles.label}>Amount Requested:</Text>
-                <Text style={styles.amount}>GH₵ {pitch.amount}</Text>
-              </View>
-            </View>
-
-            <View style={styles.cardFooter}>
-              <TouchableOpacity style={[styles.button, styles.buttonReject]}>
-                <Ionicons name="close" size={16} color="#d32f2f" />
-                <Text style={styles.buttonTextReject}>Reject</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.button, styles.buttonApprove]}>
-                <Ionicons name="checkmark" size={16} color="#fff" />
-                <Text style={styles.buttonTextApprove}>Approve</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        ))}
+          ))
+        )}
       </ScrollView>
     </SafeAreaView>
   );

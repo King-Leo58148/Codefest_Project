@@ -10,7 +10,8 @@ function PitchReview() {
     async function fetchPitches() {
       try {
         const response = await api.get('/api/admin/pitches/pending')
-        setPitches(response.data)
+        const data = response.data
+        setPitches(Array.isArray(data) ? data : [])
       } catch (err) {
         setError('Failed to load pitches.')
       } finally {

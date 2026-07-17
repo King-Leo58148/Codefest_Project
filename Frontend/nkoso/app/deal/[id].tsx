@@ -13,7 +13,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/Colors';
 import { Button } from '@/components/ui/Button';
-import { signDeal, initiatePayment, verifyPayment, getDeal } from '@/services/api';
+import * as WebBrowser from 'expo-web-browser';
+import { signDeal, initiatePayment, verifyPayment, getDeal, getPitch, getBid } from '@/services/api';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/store/authStore';
 import DealChat from '@/components/DealChat';
@@ -33,6 +34,18 @@ export default function DealRoomScreen() {
   const [mfiApproved, setMfiApproved] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  const { data: pitch } = useQuery({
+    queryKey: ['pitch', deal?.pitchId],
+    queryFn: () => getPitch(deal!.pitchId),
+    enabled: !!deal?.pitchId,
+  });
+
+  const { data: bid } = useQuery({
+    queryKey: ['bid', deal?.bidId],
+    queryFn: () => getBid(deal!.bidId),
+    enabled: !!deal?.bidId,
+  });
+
   React.useEffect(() => {
     if (deal) {
       setOwnerSigned(deal.ownerSigned);
@@ -43,28 +56,13 @@ export default function DealRoomScreen() {
 
   const isOwner = user?.role === 'OWNER';
   const isInvestor = user?.role === 'INVESTOR';
-
-  if (loadingDeal) {
-    return (
-      <SafeAreaView style={[styles.safe, { justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color={Colors.primary} />
-      </SafeAreaView>
-    );
-  }
-
-  if (!deal) {
-    return (
-      <SafeAreaView style={styles.safe}>
-        <Text style={{ textAlign: 'center', marginTop: 40 }}>Deal not found.</Text>
-      </SafeAreaView>
-    );
-  }
-
-  const canSign = isOwner ? !ownerSigned : !investorSigned;
   const bothSigned = ownerSigned && investorSigned;
 
   const signMutation = useMutation({
-    mutationFn: () => signDeal(deal.id, isOwner ? 'owner' : 'investor'),
+    mutationFn: () => {
+      if (!deal) throw new Error("No deal");
+      return signDeal(deal.id, isOwner ? 'owner' : 'investor');
+    },
     onSuccess: () => {
       if (isOwner) {
         setOwnerSigned(true);
@@ -86,6 +84,44 @@ export default function DealRoomScreen() {
     }
   });
 
+  const payMutation = useMutation({
+    mutationFn: async () => {
+      if (!deal) throw new Error("No deal");
+      // 1. Initiate payment (get Paystack URL)
+      const res = await initiatePayment(deal.id);
+      
+      // 2. Open Paystack in in-app browser
+      if (res && res.paystackUrl) {
+        await WebBrowser.openBrowserAsync(res.paystackUrl);
+        // After browser closes, we can invalidate queries so it fetches the latest state
+        queryClient.invalidateQueries({ queryKey: ['deal', deal.id] });
+      } else {
+        Alert.alert('Payment initiated', 'Please check your email for the payment link.');
+      }
+    },
+    onError: (error: any) => {
+      Alert.alert('Payment failed', error.message || 'Something went wrong');
+    }
+  });
+
+  if (loadingDeal) {
+    return (
+      <SafeAreaView style={[styles.safe, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={Colors.primary} />
+      </SafeAreaView>
+    );
+  }
+
+  if (!deal) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <Text style={{ textAlign: 'center', marginTop: 40 }}>Deal not found.</Text>
+      </SafeAreaView>
+    );
+  }
+
+  const canSign = isOwner ? !ownerSigned : !investorSigned;
+
   const handleSign = () => {
     signMutation.mutate();
   };
@@ -95,26 +131,6 @@ export default function DealRoomScreen() {
       { text: 'OK', onPress: () => setMfiApproved(true) },
     ]);
   };
-
-  const payMutation = useMutation({
-    mutationFn: async () => {
-      // 1. Initiate
-      await initiatePayment(deal.id);
-      // 2. Simulate complete payment
-      return verifyPayment(deal.id, `MOCK_MOBILE_PAY_${Date.now()}`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['deal', id] });
-      Alert.alert(
-        'Payment successful',
-        `Your payment of GH₵${deal.amount.toLocaleString()} has been processed. The deal is now active.`,
-        [{ text: 'OK' }]
-      );
-    },
-    onError: () => {
-      Alert.alert('Error', 'Payment processing failed. Please try again.');
-    }
-  });
 
   const handlePayment = () => {
     payMutation.mutate();
@@ -232,7 +248,7 @@ export default function DealRoomScreen() {
               <Ionicons name="person-circle-outline" size={24} color={Colors.primary} />
               <View>
                 <Text style={styles.signerName}>Business Owner</Text>
-                <Text style={styles.signerRole}>Abena Mensah</Text>
+                <Text style={styles.signerRole}>{pitch?.ownerName || (isOwner ? user?.name : 'Owner')}</Text>
               </View>
             </View>
             <View style={[styles.sigBadge, ownerSigned ? styles.sigBadgeSigned : {}]}>
@@ -254,7 +270,7 @@ export default function DealRoomScreen() {
               <Ionicons name="person-circle-outline" size={24} color={Colors.primary} />
               <View>
                 <Text style={styles.signerName}>Investor</Text>
-                <Text style={styles.signerRole}>Alex Smith</Text>
+                <Text style={styles.signerRole}>{bid?.investorName || (isInvestor ? user?.name : 'Investor')}</Text>
               </View>
             </View>
             <View style={[styles.sigBadge, investorSigned ? styles.sigBadgeSigned : {}]}>

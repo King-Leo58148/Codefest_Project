@@ -12,12 +12,10 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/Colors';
-import { MiniChart } from '@/components/portfolio/MiniChart';
 import { PitchCard } from '@/components/pitch/PitchCard';
 import { useAuthStore } from '@/store/authStore';
 import { useQuery } from '@tanstack/react-query';
-import { getPitches, getMyInvestments } from '@/services/api';
-import { CHART_DATA } from '@/services/mockData';
+import { getPitches, getMyDeals } from '@/services/api';
 
 export default function HomeScreen() {
   const { user } = useAuthStore();
@@ -28,16 +26,14 @@ export default function HomeScreen() {
     queryFn: () => getPitches(),
   });
 
-  const { data: investments = [], isLoading: isLoadingInvestments } = useQuery({
-    queryKey: ['myInvestments'],
-    queryFn: () => getMyInvestments(),
+  const { data: deals = [], isLoading: isLoadingDeals } = useQuery({
+    queryKey: ['myDeals'],
+    queryFn: () => getMyDeals(),
   });
 
-  const totalValue = investments.reduce((s, i) => s + i.currentValue, 0);
-  const totalChange = investments.reduce((s, i) => s + i.change, 0);
-  const totalPercent = totalValue - totalChange > 0
-    ? ((totalChange / (totalValue - totalChange)) * 100).toFixed(1)
-    : '0.0';
+  const activeDealsCount = deals.filter(d => 
+    ['PENDING_SIGNATURES', 'PENDING_MFI', 'MFI_APPROVED', 'PAYMENT_PENDING', 'FUNDED', 'ACTIVE'].includes(d.status)
+  ).length;
 
   const featuredPitch = pitches.length > 0 ? pitches[0] : null;
 
@@ -67,27 +63,22 @@ export default function HomeScreen() {
           <Text style={styles.searchPlaceholder}>Search businesses or industries</Text>
         </TouchableOpacity>
 
-        {/* Portfolio Card */}
         <View style={styles.portfolioCard}>
-          <Text style={styles.portfolioLabel}>Portfolio value</Text>
+          <Text style={styles.portfolioLabel}>Active Deals</Text>
           <Text style={styles.portfolioValue}>
-            {isLoadingInvestments ? 'Loading...' : `GH₵${totalValue.toLocaleString()}`}
+            {isLoadingDeals ? 'Loading...' : activeDealsCount}
           </Text>
           <View style={styles.changeRow}>
-            <Ionicons name="arrow-up" size={12} color={Colors.accent} />
             <Text style={styles.changeText}>
-              GH₵{totalChange.toLocaleString()} ({totalPercent}%) All time
+              In negotiation or funded
             </Text>
           </View>
-          <View style={styles.chart}>
-            <MiniChart data={CHART_DATA} width={280} height={80} showFill />
-          </View>
-          {/* Tab shortcuts */}
+          
           <View style={styles.shortcutsRow}>
             {[
               { icon: 'compass-outline', label: 'Explore', route: '/(investor)/explore' },
               { icon: 'heart-outline', label: 'Watchlist', route: '/(investor)/explore' },
-              { icon: 'briefcase-outline', label: 'Portfolio', route: '/(investor)/portfolio' },
+              { icon: 'briefcase-outline', label: 'My Deals', route: '/(investor)/portfolio' },
               { icon: 'pulse-outline', label: 'Activity', route: '/(investor)/activity' },
             ].map((item) => (
               <TouchableOpacity
@@ -118,7 +109,10 @@ export default function HomeScreen() {
             onPress={() => router.push(`/pitch/${featuredPitch.id}`)}
             activeOpacity={0.9}
           >
-            <Image source={{ uri: featuredPitch.imageUrl }} style={styles.featuredImg} />
+            <Image 
+              source={{ uri: featuredPitch.imageUrl || 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=800&q=80' }} 
+              style={styles.featuredImg} 
+            />
             <View style={styles.featuredOverlay}>
               <View style={styles.featuredBadge}>
                 <Text style={styles.featuredBadgeText}>{featuredPitch.industry}</Text>
@@ -243,10 +237,7 @@ const styles = StyleSheet.create({
     color: Colors.accent,
     fontWeight: '500',
   },
-  chart: {
-    alignItems: 'center',
-    marginBottom: 16,
-  },
+
   shortcutsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',

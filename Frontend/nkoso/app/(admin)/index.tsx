@@ -15,46 +15,29 @@ export default function AdminDashboardScreen() {
         <View style={styles.statsContainer}>
           <View style={styles.statCard}>
             <Ionicons name="document-text" size={24} color={Colors.primary} />
-            <Text style={styles.statValue}>12</Text>
+            <Text style={styles.statValue}>0</Text>
             <Text style={styles.statLabel}>Pending Pitches</Text>
           </View>
           <View style={styles.statCard}>
             <Ionicons name="people" size={24} color={Colors.primary} />
-            <Text style={styles.statValue}>45</Text>
+            <Text style={styles.statValue}>0</Text>
             <Text style={styles.statLabel}>Pending Verifications</Text>
           </View>
           <View style={styles.statCard}>
             <Ionicons name="briefcase" size={24} color={Colors.primary} />
-            <Text style={styles.statValue}>8</Text>
+            <Text style={styles.statValue}>0</Text>
             <Text style={styles.statLabel}>Active Deals</Text>
           </View>
           <View style={styles.statCard}>
             <Ionicons name="cash" size={24} color={Colors.primary} />
-            <Text style={styles.statValue}>GH₵ 120k</Text>
+              <Text style={styles.statValue}>---</Text>
             <Text style={styles.statLabel}>Platform Volume</Text>
           </View>
         </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Recent Activity</Text>
-          <View style={styles.activityItem}>
-            <View style={styles.activityIcon}>
-              <Ionicons name="checkmark-circle" size={16} color={Colors.success} />
-            </View>
-            <View style={styles.activityContent}>
-              <Text style={styles.activityTitle}>New Pitch Submitted</Text>
-              <Text style={styles.activityTime}>Just now</Text>
-            </View>
-          </View>
-          <View style={styles.activityItem}>
-            <View style={styles.activityIcon}>
-              <Ionicons name="time" size={16} color={Colors.warning} />
-            </View>
-            <View style={styles.activityContent}>
-              <Text style={styles.activityTitle}>Deal #102 requires MFI approval</Text>
-              <Text style={styles.activityTime}>2 hours ago</Text>
-            </View>
-          </View>
+          <Text style={{ color: Colors.textLight }}>No recent activity to show.</Text>
         </View>
       </ScrollView>
     </SafeAreaView>

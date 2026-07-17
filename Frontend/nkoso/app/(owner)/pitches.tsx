@@ -178,7 +178,10 @@ export default function PitchesScreen() {
                   onPress={() => pitch.videoUrl && setPlayingVideo(pitch.videoUrl)}
                 >
                   {pitch.imageUrl ? (
-                    <Image source={{ uri: pitch.imageUrl }} style={styles.media} />
+                    <Image 
+                      source={{ uri: pitch.imageUrl || 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=800&q=80' }} 
+                      style={styles.media} 
+                    />
                   ) : (
                     <View style={[styles.media, styles.mediaPlaceholder]}>
                       <Ionicons name="videocam" size={32} color={Colors.primary} />

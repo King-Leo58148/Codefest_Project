@@ -85,16 +85,19 @@ function PitchDetail() {
           <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
             <div className="flex items-start justify-between mb-6">
               <div>
-                <div className="flex gap-2 mb-3">
+                <div className="flex flex-wrap gap-2 mb-3">
                   <span className="inline-flex items-center px-3 py-1 rounded-md text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200">
                     {pitch.industry || 'General'}
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200">
+                    <MapPin size={14} />
+                    {pitch.location || 'Location Not Specified'}
                   </span>
                   <span className="inline-flex items-center px-3 py-1 rounded-md text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200">
                     {pitch.status}
                   </span>
                 </div>
                 <h1 className="text-3xl font-semibold text-slate-900 mb-2">{pitch.businessName}</h1>
-                <p className="text-slate-500 text-sm">Accra, Ghana</p>
               </div>
             </div>
 
@@ -142,8 +145,8 @@ function PitchDetail() {
                 <span className="font-medium text-slate-900">{pitch.createdAt ? new Date(pitch.createdAt).toLocaleDateString() : 'N/A'}</span>
               </div>
               <div className="flex items-center justify-between text-sm">
-                <span className="text-slate-500">Platform Fee</span>
-                <span className="font-medium text-slate-900">1% (Capped GH₵ 100)</span>
+                <p className="text-slate-500">Platform Fee</p>
+                <p className="font-medium text-slate-900">1%</p>
               </div>
             </div>
 

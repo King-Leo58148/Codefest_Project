@@ -265,7 +265,7 @@ export async function getDealMessages(dealId: string): Promise<any[]> {
 export async function sendDealMessage(dealId: string, text: string): Promise<any> {
   return request(`/api/deals/${dealId}/messages`, {
     method: 'POST',
-    body: JSON.stringify({ text }),
+    body: JSON.stringify({ content: text }),
   });
 }
 export async function verifyPayment(dealId: string, reference: string): Promise<any> {

@@ -25,7 +25,10 @@ export function PitchCard({ pitch, compact = false }: PitchCardProps) {
   if (compact) {
     return (
       <TouchableOpacity style={styles.compactCard} onPress={handlePress} activeOpacity={0.8}>
-        <Image source={{ uri: pitch.imageUrl }} style={styles.compactImage} />
+        <Image 
+          source={{ uri: pitch.imageUrl || 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=800&q=80' }} 
+          style={styles.compactImage} 
+        />
         <View style={styles.compactContent}>
           <Badge label={pitch.industry} industry={pitch.industry} />
           <Text style={styles.compactName} numberOfLines={1}>

@@ -10,7 +10,8 @@ function UserManagement() {
     async function fetchUsers() {
       try {
         const response = await api.get('/api/admin/users')
-        setUsers(response.data)
+        const data = response.data
+        setUsers(Array.isArray(data) ? data : [])
       } catch (err) {
         setError('Failed to load users.')
       } finally {
