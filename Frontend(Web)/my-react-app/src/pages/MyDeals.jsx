@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import api from '../api'
 
 function MyDeals() {
+  const navigate = useNavigate()
   const [deals, setDeals] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -93,8 +95,11 @@ function MyDeals() {
                         </span>
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <button className="text-slate-600 hover:text-slate-900 text-sm font-medium">
-                          Details
+                        <button 
+                          onClick={() => navigate(`/deal/${deal.id}`)}
+                          className="text-slate-600 hover:text-slate-900 text-sm font-medium border border-slate-200 px-3 py-1.5 rounded-lg bg-white shadow-sm hover:bg-slate-50"
+                        >
+                          View Room
                         </button>
                       </td>
                     </tr>

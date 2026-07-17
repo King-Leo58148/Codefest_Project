@@ -16,6 +16,7 @@ import PitchDetail from './pages/PitchDetail'
 import ExplorePitches from './pages/ExplorePitches'
 import MyBids from './pages/MyBids'
 import MyDeals from './pages/MyDeals'
+import DealDetail from './pages/DealDetail'
 
 import Layout from './components/Layout'
 import ProtectedRoute from './components/ProtectedRoute'
@@ -40,6 +41,7 @@ function App() {
           <Route path="/notifications" element={<Notifications />} />
           <Route path="/pitch/:id" element={<PitchDetail />} />
           <Route path="/my-deals" element={<MyDeals />} />
+          <Route path="/deal/:id" element={<DealDetail />} />
           
           {/* Admin Routes */}
           <Route path="/pitches" element={<PitchReview />} />

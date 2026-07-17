@@ -13,9 +13,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/Colors';
 import { Button } from '@/components/ui/Button';
-import { signDeal, initiatePayment, getDeal } from '@/services/api';
+import { signDeal, initiatePayment, verifyPayment, getDeal } from '@/services/api';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/store/authStore';
+import DealChat from '@/components/DealChat';
 
 export default function DealRoomScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -96,17 +97,22 @@ export default function DealRoomScreen() {
   };
 
   const payMutation = useMutation({
-    mutationFn: () => initiatePayment(deal.id),
+    mutationFn: async () => {
+      // 1. Initiate
+      await initiatePayment(deal.id);
+      // 2. Simulate complete payment
+      return verifyPayment(deal.id, `MOCK_MOBILE_PAY_${Date.now()}`);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['deal', id] });
       Alert.alert(
-        'Payment initiated',
-        `Payment of GH₵${deal.amount.toLocaleString()} + platform fee has been initiated via Paystack. Funds will be disbursed to the business owner's MoMo account upon confirmation.`,
+        'Payment successful',
+        `Your payment of GH₵${deal.amount.toLocaleString()} has been processed. The deal is now active.`,
         [{ text: 'OK' }]
       );
     },
     onError: () => {
-      Alert.alert('Error', 'Payment initiation failed.');
+      Alert.alert('Error', 'Payment processing failed. Please try again.');
     }
   });
 
@@ -321,6 +327,12 @@ export default function DealRoomScreen() {
         )}
 
         <View style={{ height: 24 }} />
+
+        {/* Real-time chat */}
+        <Text style={styles.sectionTitle}>Discussion</Text>
+        <DealChat dealId={id} />
+        
+        <View style={{ height: 40 }} />
       </ScrollView>
     </SafeAreaView>
   );

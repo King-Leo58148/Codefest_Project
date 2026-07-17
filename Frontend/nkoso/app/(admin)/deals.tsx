@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, ScrollView, SafeAreaView, TouchableOpacity } from 'react-native';
 import { Colors } from '@/constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 
 export default function AdminDealsScreen() {
   const activeDeals = [
@@ -43,7 +44,10 @@ export default function AdminDealsScreen() {
             </View>
 
             <View style={styles.cardFooter}>
-              <TouchableOpacity style={styles.buttonOutline}>
+              <TouchableOpacity 
+                style={styles.buttonOutline}
+                onPress={() => router.push(`/deal/${deal.id}`)}
+              >
                 <Text style={styles.buttonTextOutline}>View Details</Text>
               </TouchableOpacity>
               {deal.status === 'PENDING_MFI' && (
