@@ -241,7 +241,7 @@ class VerificationCodeServiceTest {
         private RuntimeException nextFailure;
 
         private RecordingEmailService() {
-            super(null);
+            super();
         }
 
         private void failNextSend(RuntimeException failure) {
