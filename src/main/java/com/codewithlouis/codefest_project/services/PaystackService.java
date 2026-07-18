@@ -31,13 +31,14 @@ public class PaystackService {
             throw new RuntimeException("Deal is not ready for payment");
         }
 
-        // Calculate amount in pesewas (Paystack uses smallest currency unit)
-        // 1% platform fee capped at GH₵ 100
         double dealAmount = deal.getBid().getAmount();
         double platformFee = Math.min(dealAmount * 0.01, 100.0);
         double totalAmount = dealAmount + platformFee;
 
-        // Convert to pesewas (multiply by 100)
+        // Lock in the exact split now — disbursement will use this stored value only
+        deal.setPlatformFee(platformFee);
+        deal.setNetDisbursementAmount(dealAmount);
+
         long amountInPesewas = (long) (totalAmount * 100);
 
         HttpHeaders headers = new HttpHeaders();
@@ -67,14 +68,11 @@ public class PaystackService {
 
         Map<String, Object> responseData = (Map<String, Object>) response.getBody().get("data");
 
-        // Save reference to deal
         String reference = (String) responseData.get("reference");
         deal.setPaystackRef(reference);
         dealRepository.save(deal);
 
         return responseData;
-
-
     }
 
     // Step 2 — Verify payment after investor pays
@@ -96,8 +94,8 @@ public class PaystackService {
 
         return "success".equals(status);
     }
+
     public void disburseFunds(Deal deal) {
-        // Step 1 — Create transfer recipient (business owner's MoMo)
         HttpHeaders headers = new HttpHeaders();
         headers.set("Authorization", "Bearer " + secretKey);
         headers.setContentType(MediaType.APPLICATION_JSON);
@@ -121,8 +119,11 @@ public class PaystackService {
         Map<String, Object> recipientData = (Map<String, Object>) recipientResponse.getBody().get("data");
         String recipientCode = (String) recipientData.get("recipient_code");
 
-        // Step 2 — Initiate transfer
-        long amountInPesewas = (long) (deal.getBid().getAmount() * 100);
+        // Use the amount locked in at initializePayment() — never recompute or reuse bid.amount directly here
+        if (deal.getNetDisbursementAmount() == null) {
+            throw new RuntimeException("Deal has no stored disbursement amount — payment was not properly initialized");
+        }
+        long amountInPesewas = (long) (deal.getNetDisbursementAmount() * 100);
 
         Map<String, Object> transferBody = new HashMap<>();
         transferBody.put("source", "balance");

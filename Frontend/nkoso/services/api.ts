@@ -97,10 +97,11 @@ export async function getPitches(industry?: Industry): Promise<Pitch[]> {
   return ownerDataApi.normalizePitchList(await request(url));
 }
 
-export async function getPitch(id: string): Promise<Pitch | undefined> {
+export async function getPitch(id: string): Promise<Pitch | null> {
   const response = await request(`/api/pitches/${id}`);
-  return response == null ? undefined : ownerDataApi.normalizePitch(response);
+  return response == null ? null : ownerDataApi.normalizePitch(response);
 }
+
 export async function createPitch(data: any): Promise<Pitch> {
   const formData = new FormData();
   if (!data?.video?.uri) {
@@ -129,6 +130,7 @@ export async function createPitch(data: any): Promise<Pitch> {
     })
   );
 }
+
 // Bids
 export async function getBidsForPitch(pitchId: string): Promise<Bid[]> {
   return ownerDataApi.getBidsForPitch(pitchId);
@@ -138,8 +140,9 @@ export async function getOwnerBids(): Promise<Bid[]> {
   return ownerDataApi.getOwnerBids();
 }
 
-export async function getBid(id: string): Promise<Bid | undefined> {
-  return ownerDataApi.getBid(id);
+export async function getBid(id: string): Promise<Bid | null> {
+  const result = await ownerDataApi.getBid(id);
+  return result ?? null;
 }
 
 export async function getMyBids(investorId: string): Promise<Bid[]> {
@@ -208,8 +211,9 @@ export async function getActivity(): Promise<ActivityItem[]> {
 }
 
 // Deals
-export async function getDeal(id: string): Promise<Deal | undefined> {
-  return ownerDataApi.getDeal(id);
+export async function getDeal(id: string): Promise<Deal | null> {
+  const result = await ownerDataApi.getDeal(id);
+  return result ?? null;
 }
 
 export async function signDeal(dealId: string, role: 'owner' | 'investor'): Promise<Deal> {
@@ -221,10 +225,16 @@ export async function signDeal(dealId: string, role: 'owner' | 'investor'): Prom
   );
 }
 
-export async function initiatePayment(dealId: string): Promise<{ paystackUrl: string }> {
+interface PaystackInitResponse {
+  authorization_url: string;
+  access_code: string;
+  reference: string;
+}
+
+export async function initiatePayment(dealId: string): Promise<PaystackInitResponse> {
   return request(`/api/deals/${dealId}/pay`, {
     method: 'POST',
-  }) as Promise<{ paystackUrl: string }>;
+  }) as Promise<PaystackInitResponse>;
 }
 
 // --- Additional Endpoints from API_DOCUMENTATION.md ---

@@ -37,6 +37,9 @@ public class Deal {
     private String paystackRef;
     private boolean disbursed = false;
 
+    private Double platformFee;
+    private Double netDisbursementAmount;
+
     @Enumerated(EnumType.STRING)
     private DealStatus status = DealStatus.PENDING_SIGNATURES;
 

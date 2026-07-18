@@ -54,8 +54,8 @@ export default function DealRoomScreen() {
     }
   }, [deal]);
 
-  const isOwner = user?.role === 'OWNER';
-  const isInvestor = user?.role === 'INVESTOR';
+  const isOwner = user?.role === 'OWNER' || user?.role === 'BOTH';
+  const isInvestor = user?.role === 'INVESTOR' || user?.role === 'BOTH';
   const bothSigned = ownerSigned && investorSigned;
 
   const signMutation = useMutation({
@@ -87,16 +87,16 @@ export default function DealRoomScreen() {
   const payMutation = useMutation({
     mutationFn: async () => {
       if (!deal) throw new Error("No deal");
-      // 1. Initiate payment (get Paystack URL)
+      // 1. Initiate payment (get Paystack authorization URL)
       const res = await initiatePayment(deal.id);
-      
-      // 2. Open Paystack in in-app browser
-      if (res && res.paystackUrl) {
-        await WebBrowser.openBrowserAsync(res.paystackUrl);
-        // After browser closes, we can invalidate queries so it fetches the latest state
+
+      // 2. Open Paystack checkout in in-app browser
+      if (res && res.authorization_url) {
+        await WebBrowser.openBrowserAsync(res.authorization_url);
+        // After browser closes, refetch the latest deal state
         queryClient.invalidateQueries({ queryKey: ['deal', deal.id] });
       } else {
-        Alert.alert('Payment initiated', 'Please check your email for the payment link.');
+        Alert.alert('Payment failed', 'Could not get a payment link. Please try again.');
       }
     },
     onError: (error: any) => {
@@ -324,9 +324,9 @@ export default function DealRoomScreen() {
           />
         )}
 
-        {mfiApproved && isInvestor && !deal.paystackRef && (
+        {mfiApproved && isInvestor && deal.status !== 'ACTIVE' && (
           <Button
-            title="Proceed with payment"
+            title={deal.paystackRef ? 'Retry payment' : 'Proceed with payment'}
             onPress={handlePayment}
             loading={payMutation.isPending}
           />
