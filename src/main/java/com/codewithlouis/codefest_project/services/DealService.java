@@ -7,6 +7,7 @@ import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -50,7 +51,6 @@ public class DealService {
 
         Deal saved = dealRepository.save(deal);
 
-        // Notify both parties
         notificationService.createNotification(
                 bid.getPitch().getOwner(),
                 NotificationType.DEAL_CREATED,
@@ -90,17 +90,24 @@ public class DealService {
         } else if (currentUser.getRole() == Role.INVESTOR) {
             return dealRepository.findByInvestorEmail(currentUser.getEmail());
         } else {
-            // BOTH role
             List<Deal> deals = dealRepository.findByOwnerEmail(currentUser.getEmail());
             deals.addAll(dealRepository.findByInvestorEmail(currentUser.getEmail()));
             return deals;
         }
     }
 
+    @Transactional
     @CacheEvict(value = {"allDeals", "dealsByStatus"}, allEntries = true)
     public Deal signDeal(Integer dealId) {
         User currentUser = getCurrentUser();
-        Deal deal = getDeal(dealId);
+
+        Deal deal = dealRepository.findByIdForUpdate(dealId)
+                .orElseThrow(() -> new RuntimeException("Deal not found"));
+
+        if (!deal.getOwner().getEmail().equals(currentUser.getEmail()) &&
+                !deal.getInvestor().getEmail().equals(currentUser.getEmail())) {
+            throw new RuntimeException("You are not part of this deal");
+        }
 
         if (deal.getStatus() != DealStatus.PENDING_SIGNATURES) {
             throw new RuntimeException("This deal is not pending signatures");
@@ -112,7 +119,6 @@ public class DealService {
             deal.setInvestorSigned(true);
         }
 
-        // Notify other party
         User otherParty = currentUser.getEmail().equals(deal.getOwner().getEmail())
                 ? deal.getInvestor()
                 : deal.getOwner();
@@ -125,7 +131,6 @@ public class DealService {
                 deal.getId()
         );
 
-        // Both signed — send MFI email
         if (deal.isOwnerSigned() && deal.isInvestorSigned()) {
             deal.setStatus(DealStatus.PENDING_MFI);
             emailService.sendMfiNotification(deal);
@@ -152,7 +157,6 @@ public class DealService {
         deal.setMfiApproved(true);
         deal.setStatus(DealStatus.PAYMENT_PENDING);
 
-        // Notify investor to pay
         notificationService.createNotification(
                 deal.getInvestor(),
                 NotificationType.MFI_APPROVED,
@@ -182,7 +186,6 @@ public class DealService {
         deal.setMfiApproved(false);
         deal.setStatus(DealStatus.CANCELLED);
 
-        // Notify both parties
         notificationService.createNotification(
                 deal.getOwner(),
                 NotificationType.MFI_APPROVED,
@@ -212,10 +215,8 @@ public class DealService {
 
         Message saved = messageRepository.save(message);
 
-        // Broadcast to WebSocket subscribers
         messagingTemplate.convertAndSend("/topic/deal/" + dealId, saved);
 
-        // Notify other party
         User otherParty = sender.getEmail().equals(deal.getOwner().getEmail())
                 ? deal.getInvestor()
                 : deal.getOwner();
@@ -261,7 +262,6 @@ public class DealService {
             repaymentService.generateRepaymentSchedule(deal);
             paystackService.disburseFunds(deal);
 
-            // Notify owner
             notificationService.createNotification(
                     deal.getOwner(),
                     NotificationType.PAYMENT_RECEIVED,
