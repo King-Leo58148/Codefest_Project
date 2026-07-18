@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-export const BASE_URL = process.env.EXPO_PUBLIC_API_URL || "https://codefest-project.onrender.com";
+export const BASE_URL = process.env.EXPO_PUBLIC_API_URL || "https://codefest-backend-production.up.railway.app";
 
 type BackendRequestOptions = RequestInit & {
   auth?: boolean;

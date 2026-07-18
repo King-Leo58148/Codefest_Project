@@ -57,7 +57,8 @@ public class SecurityConfiguration {
                 "http://127.0.0.1:3000",  // React web (CRA alternate)
                 "http://localhost:8081",  // React Native (Expo)
                 "http://localhost:19006", // React Native (Expo web)
-                "http://10.0.2.2:8080"   // Android emulator calling your backend
+                "http://10.0.2.2:8080",  // Android emulator calling your backend
+                "https://codefest-backend-production.up.railway.app" // Railway production
         ));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         configuration.setAllowedHeaders(List.of("*"));
