@@ -87,16 +87,44 @@ export default function DealRoomScreen() {
   const payMutation = useMutation({
     mutationFn: async () => {
       if (!deal) throw new Error("No deal");
+
       // 1. Initiate payment (get Paystack authorization URL)
       const res = await initiatePayment(deal.id);
 
-      // 2. Open Paystack checkout in in-app browser
-      if (res && res.authorization_url) {
-        await WebBrowser.openBrowserAsync(res.authorization_url);
-        // After browser closes, refetch the latest deal state
-        queryClient.invalidateQueries({ queryKey: ['deal', deal.id] });
+      if (!res || !res.authorization_url) {
+        throw new Error('Could not get a payment link. Please try again.');
+      }
+
+      // 2. Open Paystack checkout in in-app browser and wait for it to close
+      await WebBrowser.openBrowserAsync(res.authorization_url);
+
+      // 3. Verify the payment actually went through — this is the step
+      //    that was missing before, so "paid" state never got confirmed
+      //    and amountRaised never updated on the dashboard.
+      const verification = await verifyPayment(deal.id);
+
+      return verification;
+    },
+    onSuccess: (verification: any) => {
+      // Refresh this deal
+      queryClient.invalidateQueries({ queryKey: ['deal', deal.id] });
+      // Refresh dashboard-level data so "Total raised" / pitch progress update
+      queryClient.invalidateQueries({ queryKey: ['myPitches'] });
+      queryClient.invalidateQueries({ queryKey: ['ownerAllBids'] });
+
+      const isConfirmed =
+        verification?.status === 'success' || verification?.verified === true;
+
+      if (isConfirmed) {
+        Alert.alert(
+          'Payment confirmed',
+          'Payment was successful. Funds will be disbursed to the business owner shortly.'
+        );
       } else {
-        Alert.alert('Payment failed', 'Could not get a payment link. Please try again.');
+        Alert.alert(
+          'Payment not confirmed yet',
+          "We couldn't confirm your payment went through yet. If you completed checkout, this can take a moment — pull to refresh shortly."
+        );
       }
     },
     onError: (error: any) => {

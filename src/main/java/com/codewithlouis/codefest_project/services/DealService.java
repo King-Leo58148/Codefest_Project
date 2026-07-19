@@ -20,6 +20,7 @@ public class DealService {
     private final DealRepository dealRepository;
     private final BidRepository bidRepository;
     private final UserRepository userRepository;
+    private final PitchRepository pitchRepository;
     private final MessageRepository messageRepository;
     private final EmailService emailService;
     private final SimpMessagingTemplate messagingTemplate;
@@ -248,10 +249,17 @@ public class DealService {
         return paystackService.initializePayment(deal);
     }
 
+    @Transactional
     @CacheEvict(value = {"allDeals", "dealsByStatus"}, allEntries = true)
     public Deal verifyPayment(Integer dealId, String reference) {
-        Deal deal = dealRepository.findById(dealId)
+        Deal deal = dealRepository.findByIdForUpdate(dealId)
                 .orElseThrow(() -> new RuntimeException("Deal not found"));
+
+        // Idempotency guard — if this deal was already marked ACTIVE by an
+        // earlier verify call, don't re-disburse funds or double-credit the pitch.
+        if (deal.getStatus() == DealStatus.ACTIVE) {
+            return deal;
+        }
 
         boolean paid = paystackService.verifyPayment(reference);
 
@@ -259,6 +267,14 @@ public class DealService {
             deal.setStatus(DealStatus.ACTIVE);
             deal.setDisbursed(true);
             deal.setDisbursedAt(LocalDateTime.now());
+
+            // Credit the pitch's raised amount — this was previously missing,
+            // which is why "Total raised" stayed at GH₵0 even after payment.
+            Pitch pitch = deal.getPitch();
+            double currentRaised = pitch.getAmountRaised() != null ? pitch.getAmountRaised() : 0.0;
+            pitch.setAmountRaised(currentRaised + deal.getBid().getAmount());
+            pitchRepository.save(pitch);
+
             repaymentService.generateRepaymentSchedule(deal);
             paystackService.disburseFunds(deal);
 

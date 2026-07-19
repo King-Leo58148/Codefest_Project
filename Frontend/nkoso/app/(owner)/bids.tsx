@@ -1,33 +1,349 @@
-import React, { useMemo, useState } from 'react';
-import { Alert, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { router } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Colors } from '@/constants/Colors';
-import { getMyDeals, getOwnerBids, updateBidStatus } from '@/services/api';
-import type { Bid, BidStatus } from '@/types';
+import React, { useMemo, useState } from "react";
+import {
+  Alert,
+  FlatList,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { router } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Colors } from "@/constants/Colors";
+import { getMyDeals, getOwnerBids, updateBidStatus } from "@/services/api";
+import type { Bid, BidStatus } from "@/types";
 
-const FILTERS = ['All', 'PENDING', 'COUNTERED', 'ACCEPTED', 'REJECTED'] as const;
+const FILTERS = [
+  "All",
+  "PENDING",
+  "COUNTERED",
+  "ACCEPTED",
+  "REJECTED",
+] as const;
 export default function BidsScreen() {
-  const [filter, setFilter] = useState<(typeof FILTERS)[number]>('All'); const client = useQueryClient();
-  const query = useQuery({ queryKey:['ownerBids'], queryFn:getOwnerBids });
-  const invalidate = () => Promise.all([client.invalidateQueries({queryKey:['ownerBids']}), client.invalidateQueries({queryKey:['myPitches']}), client.invalidateQueries({queryKey:['ownerDeals']})]);
-  const mutation = useMutation({ mutationFn:({id,status}:{id:string;status:BidStatus}) => updateBidStatus(id,status), onSuccess:async (bid) => { await invalidate(); if (bid.status === 'ACCEPTED') { const deal=(await getMyDeals()).find((item) => item.bidId === bid.id); if (deal) router.push(`/deal/${deal.id}`); else Alert.alert('Bid accepted', 'The deal will appear in Active deals shortly.'); } }, onError:(error) => Alert.alert('Could not update bid',error instanceof Error?error.message:'Please try again.') });
-  const bids = useMemo(() => (query.data || []).filter((bid) => filter==='All'||bid.status===filter), [query.data,filter]);
+  const [filter, setFilter] = useState<(typeof FILTERS)[number]>("All");
+  const client = useQueryClient();
+  const query = useQuery({ queryKey: ["ownerBids"], queryFn: getOwnerBids });
+  const invalidate = () =>
+    Promise.all([
+      client.invalidateQueries({ queryKey: ["ownerBids"] }),
+      client.invalidateQueries({ queryKey: ["myPitches"] }),
+      client.invalidateQueries({ queryKey: ["ownerDeals"] }),
+    ]);
+  const mutation = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: BidStatus }) =>
+      updateBidStatus(id, status),
+    onSuccess: async (bid) => {
+      await invalidate();
+      if (bid.status === "ACCEPTED") {
+        const deal = (await getMyDeals()).find((item) => item.bidId === bid.id);
+        if (deal) router.push(`/deal/${deal.id}`);
+        else
+          Alert.alert(
+            "Bid accepted",
+            "The deal will appear in Active deals shortly.",
+          );
+      }
+    },
+    onError: (error) =>
+      Alert.alert(
+        "Could not update bid",
+        error instanceof Error ? error.message : "Please try again.",
+      ),
+  });
+  const bids = useMemo(
+    () =>
+      (query.data || []).filter(
+        (bid) => filter === "All" || bid.status === filter,
+      ),
+    [query.data, filter],
+  );
   const handleCardPress = async (bid: Bid) => {
-    if (bid.status === 'ACCEPTED') {
+    if (bid.status === "ACCEPTED") {
       const deal = (await getMyDeals()).find((item) => item.bidId === bid.id);
       if (deal) router.push(`/deal/${deal.id}`);
-      else Alert.alert('Processing', 'Your deal is being created.');
+      else Alert.alert("Processing", "Your deal is being created.");
     }
   };
-  const confirm = (bid:Bid,status:BidStatus) => Alert.alert(status==='ACCEPTED'?'Accept bid':'Decline bid', status==='ACCEPTED'?'This will create a deal.':'This bid will be declined.', [{text:'Cancel',style:'cancel'},{text:status==='ACCEPTED'?'Accept':'Decline',style:status==='REJECTED'?'destructive':'default',onPress:()=>mutation.mutate({id:bid.id,status})}]);
-  if (query.isLoading) return <State icon="hourglass-outline" title="Loading bids" />;
-  if (query.isError) return <State icon="alert-circle-outline" title="Could not load bids" action="Retry" onPress={() => query.refetch()} />;
-  return <SafeAreaView style={styles.safe} edges={['top']}><Text style={styles.title}>Bids</Text><View style={styles.filters}>{FILTERS.map((item)=><TouchableOpacity key={item} onPress={()=>setFilter(item)} style={[styles.filter,filter===item&&styles.selected]}><Text style={[styles.filterText,filter===item&&styles.selectedText]}>{item}</Text></TouchableOpacity>)}</View><FlatList data={bids} keyExtractor={(item)=>item.id} contentContainerStyle={styles.list} renderItem={({item})=><BidCard bid={item} busy={mutation.isPending} onAccept={()=>confirm(item,'ACCEPTED')} onReject={()=>confirm(item,'REJECTED')} onPress={() => handleCardPress(item)} />} ListEmptyComponent={<State icon="people-outline" title="No bids yet" detail="Incoming bids for your pitches will appear here."/>}/></SafeAreaView>;
+  const confirm = (bid: Bid, status: BidStatus) =>
+    Alert.alert(
+      status === "ACCEPTED" ? "Accept bid" : "Decline bid",
+      status === "ACCEPTED"
+        ? "This will create a deal."
+        : "This bid will be declined.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: status === "ACCEPTED" ? "Accept" : "Decline",
+          style: status === "REJECTED" ? "destructive" : "default",
+          onPress: () => mutation.mutate({ id: bid.id, status }),
+        },
+      ],
+    );
+  if (query.isLoading)
+    return <State icon="hourglass-outline" title="Loading bids" />;
+  if (query.isError)
+    return (
+      <State
+        icon="alert-circle-outline"
+        title="Could not load bids"
+        action="Retry"
+        onPress={() => query.refetch()}
+      />
+    );
+  return (
+    <SafeAreaView style={styles.safe} edges={["top"]}>
+      <Text style={styles.title}>Bids</Text>
+      <View style={styles.filters}>
+        {FILTERS.map((item) => (
+          <TouchableOpacity
+            key={item}
+            onPress={() => setFilter(item)}
+            style={[styles.filter, filter === item && styles.selected]}
+          >
+            <Text
+              style={[
+                styles.filterText,
+                filter === item && styles.selectedText,
+              ]}
+            >
+              {item}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+      <FlatList
+        data={bids}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={styles.list}
+        renderItem={({ item }) => (
+          <BidCard
+            bid={item}
+            busy={mutation.isPending}
+            onAccept={() => confirm(item, "ACCEPTED")}
+            onReject={() => confirm(item, "REJECTED")}
+            onPress={() => handleCardPress(item)}
+          />
+        )}
+        ListEmptyComponent={
+          <State
+            icon="people-outline"
+            title="No bids yet"
+            detail="Incoming bids for your pitches will appear here."
+          />
+        }
+      />
+    </SafeAreaView>
+  );
 }
-function BidCard({bid,busy,onAccept,onReject,onPress}:{bid:Bid;busy:boolean;onAccept:()=>void;onReject:()=>void;onPress?:()=>void}) { return <TouchableOpacity activeOpacity={0.8} onPress={onPress} style={styles.card}><View style={styles.row}><View style={styles.avatar}><Text style={styles.avatarText}>{(bid.investorName||'?')[0].toUpperCase()}</Text></View><View style={{flex:1}}><Text style={styles.name}>{bid.investorName||'Investor'}</Text><Text style={styles.date}>{bid.createdAt||'Recently'}</Text></View><Text style={styles.status}>{bid.status}</Text></View><View style={styles.details}><Detail label="Amount" value={`GH₵${bid.amount.toLocaleString()}`}/><Detail label="Type" value={bid.returnType}/><Detail label="Return" value={`${bid.returnValue}%`}/><Detail label="Timeline" value={`${bid.timelineMonths} months`}/></View>{bid.note?<Text style={styles.note}>{bid.note}</Text>:null}{bid.status==='PENDING'?<View style={styles.actions}><TouchableOpacity disabled={busy} style={styles.reject} onPress={onReject}><Text style={styles.rejectText}>Decline</Text></TouchableOpacity><TouchableOpacity disabled={busy} style={styles.counter} onPress={()=>router.push(`/bid/${bid.id}`)}><Text style={styles.counterText}>Counter</Text></TouchableOpacity><TouchableOpacity disabled={busy} style={styles.accept} onPress={onAccept}><Text style={styles.acceptText}>Accept</Text></TouchableOpacity></View>:null}</TouchableOpacity>; }
-function Detail({label,value}:{label:string;value:string}) { return <View style={{width:'50%',gap:2}}><Text style={styles.detailLabel}>{label}</Text><Text style={styles.detailValue}>{value}</Text></View>; }
-function State({icon,title,detail,action,onPress}:{icon:keyof typeof Ionicons.glyphMap;title:string;detail?:string;action?:string;onPress?:()=>void}) { return <SafeAreaView style={styles.state}><Ionicons name={icon} size={44} color={Colors.textMuted}/><Text style={styles.stateTitle}>{title}</Text>{detail?<Text style={styles.stateDetail}>{detail}</Text>:null}{action?<TouchableOpacity onPress={onPress} style={styles.retry}><Text style={styles.acceptText}>{action}</Text></TouchableOpacity>:null}</SafeAreaView>; }
-const styles=StyleSheet.create({safe:{flex:1,backgroundColor:Colors.background},title:{fontSize:26,fontWeight:'800',color:Colors.textPrimary,paddingHorizontal:20,paddingTop:12,paddingBottom:10},filters:{paddingHorizontal:20,flexDirection:'row',gap:8,flexWrap:'wrap',paddingBottom:12},filter:{paddingHorizontal:10,paddingVertical:7,borderRadius:8,backgroundColor:Colors.surface,borderWidth:1,borderColor:Colors.border},selected:{backgroundColor:Colors.primary,borderColor:Colors.primary},filterText:{fontSize:12,fontWeight:'700',color:Colors.textSecondary},selectedText:{color:'#fff'},list:{padding:20,paddingTop:0},card:{backgroundColor:Colors.surface,borderRadius:8,padding:16,gap:12,marginBottom:12},row:{flexDirection:'row',alignItems:'center',gap:10},avatar:{width:38,height:38,borderRadius:19,backgroundColor:Colors.primary,alignItems:'center',justifyContent:'center'},avatarText:{color:'#fff',fontWeight:'800'},name:{fontSize:16,fontWeight:'700',color:Colors.textPrimary},date:{marginTop:2,fontSize:12,color:Colors.textMuted},status:{fontSize:12,fontWeight:'800',color:Colors.primary},details:{padding:12,borderRadius:8,backgroundColor:Colors.borderLight,flexDirection:'row',flexWrap:'wrap',rowGap:12},detailLabel:{fontSize:12,color:Colors.textSecondary},detailValue:{fontSize:15,fontWeight:'700',color:Colors.textPrimary},note:{fontSize:13,lineHeight:19,color:Colors.textSecondary,fontStyle:'italic'},actions:{flexDirection:'row',gap:8},accept:{flex:1,padding:12,borderRadius:8,backgroundColor:Colors.primary,alignItems:'center'},counter:{flex:1,padding:12,borderRadius:8,borderWidth:1,borderColor:Colors.primary,alignItems:'center'},reject:{flex:1,padding:12,borderRadius:8,backgroundColor:'#FFF1F2',alignItems:'center'},acceptText:{color:'#fff',fontWeight:'700'},counterText:{color:Colors.primary,fontWeight:'700'},rejectText:{color:Colors.accentRed,fontWeight:'700'},state:{flex:1,alignItems:'center',justifyContent:'center',padding:30,gap:10,backgroundColor:Colors.background},stateTitle:{fontSize:18,fontWeight:'700',color:Colors.textPrimary},stateDetail:{fontSize:14,textAlign:'center',color:Colors.textSecondary},retry:{marginTop:8,paddingHorizontal:18,paddingVertical:10,borderRadius:8,backgroundColor:Colors.primary} });
+function BidCard({
+  bid,
+  busy,
+  onAccept,
+  onReject,
+  onPress,
+}: {
+  bid: Bid;
+  busy: boolean;
+  onAccept: () => void;
+  onReject: () => void;
+  onPress?: () => void;
+}) {
+  return (
+    <TouchableOpacity activeOpacity={0.8} onPress={onPress} style={styles.card}>
+      <View style={styles.row}>
+        <View style={styles.avatar}>
+          <Text style={styles.avatarText}>
+            {(bid.investorName || "?")[0].toUpperCase()}
+          </Text>
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.name}>{bid.investorName || "Investor"}</Text>
+          <Text style={styles.date}>{bid.createdAt || "Recently"}</Text>
+        </View>
+        <Text style={styles.status}>{bid.status}</Text>
+      </View>
+      <View style={styles.details}>
+        <Detail label="Amount" value={`GH₵${bid.amount.toLocaleString()}`} />
+        <Detail label="Type" value={bid.returnType} />
+        <Detail label="Return" value={`${bid.returnValue}%`} />
+        <Detail label="Timeline" value={`${bid.timelineMonths} months`} />
+      </View>
+      {bid.note ? <Text style={styles.note}>{bid.note}</Text> : null}
+      {bid.status === "PENDING" || bid.status === "COUNTERED" ? (
+        <View style={styles.actions}>
+          <TouchableOpacity
+            disabled={busy}
+            style={styles.reject}
+            onPress={onReject}
+          >
+            <Text style={styles.rejectText}>Decline</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            disabled={busy}
+            style={styles.counter}
+            onPress={() => router.push(`/bid/${bid.id}`)}
+          >
+            <Text style={styles.counterText}>Counter</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            disabled={busy}
+            style={styles.accept}
+            onPress={onAccept}
+          >
+            <Text style={styles.acceptText}>Accept</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
+    </TouchableOpacity>
+  );
+}
+function Detail({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={{ width: "50%", gap: 2 }}>
+      <Text style={styles.detailLabel}>{label}</Text>
+      <Text style={styles.detailValue}>{value}</Text>
+    </View>
+  );
+}
+function State({
+  icon,
+  title,
+  detail,
+  action,
+  onPress,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  title: string;
+  detail?: string;
+  action?: string;
+  onPress?: () => void;
+}) {
+  return (
+    <SafeAreaView style={styles.state}>
+      <Ionicons name={icon} size={44} color={Colors.textMuted} />
+      <Text style={styles.stateTitle}>{title}</Text>
+      {detail ? <Text style={styles.stateDetail}>{detail}</Text> : null}
+      {action ? (
+        <TouchableOpacity onPress={onPress} style={styles.retry}>
+          <Text style={styles.acceptText}>{action}</Text>
+        </TouchableOpacity>
+      ) : null}
+    </SafeAreaView>
+  );
+}
+const styles = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: Colors.background },
+  title: {
+    fontSize: 26,
+    fontWeight: "800",
+    color: Colors.textPrimary,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 10,
+  },
+  filters: {
+    paddingHorizontal: 20,
+    flexDirection: "row",
+    gap: 8,
+    flexWrap: "wrap",
+    paddingBottom: 12,
+  },
+  filter: {
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 8,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  selected: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  filterText: { fontSize: 12, fontWeight: "700", color: Colors.textSecondary },
+  selectedText: { color: "#fff" },
+  list: { padding: 20, paddingTop: 0 },
+  card: {
+    backgroundColor: Colors.surface,
+    borderRadius: 8,
+    padding: 16,
+    gap: 12,
+    marginBottom: 12,
+  },
+  row: { flexDirection: "row", alignItems: "center", gap: 10 },
+  avatar: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: Colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarText: { color: "#fff", fontWeight: "800" },
+  name: { fontSize: 16, fontWeight: "700", color: Colors.textPrimary },
+  date: { marginTop: 2, fontSize: 12, color: Colors.textMuted },
+  status: { fontSize: 12, fontWeight: "800", color: Colors.primary },
+  details: {
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: Colors.borderLight,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    rowGap: 12,
+  },
+  detailLabel: { fontSize: 12, color: Colors.textSecondary },
+  detailValue: { fontSize: 15, fontWeight: "700", color: Colors.textPrimary },
+  note: {
+    fontSize: 13,
+    lineHeight: 19,
+    color: Colors.textSecondary,
+    fontStyle: "italic",
+  },
+  actions: { flexDirection: "row", gap: 8 },
+  accept: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: Colors.primary,
+    alignItems: "center",
+  },
+  counter: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.primary,
+    alignItems: "center",
+  },
+  reject: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: "#FFF1F2",
+    alignItems: "center",
+  },
+  acceptText: { color: "#fff", fontWeight: "700" },
+  counterText: { color: Colors.primary, fontWeight: "700" },
+  rejectText: { color: Colors.accentRed, fontWeight: "700" },
+  state: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 30,
+    gap: 10,
+    backgroundColor: Colors.background,
+  },
+  stateTitle: { fontSize: 18, fontWeight: "700", color: Colors.textPrimary },
+  stateDetail: {
+    fontSize: 14,
+    textAlign: "center",
+    color: Colors.textSecondary,
+  },
+  retry: {
+    marginTop: 8,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: Colors.primary,
+  },
+});

@@ -6,38 +6,101 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
+  RefreshControl,
+  Alert,
 } from 'react-native';
 import { router } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '@/constants/Colors';
 import { useAuthStore } from '@/store/authStore';
 import { useQuery } from '@tanstack/react-query';
-import { getMyPitches, getBidsForPitch } from '@/services/api';
+import { getMyPitches, getBidsForPitch, getMyDeals } from '@/services/api';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 
 export default function OwnerDashboardScreen() {
   const { user } = useAuthStore();
   const firstName = user?.name?.split(' ')[0] ?? 'Owner';
 
-  const { data: myPitches = [], isLoading: loadingPitches } = useQuery({
+  const {
+    data: myPitches = [],
+    isLoading: loadingPitches,
+    refetch: refetchPitches,
+  } = useQuery({
     queryKey: ['myPitches'],
     queryFn: () => getMyPitches(),
   });
 
-  const myPitch = myPitches.length > 0 ? myPitches[0] : null;
+  const livePitches = myPitches.filter((p) => p.status === 'LIVE');
+  const pitchIds = myPitches.map((p) => p.id).join(',');
 
-  const { data: myBids = [], isLoading: loadingBids } = useQuery({
-    queryKey: ['bids', myPitch?.id],
-    queryFn: () => getBidsForPitch(myPitch!.id),
-    enabled: !!myPitch,
+  const {
+    data: allBids = [],
+    isLoading: loadingBids,
+    refetch: refetchBids,
+  } = useQuery({
+    queryKey: ['ownerAllBids', pitchIds],
+    queryFn: async () => {
+      const results = await Promise.all(
+        myPitches.map((p) => getBidsForPitch(p.id))
+      );
+      return results.flat();
+    },
+    enabled: myPitches.length > 0,
   });
 
-  const pendingBids = myBids.filter((b) => b.status === 'PENDING').length;
-  const raisedAmount = Number(myPitch?.amountRaised ?? 0);
-  const neededAmount = Number(myPitch?.amountNeeded ?? 0);
-  const fundedPercent = neededAmount > 0 ? (raisedAmount / neededAmount) * 100 : 0;
+  // Refresh dashboard data every time this screen regains focus
+  // (e.g. after coming back from paying/signing a deal in the Deal Room)
+  useFocusEffect(
+    React.useCallback(() => {
+      refetchPitches();
+      if (myPitches.length > 0) refetchBids();
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [pitchIds])
+  );
+
+  const [refreshing, setRefreshing] = React.useState(false);
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await Promise.all([refetchPitches(), refetchBids()]);
+    setRefreshing(false);
+  };
+
+  const pendingBids = allBids.filter((b) => b.status === 'PENDING').length;
+  const totalRaised = myPitches.reduce(
+    (sum, p) => sum + Number(p.amountRaised ?? 0),
+    0
+  );
+
+  const recentBids = [...allBids]
+    .sort(
+      (a, b) =>
+        new Date(b.createdAt || 0).getTime() -
+        new Date(a.createdAt || 0).getTime()
+    )
+    .slice(0, 3);
+
+  // If a bid has been accepted, route to its Deal Room instead of
+  // the read-only Bid Details screen.
+  const handleBidPress = async (bid: (typeof allBids)[number]) => {
+    if (bid.status === 'ACCEPTED') {
+      try {
+        const deals = await getMyDeals();
+        const deal = deals.find((d) => d.bidId === bid.id);
+        if (deal) {
+          router.push(`/deal/${deal.id}`);
+          return;
+        }
+        Alert.alert('Processing', 'Your deal is being created.');
+        return;
+      } catch {
+        // fall through to bid details if the deals lookup fails
+      }
+    }
+    router.push(`/bid/${bid.id}`);
+  };
 
   if (loadingPitches || loadingBids) {
     return (
@@ -49,7 +112,12 @@ export default function OwnerDashboardScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
         {/* Header */}
         <View style={styles.header}>
           <View>
@@ -64,11 +132,11 @@ export default function OwnerDashboardScreen() {
         {/* Stats Row */}
         <View style={styles.statsRow}>
           <View style={styles.statCard}>
-            <Text style={styles.statValue}>GH₵{myPitch ? formatCurrency(myPitch.amountRaised) : 0}</Text>
+            <Text style={styles.statValue}>GH₵{formatCurrency(totalRaised)}</Text>
             <Text style={styles.statLabel}>Total raised</Text>
           </View>
           <View style={styles.statCard}>
-            <Text style={styles.statValue}>{myBids.length}</Text>
+            <Text style={styles.statValue}>{allBids.length}</Text>
             <Text style={styles.statLabel}>Total bids</Text>
           </View>
           <View style={[styles.statCard, pendingBids > 0 && styles.statCardHighlight]}>
@@ -81,58 +149,71 @@ export default function OwnerDashboardScreen() {
           </View>
         </View>
 
-        {/* Active Pitch Card */}
-        <Text style={styles.sectionTitle}>Active pitch</Text>
-        <View style={styles.pitchCard}>
-          {myPitch ? (
-            <LinearGradient
-              colors={[Colors.primary, '#162040']}
-              style={styles.pitchGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
+        {/* Active Pitch Card(s) */}
+        <Text style={styles.sectionTitle}>
+          Active pitch{livePitches.length !== 1 ? 'es' : ''}
+        </Text>
+        {livePitches.length > 0 ? (
+          livePitches.map((pitch) => {
+            const raisedAmount = Number(pitch.amountRaised ?? 0);
+            const neededAmount = Number(pitch.amountNeeded ?? 0);
+            const fundedPercent =
+              neededAmount > 0 ? (raisedAmount / neededAmount) * 100 : 0;
+            return (
+              <View key={pitch.id} style={styles.pitchCard}>
+                <LinearGradient
+                  colors={[Colors.primary, '#162040']}
+                  style={styles.pitchGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                >
+                  <View style={styles.pitchCardHeader}>
+                    <View>
+                      <Text style={styles.pitchName}>{pitch.businessName}</Text>
+                      <Text style={styles.pitchIndustry}>{pitch.industry}</Text>
+                    </View>
+                    <View style={styles.statusBadge}>
+                      <View style={styles.statusDot} />
+                      <Text style={styles.statusText}>Live</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.pitchAmounts}>
+                    <Text style={styles.pitchRaised}>
+                      GH₵{formatCurrency(pitch.amountRaised)}
+                    </Text>
+                    <Text style={styles.pitchGoal}>
+                      of GH₵{formatCurrency(pitch.amountNeeded)}
+                    </Text>
+                  </View>
+
+                  <ProgressBar percent={fundedPercent} height={6} color={Colors.accent} />
+                  <Text style={styles.pitchPercent}>{fundedPercent.toFixed(0)}% funded</Text>
+
+                  <View style={styles.pitchMeta}>
+                    <Ionicons name="location-outline" size={12} color="rgba(255,255,255,0.6)" />
+                    <Text style={styles.pitchMetaText}>{pitch.location}</Text>
+                    <Ionicons name="calendar-outline" size={12} color="rgba(255,255,255,0.6)" />
+                    <Text style={styles.pitchMetaText}>
+                      Ends {formatDate(pitch.campaignEndDate)}
+                    </Text>
+                  </View>
+                </LinearGradient>
+              </View>
+            );
+          })
+        ) : (
+          <View style={styles.pitchCard}>
+            <View
+              style={[
+                styles.pitchGradient,
+                { backgroundColor: Colors.surface, padding: 30, alignItems: 'center' },
+              ]}
             >
-              <View style={styles.pitchCardHeader}>
-                <View>
-                  <Text style={styles.pitchName}>{myPitch.businessName}</Text>
-                  <Text style={styles.pitchIndustry}>{myPitch.industry}</Text>
-                </View>
-                <View style={styles.statusBadge}>
-                  <View style={styles.statusDot} />
-                  <Text style={styles.statusText}>{myPitch.status === 'LIVE' ? 'Live' : myPitch.status}</Text>
-                </View>
-              </View>
-
-              <View style={styles.pitchAmounts}>
-                <Text style={styles.pitchRaised}>
-                  GH₵{formatCurrency(myPitch.amountRaised)}
-                </Text>
-                <Text style={styles.pitchGoal}>
-                  of GH₵{formatCurrency(myPitch.amountNeeded)}
-                </Text>
-              </View>
-
-              <ProgressBar
-                percent={fundedPercent}
-                height={6}
-                color={Colors.accent}
-              />
-              <Text style={styles.pitchPercent}>{fundedPercent.toFixed(0)}% funded</Text>
-
-              <View style={styles.pitchMeta}>
-                <Ionicons name="location-outline" size={12} color="rgba(255,255,255,0.6)" />
-                <Text style={styles.pitchMetaText}>{myPitch.location}</Text>
-                <Ionicons name="calendar-outline" size={12} color="rgba(255,255,255,0.6)" />
-                <Text style={styles.pitchMetaText}>
-                  Ends {formatDate(myPitch.campaignEndDate)}
-                </Text>
-              </View>
-            </LinearGradient>
-          ) : (
-            <View style={[styles.pitchGradient, { backgroundColor: Colors.surface, padding: 30, alignItems: 'center' }]}>
               <Text style={{ color: Colors.textMuted }}>No active pitches found.</Text>
             </View>
-          )}
-        </View>
+          </View>
+        )}
 
         {/* Quick Actions */}
         <Text style={styles.sectionTitle}>Quick actions</Text>
@@ -178,16 +259,18 @@ export default function OwnerDashboardScreen() {
 
         {/* Recent bids */}
         <Text style={styles.sectionTitle}>Recent bids</Text>
-        {myBids.length > 0 ? (
-          myBids.slice(0, 3).map((bid) => (
+        {recentBids.length > 0 ? (
+          recentBids.map((bid) => (
             <TouchableOpacity
               key={bid.id}
               style={styles.bidRow}
-              onPress={() => router.push(`/bid/${bid.id}`)}
+              onPress={() => handleBidPress(bid)}
               activeOpacity={0.8}
             >
               <View style={styles.bidAvatar}>
-                <Text style={styles.bidAvatarText}>{bid.investorName ? bid.investorName[0] : 'I'}</Text>
+                <Text style={styles.bidAvatarText}>
+                  {bid.investorName ? bid.investorName[0] : 'I'}
+                </Text>
               </View>
               <View style={styles.bidInfo}>
                 <Text style={styles.bidInvestor}>{bid.investorName || 'Investor'}</Text>
@@ -337,7 +420,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     borderRadius: 20,
     overflow: 'hidden',
-    marginBottom: 24,
+    marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,

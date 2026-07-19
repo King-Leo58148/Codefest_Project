@@ -137,11 +137,13 @@ export default function BidDetailScreen() {
         )}
 
         {/* Counter-offer */}
-        {bid.status === 'PENDING' && (
+        {(bid.status === 'PENDING' || bid.status === 'COUNTERED') && (
           <>
             <Text style={styles.sectionTitle}>Send counter-offer</Text>
             <Text style={styles.counterSubtitle}>
-              Adjust the terms below and send a counter-offer to the investor.
+              {bid.status === 'COUNTERED'
+                ? 'Adjust the terms below and send a new counter-offer to the investor.'
+                : 'Adjust the terms below and send a counter-offer to the investor.'}
             </Text>
 
             <View style={styles.fieldRow}>
