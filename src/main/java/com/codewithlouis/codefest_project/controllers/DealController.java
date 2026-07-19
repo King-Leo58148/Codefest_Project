@@ -68,8 +68,10 @@ public class DealController {
     @PostMapping("/{dealId}/verify-payment")
     public ResponseEntity<Deal> verifyPayment(
             @PathVariable Integer dealId,
-            @RequestBody VerifyPaymentRequest body) {
-        return ResponseEntity.ok(dealService.verifyPayment(dealId, body.getReference()));
+            @RequestBody(required = false) VerifyPaymentRequest body) {
+        // reference is optional — DealService falls back to deal.paystackRef if null
+        String reference = (body != null) ? body.getReference() : null;
+        return ResponseEntity.ok(dealService.verifyPayment(dealId, reference));
     }
     @GetMapping("/{dealId}/repayments")
     public ResponseEntity<List<Repayment>> getRepayments(@PathVariable Integer dealId) {

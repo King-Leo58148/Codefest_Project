@@ -261,15 +261,24 @@ public class DealService {
             return deal;
         }
 
-        boolean paid = paystackService.verifyPayment(reference);
+        // Use the reference passed by the frontend; fall back to the one stored
+        // on the deal at initiation time if the frontend sends null.
+        String ref = (reference != null && !reference.isBlank())
+                ? reference
+                : deal.getPaystackRef();
+
+        if (ref == null || ref.isBlank()) {
+            throw new RuntimeException("No payment reference found. Please initiate payment first.");
+        }
+
+        boolean paid = paystackService.verifyPayment(ref);
 
         if (paid) {
             deal.setStatus(DealStatus.ACTIVE);
             deal.setDisbursed(true);
             deal.setDisbursedAt(LocalDateTime.now());
 
-            // Credit the pitch's raised amount — this was previously missing,
-            // which is why "Total raised" stayed at GH₵0 even after payment.
+            // Credit the pitch's raised amount
             Pitch pitch = deal.getPitch();
             double currentRaised = pitch.getAmountRaised() != null ? pitch.getAmountRaised() : 0.0;
             pitch.setAmountRaised(currentRaised + deal.getBid().getAmount());

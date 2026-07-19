@@ -88,7 +88,7 @@ export default function DealRoomScreen() {
     mutationFn: async () => {
       if (!deal) throw new Error("No deal");
 
-      // 1. Initiate payment (get Paystack authorization URL)
+      // 1. Initiate payment (get Paystack authorization URL + reference)
       const res = await initiatePayment(deal.id);
 
       if (!res || !res.authorization_url) {
@@ -98,10 +98,10 @@ export default function DealRoomScreen() {
       // 2. Open Paystack checkout in in-app browser and wait for it to close
       await WebBrowser.openBrowserAsync(res.authorization_url);
 
-      // 3. Verify the payment actually went through — this is the step
-      //    that was missing before, so "paid" state never got confirmed
-      //    and amountRaised never updated on the dashboard.
-      const verification = await verifyPayment(deal.id);
+      // 3. Verify the payment with the reference returned from step 1.
+      //    The reference must come from the initiation response — Paystack
+      //    embeds it in the redirect URL but we already have it here.
+      const verification = await verifyPayment(deal.id, res.reference);
 
       return verification;
     },
