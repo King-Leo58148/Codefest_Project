@@ -255,8 +255,7 @@ public class DealService {
         Deal deal = dealRepository.findByIdForUpdate(dealId)
                 .orElseThrow(() -> new RuntimeException("Deal not found"));
 
-        // Idempotency guard — if this deal was already marked ACTIVE by an
-        // earlier verify call, don't re-disburse funds or double-credit the pitch.
+        // Idempotency guard — already ACTIVE, nothing to do
         if (deal.getStatus() == DealStatus.ACTIVE) {
             return deal;
         }
@@ -273,31 +272,57 @@ public class DealService {
 
         boolean paid = paystackService.verifyPayment(ref);
 
-        if (paid) {
-            deal.setStatus(DealStatus.ACTIVE);
-            deal.setDisbursed(true);
-            deal.setDisbursedAt(LocalDateTime.now());
+        if (!paid) {
+            throw new RuntimeException("Payment not confirmed by Paystack yet. If you completed checkout, please try again in a moment.");
+        }
 
-            // Credit the pitch's raised amount
-            Pitch pitch = deal.getPitch();
-            double currentRaised = pitch.getAmountRaised() != null ? pitch.getAmountRaised() : 0.0;
-            pitch.setAmountRaised(currentRaised + deal.getBid().getAmount());
-            pitchRepository.save(pitch);
+        // ── Payment confirmed ──────────────────────────────────────────────
+        // Mark the deal ACTIVE and credit the pitch BEFORE attempting
+        // disbursement. This way a failed disbursement (null MoMo, test-mode
+        // transfer rejection, etc.) never rolls back a real payment.
+        deal.setStatus(DealStatus.ACTIVE);
+        deal.setDisbursed(false); // will be set true only if disbursement succeeds
+        deal.setDisbursedAt(null);
 
-            repaymentService.generateRepaymentSchedule(deal);
-            paystackService.disburseFunds(deal);
+        Pitch pitch = deal.getPitch();
+        double currentRaised = pitch.getAmountRaised() != null ? pitch.getAmountRaised() : 0.0;
+        pitch.setAmountRaised(currentRaised + deal.getBid().getAmount());
+        pitchRepository.save(pitch);
+
+        repaymentService.generateRepaymentSchedule(deal);
+
+        // Save ACTIVE status now — flush so this commit is durable even if
+        // disbursement below throws.
+        Deal saved = dealRepository.save(deal);
+
+        // ── Disbursement (best-effort, non-fatal) ──────────────────────────
+        // Wrapped in try-catch so a Paystack transfer failure (invalid MoMo,
+        // test-mode restriction, etc.) does NOT roll back the confirmed payment.
+        try {
+            paystackService.disburseFunds(saved);
+            saved.setDisbursed(true);
+            saved.setDisbursedAt(LocalDateTime.now());
+            saved = dealRepository.save(saved);
 
             notificationService.createNotification(
-                    deal.getOwner(),
+                    saved.getOwner(),
                     NotificationType.PAYMENT_RECEIVED,
                     "Payment Received",
-                    "GHS " + deal.getBid().getAmount() + " has been disbursed to your MoMo account for deal #" + deal.getId(),
-                    deal.getId()
+                    "GHS " + saved.getBid().getAmount() + " has been disbursed to your MoMo account for deal #" + saved.getId(),
+                    saved.getId()
             );
-
-            return dealRepository.save(deal);
-        } else {
-            throw new RuntimeException("Payment verification failed");
+        } catch (Exception e) {
+            // Disbursement failed — payment is still confirmed and deal is ACTIVE.
+            // Admin can retry disbursement manually via the dashboard.
+            notificationService.createNotification(
+                    saved.getOwner(),
+                    NotificationType.PAYMENT_RECEIVED,
+                    "Payment Received — Disbursement Pending",
+                    "Your payment for deal #" + saved.getId() + " was received. Disbursement will be processed shortly.",
+                    saved.getId()
+            );
         }
+
+        return saved;
     }
 }
