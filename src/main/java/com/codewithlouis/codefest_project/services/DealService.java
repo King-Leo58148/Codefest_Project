@@ -349,6 +349,10 @@ public class DealService {
                     saved.getId()
             );
         } catch (Exception e) {
+            System.err.println("=== DISBURSEMENT FAILED for deal #" + saved.getId() + " ===");
+            System.err.println("Error: " + e.getMessage());
+            e.printStackTrace();
+
             notificationService.createNotification(
                     saved.getOwner(),
                     NotificationType.PAYMENT_RECEIVED,
