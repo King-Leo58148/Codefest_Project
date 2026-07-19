@@ -60,11 +60,16 @@ public class DealController {
         return ResponseEntity.ok(dealService.initiatePayment(dealId));
     }
 
+    @Data
+    static class VerifyPaymentRequest {
+        private String reference;
+    }
+
     @PostMapping("/{dealId}/verify-payment")
     public ResponseEntity<Deal> verifyPayment(
             @PathVariable Integer dealId,
-            @RequestParam String reference) {
-        return ResponseEntity.ok(dealService.verifyPayment(dealId, reference));
+            @RequestBody VerifyPaymentRequest body) {
+        return ResponseEntity.ok(dealService.verifyPayment(dealId, body.getReference()));
     }
     @GetMapping("/{dealId}/repayments")
     public ResponseEntity<List<Repayment>> getRepayments(@PathVariable Integer dealId) {
