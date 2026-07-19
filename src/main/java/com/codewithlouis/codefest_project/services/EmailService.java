@@ -71,7 +71,6 @@ public class EmailService {
         send(mfiEmail, subject, body);
     }
 
-    @Async
     public void sendVerificationCode(String email, String code, VerificationPurpose purpose) {
         String subject = getVerificationSubject(purpose);
         String body = """
@@ -82,10 +81,13 @@ public class EmailService {
                 <p>If you did not request this, you can ignore this email.</p>
                 """.formatted(getVerificationHeading(purpose), code);
 
-        send(email, subject, body);
+        boolean sent = send(email, subject, body);
+        if (!sent) {
+            throw new RuntimeException("Failed to send verification email");
+        }
     }
 
-    private void send(String to, String subject, String htmlBody) {
+    private boolean send(String to, String subject, String htmlBody) {
         try {
             Map<String, Object> payload = new HashMap<>();
             payload.put("from", fromEmail);
@@ -106,9 +108,12 @@ public class EmailService {
 
             if (response.statusCode() >= 400) {
                 System.err.println("Resend API error (" + response.statusCode() + "): " + response.body());
+                return false;
             }
+            return true;
         } catch (Exception e) {
             System.err.println("Failed to send email to " + to + ": " + e.getMessage());
+            return false;
         }
     }
 
