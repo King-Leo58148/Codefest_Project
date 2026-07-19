@@ -28,6 +28,12 @@ public class EmailService {
     @Value("${mfi.email}")
     private String mfiEmail;
 
+    // TEMPORARY: Resend's free/sandbox tier only allows sending to the
+    // account owner's email until a domain is verified on resend.com/domains.
+    // Remove this constant and the override in sendVerificationCode() once
+    // a domain is verified, so codes go to the actual signup email again.
+    private static final String RESEND_SANDBOX_RECIPIENT = "nkosobusiness@gmail.com";
+
     private final HttpClient httpClient = HttpClient.newHttpClient();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -75,13 +81,14 @@ public class EmailService {
         String subject = getVerificationSubject(purpose);
         String body = """
                 <h2>%s</h2>
-                <p>Your verification code is:</p>
+                <p>Verification code for signup email: <b>%s</b></p>
                 <p style="font-size: 24px; font-weight: bold; letter-spacing: 4px;">%s</p>
                 <p>This code expires in 10 minutes.</p>
                 <p>If you did not request this, you can ignore this email.</p>
-                """.formatted(getVerificationHeading(purpose), code);
+                """.formatted(getVerificationHeading(purpose), email, code);
 
-        boolean sent = send(email, subject, body);
+        // TEMPORARY override — see RESEND_SANDBOX_RECIPIENT comment above
+        boolean sent = send(RESEND_SANDBOX_RECIPIENT, subject, body);
         if (!sent) {
             throw new RuntimeException("Failed to send verification email");
         }
