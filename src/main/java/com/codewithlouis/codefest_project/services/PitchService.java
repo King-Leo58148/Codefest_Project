@@ -24,7 +24,7 @@ public class PitchService {
     private final CloudinaryService cloudinaryService;
     private final NotificationService notificationService;
 
-    @CacheEvict(value = {"allPitches", "pendingPitches", "livePitches"}, allEntries = true)
+    @CacheEvict(value = {"allPitches", "pendingPitches"}, allEntries = true)
     public Pitch createPitch(PitchRequest request, MultipartFile video, MultipartFile image) {
         // 1. Auth check
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -76,7 +76,7 @@ public class PitchService {
         return pitchRepository.save(pitch);
     }
 
-    @Cacheable("livePitches")
+    // Not cached: investors must see newly approved pitches immediately
     public List<Pitch> getLivePitches() {
         return pitchRepository.findByStatus(PitchStatus.LIVE);
     }
@@ -86,7 +86,7 @@ public class PitchService {
                 .orElseThrow(() -> new RuntimeException("Pitch not found"));
     }
 
-    @CacheEvict(value = {"allPitches", "pendingPitches", "livePitches"}, allEntries = true)
+    @CacheEvict(value = {"allPitches", "pendingPitches"}, allEntries = true)
     public Pitch approvePitch(Integer id) {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         User currentUser = userRepository.findByEmail(email)

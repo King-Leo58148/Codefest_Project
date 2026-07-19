@@ -34,7 +34,6 @@ public class DealService {
                 .orElseThrow(() -> new RuntimeException("User not found"));
     }
 
-    @CacheEvict(value = {"allDeals", "dealsByStatus"}, allEntries = true)
     public Deal createDeal(Integer bidId) {
         Bid bid = bidRepository.findById(bidId)
                 .orElseThrow(() -> new RuntimeException("Bid not found"));
@@ -98,7 +97,6 @@ public class DealService {
     }
 
     @Transactional
-    @CacheEvict(value = {"allDeals", "dealsByStatus"}, allEntries = true)
     public Deal signDeal(Integer dealId) {
         User currentUser = getCurrentUser();
 
@@ -140,7 +138,6 @@ public class DealService {
         return dealRepository.save(deal);
     }
 
-    @CacheEvict(value = {"allDeals", "dealsByStatus"}, allEntries = true)
     public Deal approveMfi(Integer dealId) {
         User currentUser = getCurrentUser();
 
@@ -169,7 +166,6 @@ public class DealService {
         return dealRepository.save(deal);
     }
 
-    @CacheEvict(value = {"allDeals", "dealsByStatus"}, allEntries = true)
     public Deal rejectMfi(Integer dealId) {
         User currentUser = getCurrentUser();
 
@@ -250,7 +246,6 @@ public class DealService {
     }
 
     @Transactional
-    @CacheEvict(value = {"allDeals", "dealsByStatus"}, allEntries = true)
     public Deal verifyPayment(Integer dealId, String reference) {
         Deal deal = dealRepository.findByIdForUpdate(dealId)
                 .orElseThrow(() -> new RuntimeException("Deal not found"));

@@ -82,6 +82,7 @@ public class AdminService {
         return pitchRepository.findByStatus(PitchStatus.PENDING);
     }
 
+    @CacheEvict(value = {"allPitches", "pendingPitches"}, allEntries = true)
     public Pitch rejectPitch(Integer pitchId) {
         checkAdmin();
         Pitch pitch = pitchRepository.findById(pitchId)
@@ -97,27 +98,23 @@ public class AdminService {
         return pitchRepository.save(pitch);
     }
 
-    // DEALS
-    @Cacheable("allDeals")
+    // DEALS — not cached: deal status changes in real-time (sign, pay, approve)
     public List<Deal> getAllDeals() {
         checkAdmin();
         return dealRepository.findAll();
     }
 
-    @Cacheable(value = "dealsByStatus", key = "#status")
     public List<Deal> getDealsByStatus(DealStatus status) {
         checkAdmin();
         return dealRepository.findByStatus(status);
     }
 
-    // REPAYMENTS
-    @Cacheable("allRepayments")
+    // REPAYMENTS — not cached: repayment status is time-sensitive
     public List<Repayment> getAllRepayments() {
         checkAdmin();
         return repaymentRepository.findAll();
     }
 
-    @Cacheable("missedRepayments")
     public List<Repayment> getMissedRepayments() {
         checkAdmin();
         return repaymentRepository.findByStatus(RepaymentStatus.MISSED);

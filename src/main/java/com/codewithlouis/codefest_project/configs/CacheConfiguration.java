@@ -12,15 +12,13 @@ public class CacheConfiguration {
 
     @Bean
     public CacheManager cacheManager() {
+        // Only admin-facing read caches remain — these are low-frequency,
+        // admin-only views where slight staleness is acceptable.
+        // Real-time caches (deals, repayments, live pitches) were removed.
         return new ConcurrentMapCacheManager(
-                "allUsers",
-                "allPitches",
-                "pendingPitches",
-                "livePitches",
-                "allDeals",
-                "dealsByStatus",
-                "allRepayments",
-                "missedRepayments"
+                "allUsers",      // admin: user list (evicted on suspend/unsuspend)
+                "allPitches",    // admin: all pitches (evicted on create/approve/reject)
+                "pendingPitches" // admin: pending review (evicted on create/approve/reject)
         );
     }
 }
