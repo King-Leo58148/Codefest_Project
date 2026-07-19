@@ -54,8 +54,8 @@ export default function DealRoomScreen() {
     }
   }, [deal]);
 
-  const isOwner = user?.role === 'OWNER' || user?.role === 'BOTH';
-  const isInvestor = user?.role === 'INVESTOR' || user?.role === 'BOTH';
+  const isOwner = user?.role === 'OWNER';
+  const isInvestor = user?.role === 'INVESTOR';
   const bothSigned = ownerSigned && investorSigned;
 
   const signMutation = useMutation({
@@ -117,7 +117,7 @@ export default function DealRoomScreen() {
     },
     onSuccess: (updatedDeal: any) => {
       // Refresh this deal
-      queryClient.invalidateQueries({ queryKey: ['deal', deal.id] });
+      queryClient.invalidateQueries({ queryKey: ['deal', deal?.id] });
       // Refresh dashboard-level data so "Total raised" / pitch progress update
       queryClient.invalidateQueries({ queryKey: ['myPitches'] });
       queryClient.invalidateQueries({ queryKey: ['ownerAllBids'] });
