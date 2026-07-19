@@ -16,6 +16,7 @@ public interface DealRepository extends JpaRepository<Deal, Integer> {
     List<Deal> findByInvestorEmail(String email);
     Optional<Deal> findByBidId(Integer bidId);
     List<Deal> findByStatus(DealStatus status);
+    Optional<Deal> findByPaystackRef(String paystackRef);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT d FROM Deal d WHERE d.id = :id")

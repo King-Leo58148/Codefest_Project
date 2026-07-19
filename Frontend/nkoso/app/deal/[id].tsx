@@ -98,37 +98,42 @@ export default function DealRoomScreen() {
       // 2. Open Paystack checkout in in-app browser and wait for it to close
       await WebBrowser.openBrowserAsync(res.authorization_url);
 
-      // 3. Verify the payment with the reference returned from step 1.
-      //    The reference must come from the initiation response — Paystack
-      //    embeds it in the redirect URL but we already have it here.
-      const verification = await verifyPayment(deal.id, res.reference);
-
-      return verification;
+      // 3. Verify with retries — Paystack can take a few seconds to settle
+      let lastError: any = null;
+      for (let attempt = 0; attempt < 4; attempt++) {
+        try {
+          const updatedDeal = await verifyPayment(deal.id, res.reference);
+          if (updatedDeal?.status === 'ACTIVE') {
+            return updatedDeal;
+          }
+          lastError = new Error('Payment not yet confirmed');
+        } catch (err) {
+          lastError = err;
+        }
+        // wait before retrying: 2s, 4s, 6s, 8s
+        await new Promise((resolve) => setTimeout(resolve, 2000 * (attempt + 1)));
+      }
+      throw lastError || new Error('Payment could not be confirmed');
     },
-    onSuccess: (verification: any) => {
+    onSuccess: (updatedDeal: any) => {
       // Refresh this deal
       queryClient.invalidateQueries({ queryKey: ['deal', deal.id] });
       // Refresh dashboard-level data so "Total raised" / pitch progress update
       queryClient.invalidateQueries({ queryKey: ['myPitches'] });
       queryClient.invalidateQueries({ queryKey: ['ownerAllBids'] });
 
-      const isConfirmed =
-        verification?.status === 'success' || verification?.verified === true;
-
-      if (isConfirmed) {
-        Alert.alert(
-          'Payment confirmed',
-          'Payment was successful. Funds will be disbursed to the business owner shortly.'
-        );
-      } else {
-        Alert.alert(
-          'Payment not confirmed yet',
-          "We couldn't confirm your payment went through yet. If you completed checkout, this can take a moment — pull to refresh shortly."
-        );
-      }
+      Alert.alert(
+        'Payment confirmed',
+        'Payment was successful. Funds will be disbursed to the business owner shortly.'
+      );
     },
-    onError: (error: any) => {
-      Alert.alert('Payment failed', error.message || 'Something went wrong');
+    onError: () => {
+      // Even on failure, refresh in case it actually succeeded on the backend
+      queryClient.invalidateQueries({ queryKey: ['deal', deal?.id] });
+      Alert.alert(
+        'Payment not confirmed yet',
+        "We couldn't confirm your payment went through yet. If you completed checkout, please pull to refresh in a moment."
+      );
     }
   });
 

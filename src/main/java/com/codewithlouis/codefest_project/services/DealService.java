@@ -250,13 +250,10 @@ public class DealService {
         Deal deal = dealRepository.findByIdForUpdate(dealId)
                 .orElseThrow(() -> new RuntimeException("Deal not found"));
 
-        // Idempotency guard — already ACTIVE, nothing to do
         if (deal.getStatus() == DealStatus.ACTIVE) {
             return deal;
         }
 
-        // Use the reference passed by the frontend; fall back to the one stored
-        // on the deal at initiation time if the frontend sends null.
         String ref = (reference != null && !reference.isBlank())
                 ? reference
                 : deal.getPaystackRef();
@@ -271,12 +268,62 @@ public class DealService {
             throw new RuntimeException("Payment not confirmed by Paystack yet. If you completed checkout, please try again in a moment.");
         }
 
-        // ── Payment confirmed ──────────────────────────────────────────────
-        // Mark the deal ACTIVE and credit the pitch BEFORE attempting
-        // disbursement. This way a failed disbursement (null MoMo, test-mode
-        // transfer rejection, etc.) never rolls back a real payment.
+        return activateDealAfterPayment(deal);
+    }
+
+    /**
+     * Called by the Paystack webhook whenever a charge.success event is received.
+     * This is independent of the frontend calling /verify-payment — Paystack
+     * notifies the backend directly, so payment gets confirmed even if the
+     * app never calls verify-payment (closed early, crashed, no network, etc.).
+     */
+    @Transactional
+    public void handlePaystackWebhook(Map<String, Object> payload) {
+        String event = (String) payload.get("event");
+        if (!"charge.success".equals(event)) {
+            return;
+        }
+
+        Object dataObj = payload.get("data");
+        if (!(dataObj instanceof Map)) {
+            return;
+        }
+        Map<String, Object> data = (Map<String, Object>) dataObj;
+        String reference = (String) data.get("reference");
+
+        if (reference == null || reference.isBlank()) {
+            return;
+        }
+
+        Deal deal = dealRepository.findByPaystackRef(reference).orElse(null);
+        if (deal == null) {
+            return;
+        }
+
+        // Re-fetch with lock to avoid racing with a concurrent verify-payment call
+        deal = dealRepository.findByIdForUpdate(deal.getId())
+                .orElseThrow(() -> new RuntimeException("Deal not found"));
+
+        if (deal.getStatus() == DealStatus.ACTIVE) {
+            return; // already processed, idempotent no-op
+        }
+
+        boolean paid = paystackService.verifyPayment(reference);
+        if (!paid) {
+            return;
+        }
+
+        activateDealAfterPayment(deal);
+    }
+
+    /**
+     * Shared logic: marks a deal ACTIVE, credits the pitch, generates the
+     * repayment schedule, and attempts disbursement (non-fatal on failure).
+     * Called from both verifyPayment() and handlePaystackWebhook().
+     */
+    private Deal activateDealAfterPayment(Deal deal) {
         deal.setStatus(DealStatus.ACTIVE);
-        deal.setDisbursed(false); // will be set true only if disbursement succeeds
+        deal.setDisbursed(false);
         deal.setDisbursedAt(null);
 
         Pitch pitch = deal.getPitch();
@@ -286,13 +333,8 @@ public class DealService {
 
         repaymentService.generateRepaymentSchedule(deal);
 
-        // Save ACTIVE status now — flush so this commit is durable even if
-        // disbursement below throws.
         Deal saved = dealRepository.save(deal);
 
-        // ── Disbursement (best-effort, non-fatal) ──────────────────────────
-        // Wrapped in try-catch so a Paystack transfer failure (invalid MoMo,
-        // test-mode restriction, etc.) does NOT roll back the confirmed payment.
         try {
             paystackService.disburseFunds(saved);
             saved.setDisbursed(true);
@@ -307,8 +349,6 @@ public class DealService {
                     saved.getId()
             );
         } catch (Exception e) {
-            // Disbursement failed — payment is still confirmed and deal is ACTIVE.
-            // Admin can retry disbursement manually via the dashboard.
             notificationService.createNotification(
                     saved.getOwner(),
                     NotificationType.PAYMENT_RECEIVED,

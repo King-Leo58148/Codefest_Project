@@ -34,7 +34,7 @@ public class SecurityConfiguration {
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/auth/**", "/api/verify/**", "/error", "/ws/**", "/actuator/**").permitAll() // ✅ added /actuator/** for Railway healthcheck
+                        .requestMatchers("/auth/**", "/api/verify/**", "/error", "/ws/**", "/actuator/**", "/api/deals/webhook/paystack").permitAll()
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session
