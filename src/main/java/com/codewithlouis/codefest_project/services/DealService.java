@@ -381,7 +381,9 @@ public class DealService {
         Deal saved = dealRepository.save(deal);
 
         try {
-            // If transfer is successful instantly, this will run, otherwise the webhook will handle it.
+            // Call Paystack to initiate the transfer
+            paystackService.disburseFunds(saved);
+
             // Wait for webhook to officially confirm disbursement
             notificationService.createNotification(
                     saved.getOwner(),
