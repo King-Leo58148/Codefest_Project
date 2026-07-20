@@ -122,6 +122,7 @@ public class PaystackService {
         transferBody.put("amount", amountInPesewas);
         transferBody.put("recipient", recipientCode);
         transferBody.put("reason", "Nkoso deal disbursement - Deal #" + deal.getId());
+        transferBody.put("reference", deal.getPaystackRef() + "-DISB");
 
         HttpEntity<Map<String, Object>> transferRequest = new HttpEntity<>(transferBody, headers);
 

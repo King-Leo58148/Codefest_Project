@@ -280,10 +280,14 @@ public class DealService {
     @Transactional
     public void handlePaystackWebhook(Map<String, Object> payload) {
         String event = (String) payload.get("event");
-        if (!"charge.success".equals(event)) {
-            return;
+        if ("charge.success".equals(event)) {
+            handleChargeSuccess(payload);
+        } else if ("transfer.success".equals(event)) {
+            handleTransferSuccess(payload);
         }
+    }
 
+    private void handleChargeSuccess(Map<String, Object> payload) {
         Object dataObj = payload.get("data");
         if (!(dataObj instanceof Map)) {
             return;
@@ -316,6 +320,47 @@ public class DealService {
         activateDealAfterPayment(deal);
     }
 
+    private void handleTransferSuccess(Map<String, Object> payload) {
+        Object dataObj = payload.get("data");
+        if (!(dataObj instanceof Map)) {
+            return;
+        }
+        Map<String, Object> data = (Map<String, Object>) dataObj;
+        String reference = (String) data.get("reference");
+
+        if (reference == null || reference.isBlank()) {
+            return;
+        }
+        
+        String chargeReference = reference;
+        if (reference.endsWith("-DISB")) {
+            chargeReference = reference.substring(0, reference.length() - 5);
+        }
+        
+        // The transfer reference was set in PaystackService.disburseFunds
+        Deal deal = dealRepository.findByPaystackRef(chargeReference).orElse(null);
+        if (deal == null) {
+            return;
+        }
+
+        deal = dealRepository.findByIdForUpdate(deal.getId())
+                .orElseThrow(() -> new RuntimeException("Deal not found"));
+
+        if (!deal.isDisbursed()) {
+            deal.setDisbursed(true);
+            deal.setDisbursedAt(LocalDateTime.now());
+            dealRepository.save(deal);
+
+            notificationService.createNotification(
+                    deal.getOwner(),
+                    NotificationType.PAYMENT_RECEIVED,
+                    "Payment Received",
+                    "GHS " + deal.getBid().getAmount() + " has been disbursed to your MoMo account for deal #" + deal.getId(),
+                    deal.getId()
+            );
+        }
+    }
+
     /**
      * Shared logic: marks a deal ACTIVE, credits the pitch, generates the
      * repayment schedule, and attempts disbursement (non-fatal on failure).
@@ -336,16 +381,13 @@ public class DealService {
         Deal saved = dealRepository.save(deal);
 
         try {
-            paystackService.disburseFunds(saved);
-            saved.setDisbursed(true);
-            saved.setDisbursedAt(LocalDateTime.now());
-            saved = dealRepository.save(saved);
-
+            // If transfer is successful instantly, this will run, otherwise the webhook will handle it.
+            // Wait for webhook to officially confirm disbursement
             notificationService.createNotification(
                     saved.getOwner(),
                     NotificationType.PAYMENT_RECEIVED,
-                    "Payment Received",
-                    "GHS " + saved.getBid().getAmount() + " has been disbursed to your MoMo account for deal #" + saved.getId(),
+                    "Payment Received — Disbursement Pending",
+                    "Your payment for deal #" + saved.getId() + " was received. Disbursement will be processed shortly.",
                     saved.getId()
             );
         } catch (Exception e) {
