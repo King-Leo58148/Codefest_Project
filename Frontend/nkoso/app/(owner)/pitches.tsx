@@ -8,6 +8,8 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  Pressable,
+  Share,
   Alert,
   Modal,
   TextInput,
@@ -51,6 +53,7 @@ function formatOfferType(offerType: string | undefined) {
 export default function PitchesScreen() {
   const [showCreate, setShowCreate] = useState(false);
   const [playingVideo, setPlayingVideo] = useState<string | null>(null);
+  const [menuPitchId, setMenuPitchId] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   const { data: pitches = [], isLoading: loadingPitches, isError, error, refetch } = useQuery({
@@ -106,6 +109,7 @@ export default function PitchesScreen() {
   });
 
   const confirmDelete = (pitchId: string) => {
+    setMenuPitchId(null);
     Alert.alert(
       'Delete Pitch',
       'Are you sure you want to delete this pitch? This action cannot be undone.',
@@ -195,7 +199,12 @@ export default function PitchesScreen() {
         ) : pitches.length > 0 ? (
           pitches.map((pitch) => {
             return (
-              <View key={pitch.id} style={styles.pitchCard}>
+              <Pressable
+                key={pitch.id}
+                style={styles.pitchCard}
+                onLongPress={() => setMenuPitchId(pitch.id)}
+                delayLongPress={400}
+              >
                 <TouchableOpacity
                   style={styles.mediaWrap}
                   activeOpacity={0.9}
@@ -224,6 +233,16 @@ export default function PitchesScreen() {
                     <View style={styles.liveDot} />
                     <Text style={styles.liveText}>{pitch.status === 'LIVE' ? 'LIVE' : pitch.status}</Text>
                   </View>
+                </TouchableOpacity>
+
+                {/* 3-dot menu button */}
+                <TouchableOpacity
+                  style={styles.menuDots}
+                  activeOpacity={0.7}
+                  onPress={() => setMenuPitchId(pitch.id)}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Ionicons name="ellipsis-vertical" size={20} color={Colors.textSecondary} />
                 </TouchableOpacity>
 
                 <View style={styles.pitchCardBody}>
@@ -260,27 +279,8 @@ export default function PitchesScreen() {
                       </Text>
                     </View>
                   </View>
-
-                  <View style={styles.pitchActions}>
-                    <TouchableOpacity style={styles.pitchActionBtn} activeOpacity={0.7}>
-                      <Ionicons name="create-outline" size={16} color={Colors.primary} />
-                      <Text style={styles.pitchActionText}>Edit</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.pitchActionBtn} activeOpacity={0.7}>
-                      <Ionicons name="share-social-outline" size={16} color={Colors.primary} />
-                      <Text style={styles.pitchActionText}>Share</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity 
-                      style={styles.pitchActionBtn} 
-                      activeOpacity={0.7}
-                      onPress={() => confirmDelete(pitch.id)}
-                    >
-                      <Ionicons name="trash-outline" size={16} color={Colors.accentRed} />
-                      <Text style={[styles.pitchActionText, { color: Colors.accentRed }]}>Delete</Text>
-                    </TouchableOpacity>
-                  </View>
                 </View>
-              </View>
+              </Pressable>
             );
           })
         ) : (
@@ -454,6 +454,48 @@ export default function PitchesScreen() {
             <View style={{ height: 20 }} />
           </ScrollV>
         </KeyboardAvoidingView>
+      </Modal>
+
+      {/* 3-dot Context Menu Modal */}
+      <Modal
+        visible={!!menuPitchId}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setMenuPitchId(null)}
+      >
+        <TouchableOpacity
+          style={styles.menuOverlay}
+          activeOpacity={1}
+          onPress={() => setMenuPitchId(null)}
+        >
+          <View style={styles.menuCard}>
+            <TouchableOpacity
+              style={styles.menuItem}
+              activeOpacity={0.6}
+              onPress={async () => {
+                setMenuPitchId(null);
+                const pitch = pitches.find(p => p.id === menuPitchId);
+                if (pitch) {
+                  await Share.share({
+                    message: `Check out "${pitch.businessName}" on Nkɔso! They're raising GH₵${formatCurrency(pitch.amountNeeded)}.`,
+                  });
+                }
+              }}
+            >
+              <Ionicons name="share-social-outline" size={20} color={Colors.primary} />
+              <Text style={styles.menuItemText}>Share</Text>
+            </TouchableOpacity>
+            <View style={styles.menuDivider} />
+            <TouchableOpacity
+              style={styles.menuItem}
+              activeOpacity={0.6}
+              onPress={() => menuPitchId && confirmDelete(menuPitchId)}
+            >
+              <Ionicons name="trash-outline" size={20} color={Colors.accentRed} />
+              <Text style={[styles.menuItemText, { color: Colors.accentRed }]}>Delete</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
       </Modal>
 
       {/* Video Player Modal */}
@@ -646,28 +688,56 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
   },
-  pitchActions: {
-    flexDirection: 'row',
-    gap: 8,
-    borderTopWidth: 1,
-    borderTopColor: Colors.borderLight,
-    paddingTop: 12,
-    marginTop: 4,
-  },
-  pitchActionBtn: {
-    flex: 1,
-    flexDirection: 'row',
+  menuDots: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    zIndex: 10,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#ffffffee',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
-    paddingVertical: 8,
-    borderRadius: 8,
-    backgroundColor: Colors.borderLight,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 3,
   },
-  pitchActionText: {
-    fontSize: 12,
+  menuOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  menuCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    width: 240,
+    paddingVertical: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+  },
+  menuItemText: {
+    fontSize: 15,
     fontWeight: '600',
-    color: Colors.primary,
+    color: Colors.textPrimary,
+  },
+  menuDivider: {
+    height: 1,
+    backgroundColor: Colors.borderLight,
+    marginHorizontal: 16,
   },
   emptyCard: {
     backgroundColor: Colors.surface,
