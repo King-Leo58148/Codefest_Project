@@ -275,7 +275,7 @@ export default function PitchesScreen() {
                     </View>
                     <View style={styles.offerPill}>
                       <Text style={styles.offerPillText}>
-                        {pitch.offerValue}% {formatOfferType(pitch.offerType)}
+                        {pitch.offerType === 'FIXED' ? `GH₵${pitch.offerValue}` : `${pitch.offerValue}%`} {formatOfferType(pitch.offerType)}
                       </Text>
                     </View>
                   </View>

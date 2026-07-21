@@ -53,7 +53,10 @@ export default function PitchDetailScreen() {
   const isInvestor = user?.role === 'INVESTOR';
 
   const summaryItems = [
-    { label: 'Equity offered', value: `${pitch.offerValue}%` },
+    { 
+      label: pitch.offerType === 'EQUITY' ? 'Equity offered' : pitch.offerType === 'REVENUE_SHARE' ? 'Revenue share' : 'Fixed return', 
+      value: pitch.offerType === 'FIXED' ? `GH₵${pitch.offerValue}` : `${pitch.offerValue}%` 
+    },
     { label: 'Pre-money valuation', value: `GH₵${pitch.preMoneyValuation.toLocaleString()}` },
     { label: 'Minimum investment', value: `GH₵${pitch.minimumInvestment.toLocaleString()}` },
     { label: 'Campaign ends', value: new Date(pitch.campaignEndDate).toLocaleDateString() },
