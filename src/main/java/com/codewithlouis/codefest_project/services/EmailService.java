@@ -86,6 +86,8 @@ public class EmailService {
 
             String body = objectMapper.writeValueAsString(payload);
 
+            System.out.println("[EmailService] Sending '" + subject + "' to: " + toAddress);
+
             HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(BREVO_API_URL))
                 .header("accept",       "application/json")
@@ -103,6 +105,9 @@ public class EmailService {
                 throw new RuntimeException(
                     "Failed to send email — Brevo returned HTTP " + response.statusCode());
             }
+
+            System.out.println("[EmailService] Brevo accepted email to " + toAddress
+                + " — status " + response.statusCode());
 
         } catch (RuntimeException e) {
             throw e;

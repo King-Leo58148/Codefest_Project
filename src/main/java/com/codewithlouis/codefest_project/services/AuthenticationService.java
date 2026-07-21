@@ -109,8 +109,13 @@ public class AuthenticationService {
     }
 
     public void forgotPassword(ForgotPasswordRequest request) {
+        // Always return the same response whether or not the email exists
+        // (prevents account enumeration). But we do NOT suppress cooldown
+        // errors here — if a code was already sent recently, issue() will
+        // throw IllegalStateException which propagates to the caller so the
+        // user knows to check their inbox rather than thinking nothing happened.
         userRepository.findByEmailIgnoreCase(normalizeEmail(request.getEmail()))
-                .ifPresent(user -> issueCodeIgnoringCooldown(user.getEmail(), VerificationPurpose.PASSWORD_RESET));
+                .ifPresent(user -> codeService.issue(user.getEmail(), VerificationPurpose.PASSWORD_RESET));
     }
 
     public void resetPassword(ResetPasswordRequest request) {
