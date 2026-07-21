@@ -70,4 +70,10 @@ public class PitchController {
         return ResponseEntity.ok(pitchService.getPitchById(id));
     }
 
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deletePitch(@PathVariable Integer id) {
+        pitchService.deletePitch(id);
+        return ResponseEntity.ok().build();
+    }
+
 }

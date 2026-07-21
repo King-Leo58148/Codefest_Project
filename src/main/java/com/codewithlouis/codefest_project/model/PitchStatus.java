@@ -6,5 +6,6 @@ public enum PitchStatus {
     LIVE,
     FUNDED,
     EXPIRED,
-    REJECTED
+    REJECTED,
+    DELETED
 }

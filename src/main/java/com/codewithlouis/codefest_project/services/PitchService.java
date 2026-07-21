@@ -118,8 +118,24 @@ public class PitchService {
         return pitchRepository.filterPitches(location, industryStr, offerTypeStr, minAmount, maxAmount);
     }
 
+    @CacheEvict(value = {"allPitches", "pendingPitches"}, allEntries = true)
+    public void deletePitch(Integer id) {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        Pitch pitch = getPitchById(id);
+
+        if (!pitch.getOwner().getEmail().equals(email)) {
+            throw new RuntimeException("You can only delete your own pitches");
+        }
+
+        pitch.setStatus(PitchStatus.DELETED);
+        pitchRepository.save(pitch);
+    }
+
     public List<Pitch> getMyPitches() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
-        return pitchRepository.findByOwnerEmail(email);
+        return pitchRepository.findByOwnerEmail(email)
+                .stream()
+                .filter(p -> p.getStatus() != PitchStatus.DELETED)
+                .toList();
     }
 }

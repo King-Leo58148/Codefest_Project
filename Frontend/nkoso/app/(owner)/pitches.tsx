@@ -21,7 +21,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/Colors';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getMyPitches, createPitch } from '@/services/api';
+import { getMyPitches, createPitch, deletePitch } from '@/services/api';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -94,6 +94,31 @@ export default function PitchesScreen() {
       Alert.alert('Error', error.message || 'Failed to submit pitch');
     }
   });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deletePitch(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['myPitches'] });
+    },
+    onError: (error: any) => {
+      Alert.alert('Error', error.message || 'Failed to delete pitch');
+    }
+  });
+
+  const confirmDelete = (pitchId: string) => {
+    Alert.alert(
+      'Delete Pitch',
+      'Are you sure you want to delete this pitch? This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Delete', 
+          style: 'destructive', 
+          onPress: () => deleteMutation.mutate(pitchId) 
+        }
+      ]
+    );
+  };
 
   const handlePickVideo = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -242,12 +267,16 @@ export default function PitchesScreen() {
                       <Text style={styles.pitchActionText}>Edit</Text>
                     </TouchableOpacity>
                     <TouchableOpacity style={styles.pitchActionBtn} activeOpacity={0.7}>
-                      <Ionicons name="analytics-outline" size={16} color={Colors.primary} />
-                      <Text style={styles.pitchActionText}>Stats</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.pitchActionBtn} activeOpacity={0.7}>
                       <Ionicons name="share-social-outline" size={16} color={Colors.primary} />
                       <Text style={styles.pitchActionText}>Share</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      style={styles.pitchActionBtn} 
+                      activeOpacity={0.7}
+                      onPress={() => confirmDelete(pitch.id)}
+                    >
+                      <Ionicons name="trash-outline" size={16} color={Colors.accentRed} />
+                      <Text style={[styles.pitchActionText, { color: Colors.accentRed }]}>Delete</Text>
                     </TouchableOpacity>
                   </View>
                 </View>

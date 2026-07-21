@@ -131,6 +131,12 @@ export async function createPitch(data: any): Promise<Pitch> {
   );
 }
 
+export async function deletePitch(pitchId: string): Promise<void> {
+  return request(`/api/pitches/${pitchId}`, {
+    method: 'DELETE',
+  }) as Promise<void>;
+}
+
 // Bids
 export async function getBidsForPitch(pitchId: string): Promise<Bid[]> {
   return ownerDataApi.getBidsForPitch(pitchId);
