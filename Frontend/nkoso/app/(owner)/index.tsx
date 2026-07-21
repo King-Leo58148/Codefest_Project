@@ -14,6 +14,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { NotificationBell } from '@/components/NotificationBell';
 import { Colors } from '@/constants/Colors';
 import { useAuthStore } from '@/store/authStore';
 import { useQuery } from '@tanstack/react-query';
@@ -124,9 +125,7 @@ export default function OwnerDashboardScreen() {
             <Text style={styles.greeting}>Hello, {firstName}</Text>
             <Text style={styles.title}>Your Dashboard</Text>
           </View>
-          <TouchableOpacity style={styles.bellBtn} activeOpacity={0.7}>
-            <Ionicons name="notifications-outline" size={22} color={Colors.textPrimary} />
-          </TouchableOpacity>
+          <NotificationBell />
         </View>
 
         {/* Stats Row */}

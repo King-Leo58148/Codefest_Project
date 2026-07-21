@@ -16,6 +16,7 @@ import { PitchCard } from '@/components/pitch/PitchCard';
 import { useAuthStore } from '@/store/authStore';
 import { useQuery } from '@tanstack/react-query';
 import { getPitches, getMyDeals } from '@/services/api';
+import { NotificationBell } from '@/components/NotificationBell';
 
 export default function HomeScreen() {
   const { user } = useAuthStore();
@@ -48,9 +49,7 @@ export default function HomeScreen() {
               Invest in businesses.{'\n'}Build the future.
             </Text>
           </View>
-          <TouchableOpacity style={styles.bellBtn} activeOpacity={0.7}>
-            <Ionicons name="notifications-outline" size={22} color={Colors.textPrimary} />
-          </TouchableOpacity>
+          <NotificationBell />
         </View>
 
         {/* Search Bar */}
@@ -174,19 +173,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: Colors.textPrimary,
     lineHeight: 28,
-  },
-  bellBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: Colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-    elevation: 2,
   },
   searchBar: {
     marginHorizontal: 20,

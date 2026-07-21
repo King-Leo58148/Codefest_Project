@@ -304,8 +304,8 @@ export async function sendNotification(data: any): Promise<any> {
     body: JSON.stringify(data),
   });
 }
-export async function getUnreadNotificationCount(): Promise<{ count: number }> {
-  return request('/api/notifications/unread-count') as Promise<{ count: number }>;
+export async function getUnreadNotificationCount(): Promise<{ unread: number }> {
+  return request('/api/notifications/unread-count') as Promise<{ unread: number }>;
 }
 export async function markNotificationRead(id: string): Promise<any> {
   return request(`/api/notifications/${id}/read`, { method: 'PUT' });

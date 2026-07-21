@@ -72,6 +72,7 @@ function RootLayoutNav() {
         <Stack.Screen name="profile/payment-methods" />
         <Stack.Screen name="profile/help" />
         <Stack.Screen name="profile/contact-support" />
+        <Stack.Screen name="notifications" options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="+not-found" />
       </Stack>
     </>

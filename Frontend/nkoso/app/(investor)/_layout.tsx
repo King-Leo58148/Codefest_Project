@@ -24,7 +24,7 @@ export default function InvestorTabLayout() {
           backgroundColor: 'transparent',
         },
         tabBarLabelStyle: {
-          fontSize: 11,
+          fontSize: 10,
           fontWeight: '500',
           textTransform: 'none',
           marginTop: 4,
