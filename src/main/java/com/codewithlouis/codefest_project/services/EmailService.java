@@ -28,7 +28,7 @@ public class EmailService {
 
     private static final String BREVO_API_URL = "https://api.brevo.com/v3/smtp/email";
 
-    @Value("${brevo.api.key}")
+    @Value("${nkoso.brevo.key}")
     private String apiKey;
 
     @Value("${brevo.from.email}")
