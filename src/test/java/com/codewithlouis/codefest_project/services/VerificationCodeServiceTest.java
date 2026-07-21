@@ -73,7 +73,7 @@ class VerificationCodeServiceTest {
         VerificationCode saved = codeCaptor.getValue();
         assertEquals("user@example.com", saved.getEmail());
         assertFalse(saved.getCodeHash().matches("\\d{6}"));
-        assertEquals(now.plusMinutes(10), saved.getExpiresAt());
+        assertEquals(now.plusMinutes(30), saved.getExpiresAt());
         assertEquals(now, saved.getCreatedAt());
         assertNull(saved.getConsumedAt());
         assertEquals(0, saved.getAttemptCount());
@@ -181,7 +181,7 @@ class VerificationCodeServiceTest {
         assertEquals(now, savedCodes.get(0).getConsumedAt());
         assertEquals(now, savedCodes.get(1).getConsumedAt());
         assertNull(savedCodes.get(2).getConsumedAt());
-        assertEquals(now.plusMinutes(10), savedCodes.get(2).getExpiresAt());
+        assertEquals(now.plusMinutes(30), savedCodes.get(2).getExpiresAt());
     }
 
     @Test
@@ -218,7 +218,7 @@ class VerificationCodeServiceTest {
         assertEquals(2, storedCodes.size());
         VerificationCode retriedCode = storedCodes.get(1);
         assertNull(retriedCode.getConsumedAt());
-        assertEquals(now.plusMinutes(10), retriedCode.getExpiresAt());
+        assertEquals(now.plusMinutes(30), retriedCode.getExpiresAt());
         assertEquals(2, recordingEmailService.sendCount);
     }
 

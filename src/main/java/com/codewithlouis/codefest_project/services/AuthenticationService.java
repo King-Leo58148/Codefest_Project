@@ -118,13 +118,27 @@ public class AuthenticationService {
                 .ifPresent(user -> codeService.issue(user.getEmail(), VerificationPurpose.PASSWORD_RESET));
     }
 
+    /**
+     * Validates a password-reset token WITHOUT consuming it.
+     * Called by the controller when the user clicks the link in their email
+     * so we can redirect to the app. The token is consumed later by
+     * resetPassword() when the user actually submits their new password.
+     */
+    public void validateResetToken(String email, String token) {
+        codeService.peekToken(normalizeEmail(email), token);
+    }
+
     public void resetPassword(ResetPasswordRequest request) {
         if (!request.getNewPassword().equals(request.getConfirmPassword())) {
             throw new RuntimeException("Passwords do not match");
         }
 
-        String normalizedEmail = normalizeEmail(request.getEmail());
-        codeService.consume(normalizedEmail, VerificationPurpose.PASSWORD_RESET, request.getCode());
+        // consumeToken verifies the hex token from the reset link and
+        // returns the normalised email that the token was issued for.
+        String normalizedEmail = codeService.consumeToken(
+                normalizeEmail(request.getEmail()),
+                request.getToken()
+        );
 
         User user = userRepository.findByEmailIgnoreCase(normalizedEmail)
                 .orElseThrow(() -> new RuntimeException("User not found"));

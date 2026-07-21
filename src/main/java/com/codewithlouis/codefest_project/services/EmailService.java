@@ -8,20 +8,22 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.net.URI;
+import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 
 /**
  * Sends transactional emails via Brevo's HTTP API (v3).
  *
- * Railway's free tier blocks all outbound SMTP ports, so JavaMailSender /
- * spring-boot-starter-mail cannot be used there. This implementation uses
- * plain HTTPS (port 443) which is always open, regardless of Railway plan.
- *
- * API reference: https://developers.brevo.com/reference/sendtransacemail
+ * SIGNUP_EMAIL  → branded email containing the 6-digit code the user types
+ *                 into the app's verify-email screen.
+ * PASSWORD_RESET → branded email containing a single clickable button that
+ *                  opens the backend's /auth/reset-password-link endpoint,
+ *                  which then deep-links back into the mobile app.
  */
 @Service
 public class EmailService {
@@ -37,46 +39,38 @@ public class EmailService {
     @Value("${brevo.from.name:Nkoso Platform}")
     private String fromName;
 
+    @Value("${app.base-url}")
+    private String appBaseUrl;
+
     @Value("${mfi.email:mfi-partner@email.com}")
     private String mfiEmail;
 
-    private final HttpClient httpClient = HttpClient.newHttpClient();
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final HttpClient    httpClient   = HttpClient.newHttpClient();
+    private final ObjectMapper  objectMapper = new ObjectMapper();
 
-    // ── Primary constructor (Spring uses this) ────────────────────────────────
-
-    public EmailService() {
-        // no-arg — all fields injected via @Value
-    }
+    /** No-arg constructor kept for test subclasses (RecordingEmailService). */
+    public EmailService() {}
 
     // ── Public API ────────────────────────────────────────────────────────────
 
-    /**
-     * Sends the 6-digit verification or password-reset code to the real
-     * recipient. Delivers to any valid inbox — no sandbox restriction.
-     */
-    public void sendVerificationCode(String email, String code, VerificationPurpose purpose) {
-        String subject = getVerificationSubject(purpose);
-        String html    = buildCodeEmail(email, code, purpose);
+    public void sendVerificationCode(String email, String token, VerificationPurpose purpose) {
+        String subject = getSubject(purpose);
+        String html    = (purpose == VerificationPurpose.PASSWORD_RESET)
+                ? buildResetLinkEmail(email, token)
+                : buildSignupCodeEmail(email, token);
         send(email, subject, html);
     }
 
-    /**
-     * Notifies the MFI partner when both parties have signed a deal.
-     * Runs on a background thread so it never blocks the HTTP response.
-     */
     @Async
     public void sendMfiNotification(Deal deal) {
         String subject = "New Deal Signed — Legal Review Required | Deal #" + deal.getId();
-        String html    = buildMfiEmail(deal);
-        send(mfiEmail, subject, html);
+        send(mfiEmail, subject, buildMfiEmail(deal));
     }
 
-    // ── Private helpers ───────────────────────────────────────────────────────
+    // ── Transport ─────────────────────────────────────────────────────────────
 
     private void send(String toAddress, String subject, String htmlContent) {
         try {
-            // Build the Brevo v3 request body
             Map<String, Object> payload = Map.of(
                 "sender",      Map.of("email", fromEmail, "name", fromName),
                 "to",          List.of(Map.of("email", toAddress)),
@@ -86,7 +80,17 @@ public class EmailService {
 
             String body = objectMapper.writeValueAsString(payload);
 
-            System.out.println("[EmailService] Sending '" + subject + "' to: " + toAddress);
+            // ── Diagnostic logging — visible in Railway deploy logs ──────────
+            String keyPrefix = (apiKey != null && apiKey.length() > 12)
+                ? apiKey.substring(0, 12) + "..." : "(null or short)";
+            System.out.println("[EmailService] === SEND START ===");
+            System.out.println("[EmailService] To      : " + toAddress);
+            System.out.println("[EmailService] Subject : " + subject);
+            System.out.println("[EmailService] From    : " + fromEmail + " / " + fromName);
+            System.out.println("[EmailService] API key : " + keyPrefix);
+            System.out.println("[EmailService] URL     : " + BREVO_API_URL);
+            System.out.println("[EmailService] Payload : " + body);
+            // ────────────────────────────────────────────────────────────────
 
             HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(BREVO_API_URL))
@@ -99,85 +103,84 @@ public class EmailService {
             HttpResponse<String> response =
                 httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
+            System.out.println("[EmailService] Brevo status : " + response.statusCode());
+            System.out.println("[EmailService] Brevo body   : " + response.body());
+
             if (response.statusCode() >= 400) {
-                System.err.println("[EmailService] Brevo API error "
-                    + response.statusCode() + ": " + response.body());
+                System.err.println("[EmailService] FAILED — HTTP " + response.statusCode()
+                    + " — " + response.body());
                 throw new RuntimeException(
-                    "Failed to send email — Brevo returned HTTP " + response.statusCode());
+                    "Failed to send email — Brevo returned HTTP " + response.statusCode()
+                    + ": " + response.body());
             }
 
-            System.out.println("[EmailService] Brevo accepted email to " + toAddress
-                + " — status " + response.statusCode());
+            System.out.println("[EmailService] === SEND OK === to " + toAddress);
 
         } catch (RuntimeException e) {
             throw e;
         } catch (Exception e) {
-            throw new RuntimeException("Failed to send email to " + toAddress + ": " + e.getMessage(), e);
+            System.err.println("[EmailService] EXCEPTION sending to " + toAddress
+                + ": " + e.getClass().getSimpleName() + " — " + e.getMessage());
+            throw new RuntimeException(
+                "Failed to send email to " + toAddress + ": " + e.getMessage(), e);
         }
     }
 
-    // ── Subject lines ─────────────────────────────────────────────────────────
+    // ── Subjects ──────────────────────────────────────────────────────────────
 
-    private String getVerificationSubject(VerificationPurpose purpose) {
+    private String getSubject(VerificationPurpose purpose) {
         return switch (purpose) {
-            case SIGNUP_EMAIL   -> "Verify your Nkɔso account";
-            case PASSWORD_RESET -> "Reset your Nkɔso password";
+            case SIGNUP_EMAIL   -> "Verify your Nk\u0254so account";
+            case PASSWORD_RESET -> "Reset your Nk\u0254so password";
         };
     }
 
-    // ── HTML templates ────────────────────────────────────────────────────────
+    // ── HTML: signup code ─────────────────────────────────────────────────────
 
-    private String buildCodeEmail(String email, String code, VerificationPurpose purpose) {
-        boolean isReset = purpose == VerificationPurpose.PASSWORD_RESET;
-        String heading  = isReset ? "Reset your password" : "Verify your email address";
-        String intro    = isReset
-            ? "We received a request to reset the password for <b>" + email + "</b>."
-            : "Welcome to Nkɔso! Use the code below to verify <b>" + email + "</b>.";
-        String note     = isReset
-            ? "This code expires in <b>10 minutes</b>. If you did not request a password reset, ignore this email — your account is safe."
-            : "This code expires in <b>10 minutes</b>. If you did not create a Nkɔso account, you can safely ignore this email.";
-
+    private String buildSignupCodeEmail(String email, String code) {
         return """
             <!DOCTYPE html>
             <html lang="en">
             <head>
               <meta charset="UTF-8"/>
               <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-              <title>%s</title>
+              <title>Verify your email</title>
             </head>
-            <body style="margin:0;padding:0;background:#F5F6FA;font-family:Arial,Helvetica,sans-serif;">
+            <body style="margin:0;padding:0;background:#F5F6FA;
+                         font-family:Arial,Helvetica,sans-serif;">
               <table width="100%%" cellpadding="0" cellspacing="0"
                      style="background:#F5F6FA;padding:40px 0;">
                 <tr><td align="center">
                   <table width="560" cellpadding="0" cellspacing="0"
                          style="background:#fff;border-radius:16px;overflow:hidden;
-                                box-shadow:0 4px 24px rgba(0,0,0,0.07);">
+                                box-shadow:0 4px 24px rgba(0,0,0,.07);">
 
-                    <!-- Header -->
                     <tr>
                       <td style="background:#0D1B3E;padding:28px 40px;text-align:center;">
-                        <span style="font-size:26px;font-weight:800;color:#fff;letter-spacing:1px;">
+                        <span style="font-size:26px;font-weight:800;color:#fff;">
                           Nk<span style="color:#22C55E;">&#596;</span>so
                         </span>
                       </td>
                     </tr>
 
-                    <!-- Body -->
                     <tr>
                       <td style="padding:40px 40px 32px;">
-                        <h2 style="margin:0 0 16px;font-size:22px;color:#0F172A;">%s</h2>
-                        <p style="margin:0 0 24px;font-size:15px;color:#4B5563;line-height:1.6;">%s</p>
+                        <h2 style="margin:0 0 16px;font-size:22px;color:#0F172A;">
+                          Verify your email address
+                        </h2>
+                        <p style="margin:0 0 24px;font-size:15px;color:#4B5563;line-height:1.6;">
+                          Welcome to Nk&#596;so! Enter the code below in the app to verify
+                          <b>%s</b>.
+                        </p>
 
-                        <!-- Code block -->
                         <table width="100%%" cellpadding="0" cellspacing="0">
                           <tr>
                             <td align="center" style="padding:0 0 28px;">
                               <div style="display:inline-block;background:#F0FDF4;
                                           border:2px solid #22C55E;border-radius:12px;
-                                          padding:20px 40px;">
-                                <span style="font-size:40px;font-weight:800;
-                                             letter-spacing:12px;color:#0D1B3E;
-                                             font-family:'Courier New',monospace;">
+                                          padding:20px 48px;">
+                                <span style="font-size:42px;font-weight:800;letter-spacing:14px;
+                                             color:#0D1B3E;font-family:'Courier New',monospace;">
                                   %s
                                 </span>
                               </div>
@@ -185,16 +188,19 @@ public class EmailService {
                           </tr>
                         </table>
 
-                        <p style="margin:0;font-size:13px;color:#6B7280;line-height:1.6;">%s</p>
+                        <p style="margin:0;font-size:13px;color:#6B7280;line-height:1.6;">
+                          This code expires in <b>30 minutes</b>.
+                          If you did not create a Nk&#596;so account you can safely ignore this email.
+                        </p>
                       </td>
                     </tr>
 
-                    <!-- Footer -->
                     <tr>
                       <td style="background:#F9FAFB;padding:20px 40px;text-align:center;
                                  border-top:1px solid #E5E7EB;">
                         <p style="margin:0;font-size:12px;color:#9CA3AF;">
-                          &copy; 2025 Nk&#596;so &middot; Digital Investment Marketplace &middot; Ghana<br/>
+                          &copy; 2025 Nk&#596;so &middot; Digital Investment Marketplace
+                          &middot; Ghana<br/>
                           This is an automated message &mdash; please do not reply.
                         </p>
                       </td>
@@ -205,28 +211,121 @@ public class EmailService {
               </table>
             </body>
             </html>
-            """.formatted(heading, heading, intro, code, note);
+            """.formatted(email, code);
     }
+
+    // ── HTML: password-reset link ─────────────────────────────────────────────
+
+    private String buildResetLinkEmail(String email, String token) {
+        String encodedEmail = URLEncoder.encode(email, StandardCharsets.UTF_8);
+        String resetUrl = appBaseUrl
+            + "/auth/reset-password-link?token=" + token
+            + "&email=" + encodedEmail;
+
+        return """
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+              <meta charset="UTF-8"/>
+              <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+              <title>Reset your password</title>
+            </head>
+            <body style="margin:0;padding:0;background:#F5F6FA;
+                         font-family:Arial,Helvetica,sans-serif;">
+              <table width="100%%" cellpadding="0" cellspacing="0"
+                     style="background:#F5F6FA;padding:40px 0;">
+                <tr><td align="center">
+                  <table width="560" cellpadding="0" cellspacing="0"
+                         style="background:#fff;border-radius:16px;overflow:hidden;
+                                box-shadow:0 4px 24px rgba(0,0,0,.07);">
+
+                    <tr>
+                      <td style="background:#0D1B3E;padding:28px 40px;text-align:center;">
+                        <span style="font-size:26px;font-weight:800;color:#fff;">
+                          Nk<span style="color:#22C55E;">&#596;</span>so
+                        </span>
+                      </td>
+                    </tr>
+
+                    <tr>
+                      <td style="padding:40px 40px 32px;">
+                        <h2 style="margin:0 0 16px;font-size:22px;color:#0F172A;">
+                          Reset your password
+                        </h2>
+                        <p style="margin:0 0 28px;font-size:15px;color:#4B5563;line-height:1.6;">
+                          We received a request to reset the password for <b>%s</b>.
+                          Tap the button below — it opens the app directly so you can
+                          choose a new password.
+                        </p>
+
+                        <table width="100%%" cellpadding="0" cellspacing="0">
+                          <tr>
+                            <td align="center" style="padding:0 0 28px;">
+                              <a href="%s"
+                                 style="display:inline-block;background:#0D1B3E;
+                                        color:#fff;font-size:16px;font-weight:700;
+                                        text-decoration:none;padding:16px 40px;
+                                        border-radius:12px;letter-spacing:0.3px;">
+                                Reset my password
+                              </a>
+                            </td>
+                          </tr>
+                        </table>
+
+                        <p style="margin:0 0 12px;font-size:13px;color:#6B7280;line-height:1.6;">
+                          This link expires in <b>30 minutes</b> and can only be used once.
+                          If you did not request a password reset, you can safely ignore this email
+                          — your account is unchanged.
+                        </p>
+                        <p style="margin:0;font-size:12px;color:#9CA3AF;line-height:1.6;
+                                  word-break:break-all;">
+                          If the button doesn't work, copy and open this URL in your browser:<br/>
+                          <a href="%s" style="color:#0D1B3E;">%s</a>
+                        </p>
+                      </td>
+                    </tr>
+
+                    <tr>
+                      <td style="background:#F9FAFB;padding:20px 40px;text-align:center;
+                                 border-top:1px solid #E5E7EB;">
+                        <p style="margin:0;font-size:12px;color:#9CA3AF;">
+                          &copy; 2025 Nk&#596;so &middot; Digital Investment Marketplace
+                          &middot; Ghana<br/>
+                          This is an automated message &mdash; please do not reply.
+                        </p>
+                      </td>
+                    </tr>
+
+                  </table>
+                </td></tr>
+              </table>
+            </body>
+            </html>
+            """.formatted(email, resetUrl, resetUrl, resetUrl);
+    }
+
+    // ── HTML: MFI deal notification ───────────────────────────────────────────
 
     private String buildMfiEmail(Deal deal) {
         return """
             <!DOCTYPE html>
             <html lang="en">
             <head><meta charset="UTF-8"/></head>
-            <body style="margin:0;padding:0;background:#F5F6FA;font-family:Arial,Helvetica,sans-serif;">
+            <body style="margin:0;padding:0;background:#F5F6FA;
+                         font-family:Arial,Helvetica,sans-serif;">
               <table width="100%%" cellpadding="0" cellspacing="0"
                      style="background:#F5F6FA;padding:40px 0;">
                 <tr><td align="center">
                   <table width="600" cellpadding="0" cellspacing="0"
                          style="background:#fff;border-radius:16px;overflow:hidden;
-                                box-shadow:0 4px 24px rgba(0,0,0,0.07);">
+                                box-shadow:0 4px 24px rgba(0,0,0,.07);">
 
                     <tr>
                       <td style="background:#0D1B3E;padding:28px 40px;">
                         <span style="font-size:22px;font-weight:800;color:#fff;">
                           Nk<span style="color:#22C55E;">&#596;</span>so
                           <span style="font-size:14px;font-weight:400;
-                                       color:rgba(255,255,255,0.7);margin-left:12px;">
+                                       color:rgba(255,255,255,.7);margin-left:12px;">
                             Legal Review Request
                           </span>
                         </span>
@@ -239,26 +338,27 @@ public class EmailService {
                           New Deal Signed &mdash; Action Required
                         </h2>
                         <p style="margin:0 0 28px;font-size:15px;color:#4B5563;">
-                          Both parties have digitally signed deal <b>#%d</b> on the Nk&#596;so platform.
-                          Please review and approve or reject the agreement below.
+                          Both parties have signed deal <b>#%d</b>.
+                          Please review and approve or reject below.
                         </p>
-
                         <table width="100%%" cellpadding="10" cellspacing="0"
-                               style="border-collapse:collapse;border:1px solid #E5E7EB;font-size:14px;">
+                               style="border-collapse:collapse;border:1px solid #E5E7EB;
+                                      font-size:14px;">
                           <tr style="background:#F9FAFB;">
-                            <td style="width:40%%;color:#6B7280;border-bottom:1px solid #E5E7EB;"><b>Deal ID</b></td>
+                            <td style="width:40%%;color:#6B7280;border-bottom:1px solid #E5E7EB;">
+                              <b>Deal ID</b></td>
                             <td style="color:#0F172A;border-bottom:1px solid #E5E7EB;">#%d</td>
                           </tr>
                           <tr>
-                            <td style="color:#6B7280;border-bottom:1px solid #E5E7EB;"><b>Business Name</b></td>
+                            <td style="color:#6B7280;border-bottom:1px solid #E5E7EB;"><b>Business</b></td>
                             <td style="color:#0F172A;border-bottom:1px solid #E5E7EB;">%s</td>
                           </tr>
                           <tr style="background:#F9FAFB;">
-                            <td style="color:#6B7280;border-bottom:1px solid #E5E7EB;"><b>Business Owner</b></td>
+                            <td style="color:#6B7280;border-bottom:1px solid #E5E7EB;"><b>Owner</b></td>
                             <td style="color:#0F172A;border-bottom:1px solid #E5E7EB;">%s</td>
                           </tr>
                           <tr>
-                            <td style="color:#6B7280;border-bottom:1px solid #E5E7EB;"><b>Ghana Card No.</b></td>
+                            <td style="color:#6B7280;border-bottom:1px solid #E5E7EB;"><b>Ghana Card</b></td>
                             <td style="color:#0F172A;border-bottom:1px solid #E5E7EB;">%s</td>
                           </tr>
                           <tr style="background:#F9FAFB;">
@@ -271,7 +371,8 @@ public class EmailService {
                           </tr>
                           <tr style="background:#F9FAFB;">
                             <td style="color:#6B7280;border-bottom:1px solid #E5E7EB;"><b>Amount</b></td>
-                            <td style="color:#0F172A;border-bottom:1px solid #E5E7EB;"><b>GH&#8373; %.2f</b></td>
+                            <td style="color:#0F172A;border-bottom:1px solid #E5E7EB;">
+                              <b>GH&#8373; %.2f</b></td>
                           </tr>
                           <tr>
                             <td style="color:#6B7280;border-bottom:1px solid #E5E7EB;"><b>Return Type</b></td>
@@ -286,11 +387,6 @@ public class EmailService {
                             <td style="color:#0F172A;">%d months</td>
                           </tr>
                         </table>
-
-                        <p style="margin:28px 0 0;font-size:13px;color:#6B7280;line-height:1.6;">
-                          Please log in to the Nk&#596;so admin portal to approve or reject this deal.
-                          Investor funds are only disbursed after your approval.
-                        </p>
                       </td>
                     </tr>
 
@@ -298,7 +394,8 @@ public class EmailService {
                       <td style="background:#F9FAFB;padding:20px 40px;text-align:center;
                                  border-top:1px solid #E5E7EB;">
                         <p style="margin:0;font-size:12px;color:#9CA3AF;">
-                          &copy; 2025 Nk&#596;so &middot; Digital Investment Marketplace &middot; Ghana
+                          &copy; 2025 Nk&#596;so &middot; Digital Investment Marketplace
+                          &middot; Ghana
                         </p>
                       </td>
                     </tr>
@@ -309,8 +406,7 @@ public class EmailService {
             </body>
             </html>
             """.formatted(
-                deal.getId(),
-                deal.getId(),
+                deal.getId(), deal.getId(),
                 deal.getPitch().getBusinessName(),
                 deal.getOwner().getName(),
                 deal.getOwner().getGhanaCardNumber(),
@@ -319,7 +415,6 @@ public class EmailService {
                 deal.getBid().getAmount(),
                 deal.getBid().getReturnType(),
                 deal.getBid().getReturnValue(),
-                deal.getBid().getTimelineMonths()
-        );
+                deal.getBid().getTimelineMonths());
     }
 }

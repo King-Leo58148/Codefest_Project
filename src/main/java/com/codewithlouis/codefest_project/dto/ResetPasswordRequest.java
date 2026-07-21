@@ -2,7 +2,6 @@ package com.codewithlouis.codefest_project.dto;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Pattern;
 import lombok.Data;
 
 @Data
@@ -12,9 +11,9 @@ public class ResetPasswordRequest {
     @Email(message = "Email must be valid")
     private String email;
 
-    @NotBlank(message = "Code is required")
-    @Pattern(regexp = "\\d{6}", message = "Code must be exactly 6 digits")
-    private String code;
+    /** 64-char hex token delivered via the password-reset link. */
+    @NotBlank(message = "Token is required")
+    private String token;
 
     @NotBlank(message = "New password is required")
     private String newPassword;
