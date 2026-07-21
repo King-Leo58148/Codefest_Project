@@ -20,9 +20,8 @@ export default function InvestorTabLayout() {
           shadowOpacity: 0,
         },
         tabBarIndicatorStyle: {
-          backgroundColor: Colors.primary,
-          top: 0,
-          height: 3,
+          height: 0,
+          backgroundColor: 'transparent',
         },
         tabBarLabelStyle: {
           fontSize: 11,

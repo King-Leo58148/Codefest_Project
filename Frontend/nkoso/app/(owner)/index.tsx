@@ -33,7 +33,7 @@ export default function OwnerDashboardScreen() {
     queryFn: () => getMyPitches(),
   });
 
-  const livePitches = myPitches.filter((p) => p.status === 'LIVE');
+  const livePitches = myPitches.filter((p) => p.status === 'LIVE' || p.status === 'FUNDED');
   const pitchIds = myPitches.map((p) => p.id).join(',');
 
   const {
@@ -291,14 +291,7 @@ export default function OwnerDashboardScreen() {
           </Text>
         )}
 
-        <TouchableOpacity
-          style={styles.createPitchBtn}
-          onPress={() => router.push('/(owner)/pitches')}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="add-circle-outline" size={20} color={Colors.primary} />
-          <Text style={styles.createPitchText}>Create new pitch</Text>
-        </TouchableOpacity>
+
 
         <View style={{ height: 24 }} />
       </ScrollView>
