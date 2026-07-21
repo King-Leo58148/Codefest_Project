@@ -48,6 +48,9 @@ public class EmailService {
     private final HttpClient    httpClient   = HttpClient.newHttpClient();
     private final ObjectMapper  objectMapper = new ObjectMapper();
 
+    @Value("${nkoso.sandbox.email:}")
+    private String sandboxEmail;
+
     /** No-arg constructor kept for test subclasses (RecordingEmailService). */
     public EmailService() {}
 
@@ -70,27 +73,33 @@ public class EmailService {
     // ── Transport ─────────────────────────────────────────────────────────────
 
     private void send(String toAddress, String subject, String htmlContent) {
+        // Sandbox mode: redirect all emails to the developer address and
+        // prefix the subject so you know who the original recipient was.
+        boolean sandbox = sandboxEmail != null && !sandboxEmail.isBlank();
+        String actualTo      = sandbox ? sandboxEmail : toAddress;
+        String actualSubject = sandbox
+                ? "[SANDBOX → " + toAddress + "] " + subject
+                : subject;
+
         try {
             Map<String, Object> payload = Map.of(
                 "sender",      Map.of("email", fromEmail, "name", fromName),
-                "to",          List.of(Map.of("email", toAddress)),
-                "subject",     subject,
+                "to",          List.of(Map.of("email", actualTo)),
+                "subject",     actualSubject,
                 "htmlContent", htmlContent
             );
 
             String body = objectMapper.writeValueAsString(payload);
 
-            // ── Diagnostic logging — visible in Railway deploy logs ──────────
             String keyPrefix = (apiKey != null && apiKey.length() > 12)
                 ? apiKey.substring(0, 12) + "..." : "(null or short)";
             System.out.println("[EmailService] === SEND START ===");
-            System.out.println("[EmailService] To      : " + toAddress);
-            System.out.println("[EmailService] Subject : " + subject);
-            System.out.println("[EmailService] From    : " + fromEmail + " / " + fromName);
-            System.out.println("[EmailService] API key : " + keyPrefix);
-            System.out.println("[EmailService] URL     : " + BREVO_API_URL);
-            System.out.println("[EmailService] Payload : " + body);
-            // ────────────────────────────────────────────────────────────────
+            System.out.println("[EmailService] To (original) : " + toAddress);
+            System.out.println("[EmailService] To (actual)   : " + actualTo
+                + (sandbox ? " [SANDBOX]" : ""));
+            System.out.println("[EmailService] Subject       : " + actualSubject);
+            System.out.println("[EmailService] From          : " + fromEmail + " / " + fromName);
+            System.out.println("[EmailService] API key       : " + keyPrefix);
 
             HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(BREVO_API_URL))
@@ -114,12 +123,12 @@ public class EmailService {
                     + ": " + response.body());
             }
 
-            System.out.println("[EmailService] === SEND OK === to " + toAddress);
+            System.out.println("[EmailService] === SEND OK === to " + actualTo);
 
         } catch (RuntimeException e) {
             throw e;
         } catch (Exception e) {
-            System.err.println("[EmailService] EXCEPTION sending to " + toAddress
+            System.err.println("[EmailService] EXCEPTION sending to " + actualTo
                 + ": " + e.getClass().getSimpleName() + " — " + e.getMessage());
             throw new RuntimeException(
                 "Failed to send email to " + toAddress + ": " + e.getMessage(), e);
