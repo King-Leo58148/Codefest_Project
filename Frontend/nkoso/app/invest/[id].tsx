@@ -231,18 +231,19 @@ export default function InvestScreen() {
                   ? 'Equity stake (%)'
                   : returnType === 'REVENUE_SHARE'
                   ? 'Revenue share (%)'
-                  : 'Fixed return (%)'}
+                  : 'Fixed return (GH₵)'}
               </Text>
               <View style={styles.fieldInput}>
+                {returnType === 'FIXED' && <Text style={[styles.fieldSuffix, {marginRight: 4}]}>GH₵</Text>}
                 <TextInput
                   style={styles.fieldInputText}
-                  placeholder="e.g. 5"
+                  placeholder="e.g. 100"
                   placeholderTextColor={Colors.textMuted}
                   keyboardType="decimal-pad"
                   value={returnValue}
                   onChangeText={setReturnValue}
                 />
-                <Text style={styles.fieldSuffix}>%</Text>
+                {returnType !== 'FIXED' && <Text style={styles.fieldSuffix}>%</Text>}
               </View>
             </View>
 
@@ -288,7 +289,7 @@ export default function InvestScreen() {
               {[
                 { label: 'Investment amount', value: `GH₵${finalAmount.toLocaleString()}` },
                 { label: 'Return type', value: returnType.replace('_', ' ') },
-                { label: 'Expected return', value: `${returnValue}%` },
+                { label: 'Expected return', value: returnType === 'FIXED' ? `GH₵${returnValue}` : `${returnValue}%` },
                 { label: 'Timeline', value: `${timelineMonths} months` },
                 { label: 'Platform fee (1%)', value: `GH₵${platformFee.toFixed(2)}` },
                 { label: 'Total you pay', value: `GH₵${(finalAmount + platformFee).toFixed(2)}` },

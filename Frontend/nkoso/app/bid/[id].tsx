@@ -116,7 +116,7 @@ export default function BidDetailScreen() {
           {[
             { label: 'Amount', value: `GH₵${bid.amount.toLocaleString()}` },
             { label: 'Return type', value: bid.returnType },
-            { label: 'Return value', value: `${bid.returnValue}%` },
+            { label: 'Return value', value: bid.returnType === 'FIXED' ? `GH₵${bid.returnValue}` : `${bid.returnValue}%` },
             { label: 'Timeline', value: `${bid.timelineMonths} months` },
           ].map((item, i, arr) => (
             <View key={item.label}>
@@ -160,8 +160,15 @@ export default function BidDetailScreen() {
             </View>
 
             <View style={styles.fieldRow}>
-              <Text style={styles.fieldLabel}>Return value (%)</Text>
+              <Text style={styles.fieldLabel}>
+                {bid.returnType === 'EQUITY'
+                  ? 'Equity stake (%)'
+                  : bid.returnType === 'REVENUE_SHARE'
+                  ? 'Revenue share (%)'
+                  : 'Fixed return (GH₵)'}
+              </Text>
               <View style={styles.fieldInput}>
+                {bid.returnType === 'FIXED' && <Text style={[styles.fieldSuffix, {marginRight: 4}]}>GH₵</Text>}
                 <TextInput
                   style={styles.fieldInputText}
                   value={counterReturn}
@@ -169,7 +176,7 @@ export default function BidDetailScreen() {
                   keyboardType="decimal-pad"
                   placeholderTextColor={Colors.textMuted}
                 />
-                <Text style={styles.fieldSuffix}>%</Text>
+                {bid.returnType !== 'FIXED' && <Text style={styles.fieldSuffix}>%</Text>}
               </View>
             </View>
 
