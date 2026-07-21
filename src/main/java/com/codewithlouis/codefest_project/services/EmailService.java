@@ -4,7 +4,8 @@ import com.codewithlouis.codefest_project.model.Deal;
 import com.codewithlouis.codefest_project.model.VerificationPurpose;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
-import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
@@ -12,16 +13,30 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 @Service
-@RequiredArgsConstructor
+@Slf4j
 public class EmailService {
 
     private final JavaMailSender mailSender;
 
-    @Value("${nkoso.mail.from}")
+    @Value("${nkoso.mail.from:nkosobusiness@gmail.com}")
     private String fromEmail;
 
-    @Value("${mfi.email}")
+    @Value("${mfi.email:mfi-partner@email.com}")
     private String mfiEmail;
+
+    /** Primary constructor — used by Spring to inject the mail sender. */
+    @Autowired
+    public EmailService(JavaMailSender mailSender) {
+        this.mailSender = mailSender;
+    }
+
+    /**
+     * No-arg constructor kept for test subclasses (e.g. RecordingEmailService)
+     * that override every public method and never reach the SMTP send path.
+     */
+    protected EmailService() {
+        this.mailSender = null;
+    }
 
     // ── Public API ────────────────────────────────────────────────────────────
 
