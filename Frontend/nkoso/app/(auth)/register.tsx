@@ -53,7 +53,7 @@ export default function RegisterScreen() {
     try {
       await registerUser(name.trim(), email.trim(), password, role);
       router.push({
-        pathname: '/(auth)/verify-email',
+        pathname: '/(auth)/login',
         params: { email: email.trim() },
       });
     } catch (caught) {

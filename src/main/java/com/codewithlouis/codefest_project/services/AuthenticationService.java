@@ -42,8 +42,8 @@ public class AuthenticationService {
             if (existingUser.isEmailVerified()) {
                 throw new RuntimeException("Email already in use");
             }
-            issueSignupCode(existingUser.getEmail());
-            return existingUser;
+            existingUser.setEmailVerified(true);
+            return userRepository.save(existingUser);
         }
 
         User user = new User();
@@ -51,11 +51,9 @@ public class AuthenticationService {
         user.setEmail(normalizedEmail);
         user.setRole(input.getRole());
         user.setPassword(passwordEncoder.encode(input.getPassword()));
-        user.setEmailVerified(false);
+        user.setEmailVerified(true);
 
-        User savedUser = userRepository.save(user);
-        issueSignupCode(savedUser.getEmail());
-        return savedUser;
+        return userRepository.save(user);
     }
 
     public LoginResponseDto login(LoginUserDto input) {
@@ -69,10 +67,6 @@ public class AuthenticationService {
 
         User user = userRepository.findByEmailIgnoreCase(normalizedEmail)
                 .orElseThrow(() -> new RuntimeException("User not found"));
-
-        if (!user.isEmailVerified()) {
-            throw new IllegalStateException("Email not verified");
-        }
 
         RefreshToken refreshToken = refreshTokenService.createRefreshToken(user.getEmail());
 
