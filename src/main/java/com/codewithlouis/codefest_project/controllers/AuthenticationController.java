@@ -2,250 +2,171 @@ package com.codewithlouis.codefest_project.controllers;
 
 import com.codewithlouis.codefest_project.dto.EmailCodeRequest;
 import com.codewithlouis.codefest_project.dto.ForgotPasswordRequest;
+import com.codewithlouis.codefest_project.dto.LoginResponseDto;
+import com.codewithlouis.codefest_project.dto.LoginUserDto;
 import com.codewithlouis.codefest_project.dto.RegisterUserDto;
 import com.codewithlouis.codefest_project.dto.ResetPasswordRequest;
-import com.codewithlouis.codefest_project.exceptions.GlobalExceptionHandler;
-import com.codewithlouis.codefest_project.model.Role;
+import com.codewithlouis.codefest_project.model.RefreshToken;
 import com.codewithlouis.codefest_project.model.User;
 import com.codewithlouis.codefest_project.repository.UserRepository;
 import com.codewithlouis.codefest_project.services.AuthenticationService;
 import com.codewithlouis.codefest_project.services.JwtService;
 import com.codewithlouis.codefest_project.services.RefreshTokenService;
 import com.codewithlouis.codefest_project.services.TokenBlacklistService;
-import com.codewithlouis.codefest_project.services.VerificationCodeService;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.http.MediaType;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.MvcResult;
-import org.springframework.test.web.servlet.setup.MockMvcBuilders;
-import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.bind.annotation.*;
 
-import java.util.Optional;
+import java.net.URI;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.util.Map;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doNothing;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+@RequestMapping("/auth")
+@RestController
+@RequiredArgsConstructor
+public class AuthenticationController {
 
-@ExtendWith(MockitoExtension.class)
-class AuthenticationControllerTest {
+    private final JwtService jwtService;
+    private final AuthenticationService authenticationService;
+    private final RefreshTokenService refreshTokenService;
+    private final TokenBlacklistService tokenBlacklistService;
+    private final UserRepository userRepository;
 
-    @Mock
-    private JwtService jwtService;
+    /**
+     * Deep-link scheme used when redirecting the user back to the mobile app
+     * after they click the password-reset link in their email.
+     * The app must register this scheme in app.json (scheme: "nkoso").
+     */
+    @Value("${app.deep-link-scheme:nkoso}")
+    private String deepLinkScheme;
 
-    @Mock
-    private AuthenticationService authenticationService;
-
-    @Mock
-    private RefreshTokenService refreshTokenService;
-
-    @Mock
-    private TokenBlacklistService tokenBlacklistService;
-
-    @Mock
-    private UserRepository userRepository;
-
-    private MockMvc mockMvc;
-    private ObjectMapper objectMapper;
-
-    @BeforeEach
-    void setUp() {
-        AuthenticationController controller = new AuthenticationController(
-                jwtService,
-                authenticationService,
-                refreshTokenService,
-                tokenBlacklistService,
-                userRepository
-        );
-
-        LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
-        validator.afterPropertiesSet();
-
-        mockMvc = MockMvcBuilders.standaloneSetup(controller)
-                .setControllerAdvice(new GlobalExceptionHandler())
-                .setValidator(validator)
-                .build();
-        objectMapper = new ObjectMapper();
+    @PostMapping("/signup")
+    public ResponseEntity<Map<String, Object>> register(@RequestBody RegisterUserDto registerUserDto) {
+        User registeredUser = authenticationService.signup(registerUserDto);
+        return ResponseEntity.ok(Map.of(
+                "email", registeredUser.getEmail(),
+                "verificationRequired", !registeredUser.isEmailVerified()
+        ));
     }
 
-    @Test
-    void signupReturnsVerificationRequiredPayload() throws Exception {
-        RegisterUserDto request = new RegisterUserDto();
-        request.setName("Ama");
-        request.setEmail("user@example.com");
-        request.setPassword("Password1!");
-        request.setConfirmPassword("Password1!");
-        request.setRole(Role.OWNER);
-
-        User user = new User();
-        user.setEmail("user@example.com");
-        user.setEmailVerified(false);
-        when(authenticationService.signup(any(RegisterUserDto.class))).thenReturn(user);
-
-        mockMvc.perform(post("/auth/signup")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.email").value("user@example.com"))
-                .andExpect(jsonPath("$.verificationRequired").value(true));
+    @PostMapping("/login")
+    public ResponseEntity<LoginResponseDto> login(@RequestBody LoginUserDto input) {
+        LoginResponseDto response = authenticationService.login(input);
+        return ResponseEntity.ok(response);
     }
 
-    @Test
-    void verifyEmailReturnsSuccessMessage() throws Exception {
-        EmailCodeRequest request = new EmailCodeRequest();
-        request.setEmail("user@example.com");
-        request.setCode("123456");
-
-        mockMvc.perform(post("/auth/verify-email")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value("Email verified successfully"));
-
-        verify(authenticationService).verifyEmail(any(EmailCodeRequest.class));
+    @PostMapping("/verify-email")
+    public ResponseEntity<Map<String, String>> verifyEmail(@Valid @RequestBody EmailCodeRequest request) {
+        authenticationService.verifyEmail(request);
+        return ResponseEntity.ok(Map.of("message", "Email verified successfully"));
     }
 
-    @Test
-    void resendVerificationCodeReturnsSuccessMessage() throws Exception {
-        ForgotPasswordRequest request = new ForgotPasswordRequest();
-        request.setEmail("user@example.com");
-
-        mockMvc.perform(post("/auth/resend-verification-code")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value("Verification code sent successfully"));
-
-        verify(authenticationService).resendVerificationCode(any(ForgotPasswordRequest.class));
+    @PostMapping("/resend-verification-code")
+    public ResponseEntity<Map<String, String>> resendVerificationCode(
+            @Valid @RequestBody ForgotPasswordRequest request
+    ) {
+        authenticationService.resendVerificationCode(request);
+        return ResponseEntity.ok(Map.of("message", "Verification code sent successfully"));
     }
 
-    @Test
-    void forgotPasswordReturnsNeutralMessage() throws Exception {
-        ForgotPasswordRequest request = new ForgotPasswordRequest();
-        request.setEmail("user@example.com");
-
-        mockMvc.perform(post("/auth/forgot-password")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message")
-                        .value("If an account exists for that email, a password reset code has been sent"));
-
-        verify(authenticationService).forgotPassword(any(ForgotPasswordRequest.class));
+    @PostMapping("/forgot-password")
+    public ResponseEntity<Map<String, String>> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        authenticationService.forgotPassword(request);
+        return ResponseEntity.ok(Map.of(
+                "message",
+                "If an account exists for that email, a password reset code has been sent"
+        ));
     }
 
-    @Test
-    void forgotPasswordRepeatRequestsReturnSameStatusAndBodyForExistingAndUnknownAccounts() throws Exception {
-        UserRepository passwordResetUserRepository = mock(UserRepository.class);
-        VerificationCodeService verificationCodeService = mock(VerificationCodeService.class);
-        AuthenticationService realAuthenticationService = new AuthenticationService(
-                passwordResetUserRepository,
-                mock(PasswordEncoder.class),
-                jwtService,
-                refreshTokenService,
-                mock(AuthenticationManager.class),
-                verificationCodeService
-        );
-        MockMvc localMockMvc = standaloneMockMvc(realAuthenticationService);
-
-        User existingUser = new User();
-        existingUser.setEmail("Legacy.User@Example.com");
-        when(passwordResetUserRepository.findByEmailIgnoreCase("user@example.com"))
-                .thenReturn(Optional.of(existingUser));
-        when(passwordResetUserRepository.findByEmailIgnoreCase("missing@example.com"))
-                .thenReturn(Optional.empty());
-        doNothing()
-                .doThrow(new IllegalStateException("A verification code was already sent recently"))
-                .when(verificationCodeService)
-                .issue("Legacy.User@Example.com", com.codewithlouis.codefest_project.model.VerificationPurpose.PASSWORD_RESET);
-
-        MvcResult firstExisting = localMockMvc.perform(post("/auth/forgot-password")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(forgotPasswordRequest("user@example.com"))))
-                .andExpect(status().isOk())
-                .andReturn();
-
-        MvcResult repeatedExisting = localMockMvc.perform(post("/auth/forgot-password")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(forgotPasswordRequest("user@example.com"))))
-                .andExpect(status().isOk())
-                .andReturn();
-
-        MvcResult missingAccount = localMockMvc.perform(post("/auth/forgot-password")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(forgotPasswordRequest("missing@example.com"))))
-                .andExpect(status().isOk())
-                .andReturn();
-
-        assertEquals(firstExisting.getResponse().getStatus(), repeatedExisting.getResponse().getStatus());
-        assertEquals(firstExisting.getResponse().getStatus(), missingAccount.getResponse().getStatus());
-        assertEquals(firstExisting.getResponse().getContentAsString(), repeatedExisting.getResponse().getContentAsString());
-        assertEquals(firstExisting.getResponse().getContentAsString(), missingAccount.getResponse().getContentAsString());
+    @PostMapping("/reset-password")
+    public ResponseEntity<Map<String, String>> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        authenticationService.resetPassword(request);
+        return ResponseEntity.ok(Map.of("message", "Password reset successfully"));
     }
 
-    @Test
-    void resetPasswordReturnsConfirmationMessage() throws Exception {
-        ResetPasswordRequest request = new ResetPasswordRequest();
-        request.setEmail("user@example.com");
-        request.setToken("dummy-reset-token");
-        request.setNewPassword("NewPassword1!");
-        request.setConfirmPassword("NewPassword1!");
+    /**
+     * GET /auth/reset-password-link?token=TOKEN&email=EMAIL
+     *
+     * Called when the user taps "Reset my password" in the email.
+     * Validates the token, then redirects to a deep link that opens the
+     * Nkɔso mobile app on the new-password screen with the token pre-filled.
+     *
+     * Deep link format:  nkoso://reset-password?token=TOKEN&email=EMAIL
+     *
+     * If the token is invalid or expired, redirects to the app with an error
+     * query param so the app can show an appropriate message.
+     */
+    @GetMapping("/reset-password-link")
+    public ResponseEntity<Void> handleResetPasswordLink(
+            @RequestParam String token,
+            @RequestParam String email) {
 
-        mockMvc.perform(post("/auth/reset-password")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value("Password reset successfully"));
+        String redirectUri;
+        try {
+            // Validate only — do NOT consume the token here.
+            // The token is consumed by POST /auth/reset-password after the
+            // user enters their new password.
+            authenticationService.validateResetToken(email, token);
 
-        verify(authenticationService).resetPassword(any(ResetPasswordRequest.class));
-    }
+            String encodedToken = URLEncoder.encode(token, StandardCharsets.UTF_8);
+            String encodedEmail = URLEncoder.encode(email, StandardCharsets.UTF_8);
+            redirectUri = deepLinkScheme + "://reset-password?token="
+                    + encodedToken + "&email=" + encodedEmail;
+        } catch (Exception e) {
+            String encodedMsg = URLEncoder.encode(
+                    e.getMessage() != null ? e.getMessage() : "Invalid or expired link",
+                    StandardCharsets.UTF_8);
+            redirectUri = deepLinkScheme + "://reset-password?error=" + encodedMsg;
+        }
 
-    @Test
-    void verifyEmailRejectsInvalidCodeFormat() throws Exception {
-        EmailCodeRequest request = new EmailCodeRequest();
-        request.setEmail("user@example.com");
-        request.setCode("12345");
-
-        mockMvc.perform(post("/auth/verify-email")
-                        .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isBadRequest());
-    }
-
-    private MockMvc standaloneMockMvc(AuthenticationService authenticationService) {
-        AuthenticationController controller = new AuthenticationController(
-                jwtService,
-                authenticationService,
-                refreshTokenService,
-                tokenBlacklistService,
-                userRepository
-        );
-
-        LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
-        validator.afterPropertiesSet();
-
-        return MockMvcBuilders.standaloneSetup(controller)
-                .setControllerAdvice(new GlobalExceptionHandler())
-                .setValidator(validator)
+        return ResponseEntity.status(HttpStatus.FOUND)
+                .header(HttpHeaders.LOCATION, redirectUri)
                 .build();
     }
 
-    private ForgotPasswordRequest forgotPasswordRequest(String email) {
-        ForgotPasswordRequest request = new ForgotPasswordRequest();
-        request.setEmail(email);
-        return request;
+    @PostMapping("/refresh")
+    public ResponseEntity<LoginResponseDto> refresh(@RequestBody Map<String, String> body) {
+        String requestToken = body.get("refreshToken");
+
+        RefreshToken refreshToken = refreshTokenService.findByToken(requestToken)
+                .orElseThrow(() -> new RuntimeException("Refresh token not found"));
+
+        refreshTokenService.verifyExpiration(refreshToken);
+
+        User user = refreshToken.getUser();
+        String newAccessToken = jwtService.generateToken(user);
+
+        return ResponseEntity.ok(new LoginResponseDto(
+                newAccessToken,
+                requestToken,
+                jwtService.getExpirationTime()
+        ));
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<Map<String, String>> logout(HttpServletRequest request) {
+        String authHeader = request.getHeader("Authorization");
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            String token = authHeader.substring(7);
+            tokenBlacklistService.blacklist(token);
+            String email = jwtService.extractUsername(token);
+            authenticationService.logout(email);
+        }
+        return ResponseEntity.ok(Map.of("message", "Logged out successfully"));
+    }
+
+    @GetMapping("/me")
+    public ResponseEntity<User> getMe() {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        return ResponseEntity.ok(user);
     }
 }
