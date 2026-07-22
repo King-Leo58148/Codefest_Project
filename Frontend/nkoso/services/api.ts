@@ -24,6 +24,25 @@ import { createOwnerDataApi } from './ownerData';
 const accountApi = createAccountApi(request, (user) => normalizeBackendUser(user as any));
 const ownerDataApi = createOwnerDataApi(request);
 
+const INDUSTRY_QUERY_VALUES: Partial<Record<Industry, string>> = {
+  Technology: 'TECHNOLOGY',
+  'Food & Bev': 'FOOD_AND_BEVERAGE',
+  Health: 'HEALTH',
+  Sustainability: 'SUSTAINABILITY',
+  Fitness: 'FITNESS',
+  Agriculture: 'AGRICULTURE',
+  Retail: 'RETAIL',
+  Transport: 'TRANSPORT',
+  Fashion: 'FASHION',
+  'Beauty & Cosmetics': 'BEAUTY_AND_COSMETICS',
+  Construction: 'CONSTRUCTION',
+  Education: 'EDUCATION',
+  Entertainment: 'ENTERTAINMENT',
+  Hospitality: 'HOSPITALITY',
+  Manufacturing: 'MANUFACTURING',
+  Other: 'OTHER',
+};
+
 async function getAuthenticatedUser(): Promise<User> {
   return normalizeBackendUser(await request('/auth/me'));
 }
@@ -86,9 +105,10 @@ export async function verifyMomo(momoNumber: string): Promise<boolean> {
 
 // Pitches
 export async function getPitches(industry?: Industry): Promise<Pitch[]> {
+  const industryParam = industry && industry !== 'All' ? INDUSTRY_QUERY_VALUES[industry] : undefined;
   const url =
-    industry && industry !== 'All'
-      ? `/api/pitches/filter?industry=${encodeURIComponent(industry)}`
+    industryParam
+      ? `/api/pitches/filter?industry=${encodeURIComponent(industryParam)}`
       : '/api/pitches';
   return ownerDataApi.normalizePitchList(await request(url));
 }
@@ -255,6 +275,26 @@ export async function getCurrentUser(): Promise<User> {
 // Pitches Additions
 export async function getMyPitches(): Promise<Pitch[]> {
   return ownerDataApi.getMyPitches();
+}
+
+export async function getAdminPendingPitches(): Promise<Pitch[]> {
+  return ownerDataApi.normalizePitchList(await request('/api/admin/pitches/pending'));
+}
+
+export async function approveAdminPitch(pitchId: string): Promise<Pitch> {
+  return ownerDataApi.normalizePitch(
+    await request(`/api/admin/pitches/${pitchId}/approve`, {
+      method: 'PUT',
+    })
+  );
+}
+
+export async function rejectAdminPitch(pitchId: string): Promise<Pitch> {
+  return ownerDataApi.normalizePitch(
+    await request(`/api/admin/pitches/${pitchId}/reject`, {
+      method: 'PUT',
+    })
+  );
 }
 
 // Bids Additions

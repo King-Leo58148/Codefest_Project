@@ -29,10 +29,6 @@ export default function OwnerTabLayout() {
           textTransform: 'none',
           marginTop: 4,
         },
-        tabBarIconStyle: {
-          alignItems: 'center',
-          justifyContent: 'center',
-        },
         tabBarShowIcon: true,
       }}
     >
@@ -64,6 +60,15 @@ export default function OwnerTabLayout() {
         }}
       />
       <MaterialTopTabs.Screen
+        name="deals"
+        options={{
+          title: 'Deals',
+          tabBarIcon: ({ color }) => (
+            <Ionicons name="briefcase-outline" size={24} color={color} />
+          ),
+        }}
+      />
+      <MaterialTopTabs.Screen
         name="profile"
         options={{
           title: 'Profile',
@@ -71,12 +76,6 @@ export default function OwnerTabLayout() {
             <Ionicons name="person-outline" size={24} color={color} />
           ),
         }}
-      />
-      <MaterialTopTabs.Screen 
-        name="deals" 
-        options={{ 
-          tabBarItemStyle: { display: 'none' } 
-        }} 
       />
     </MaterialTopTabs>
   );

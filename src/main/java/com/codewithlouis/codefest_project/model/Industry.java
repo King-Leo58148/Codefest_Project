@@ -12,6 +12,8 @@ public enum Industry {
     CONSTRUCTION,
     EDUCATION,
     HEALTH,
+    SUSTAINABILITY,
+    FITNESS,
     TECHNOLOGY,
     ENTERTAINMENT,
     HOSPITALITY,

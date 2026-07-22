@@ -29,10 +29,6 @@ export default function InvestorTabLayout() {
           textTransform: 'none',
           marginTop: 4,
         },
-        tabBarIconStyle: {
-          alignItems: 'center',
-          justifyContent: 'center',
-        },
         tabBarShowIcon: true,
       }}
     >
