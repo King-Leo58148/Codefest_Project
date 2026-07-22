@@ -9,7 +9,6 @@ import com.codewithlouis.codefest_project.repository.UserRepository;
 import com.codewithlouis.codefest_project.services.AuthenticationService;
 import com.codewithlouis.codefest_project.services.JwtService;
 import com.codewithlouis.codefest_project.services.RefreshTokenService;
-import com.codewithlouis.codefest_project.services.VerificationCodeService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -36,9 +35,6 @@ class ApplicationConfigurationTest {
     @Mock
     private RefreshTokenService refreshTokenService;
 
-    @Mock
-    private VerificationCodeService codeService;
-
     @Test
     void loginFindsLegacyMixedCaseEmailRowsThroughAuthenticationProvider() {
         ApplicationConfiguration configuration = new ApplicationConfiguration(userRepository);
@@ -49,8 +45,7 @@ class ApplicationConfigurationTest {
                 passwordEncoder,
                 jwtService,
                 refreshTokenService,
-                authenticationManager,
-                codeService
+                authenticationManager
         );
 
         User legacyUser = new User();

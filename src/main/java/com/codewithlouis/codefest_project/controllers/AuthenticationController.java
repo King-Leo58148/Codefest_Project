@@ -1,11 +1,8 @@
 package com.codewithlouis.codefest_project.controllers;
 
-import com.codewithlouis.codefest_project.dto.EmailCodeRequest;
-import com.codewithlouis.codefest_project.dto.ForgotPasswordRequest;
 import com.codewithlouis.codefest_project.dto.LoginResponseDto;
 import com.codewithlouis.codefest_project.dto.LoginUserDto;
 import com.codewithlouis.codefest_project.dto.RegisterUserDto;
-import com.codewithlouis.codefest_project.dto.ResetPasswordRequest;
 import com.codewithlouis.codefest_project.model.RefreshToken;
 import com.codewithlouis.codefest_project.model.User;
 import com.codewithlouis.codefest_project.repository.UserRepository;
@@ -14,8 +11,8 @@ import com.codewithlouis.codefest_project.services.JwtService;
 import com.codewithlouis.codefest_project.services.RefreshTokenService;
 import com.codewithlouis.codefest_project.services.TokenBlacklistService;
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
@@ -38,7 +35,8 @@ public class AuthenticationController {
         User registeredUser = authenticationService.signup(registerUserDto);
         return ResponseEntity.ok(Map.of(
                 "email", registeredUser.getEmail(),
-                "verificationRequired", !registeredUser.isEmailVerified()
+                "emailVerified", registeredUser.isEmailVerified(),
+                "verificationRequired", false
         ));
     }
 
@@ -49,32 +47,25 @@ public class AuthenticationController {
     }
 
     @PostMapping("/verify-email")
-    public ResponseEntity<Map<String, String>> verifyEmail(@Valid @RequestBody EmailCodeRequest request) {
-        authenticationService.verifyEmail(request);
-        return ResponseEntity.ok(Map.of("message", "Email verified successfully"));
+    public ResponseEntity<Map<String, String>> verifyEmail(@RequestBody(required = false) Map<String, Object> request) {
+        return emailVerificationUnavailable();
     }
 
     @PostMapping("/resend-verification-code")
     public ResponseEntity<Map<String, String>> resendVerificationCode(
-            @Valid @RequestBody ForgotPasswordRequest request
+            @RequestBody(required = false) Map<String, Object> request
     ) {
-        authenticationService.resendVerificationCode(request);
-        return ResponseEntity.ok(Map.of("message", "Verification code sent successfully"));
+        return emailVerificationUnavailable();
     }
 
     @PostMapping("/forgot-password")
-    public ResponseEntity<Map<String, String>> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
-        authenticationService.forgotPassword(request);
-        return ResponseEntity.ok(Map.of(
-                "message",
-                "If an account exists for that email, a password reset code has been sent"
-        ));
+    public ResponseEntity<Map<String, String>> forgotPassword(@RequestBody(required = false) Map<String, Object> request) {
+        return emailVerificationUnavailable();
     }
 
     @PostMapping("/reset-password")
-    public ResponseEntity<Map<String, String>> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
-        authenticationService.resetPassword(request);
-        return ResponseEntity.ok(Map.of("message", "Password reset successfully"));
+    public ResponseEntity<Map<String, String>> resetPassword(@RequestBody(required = false) Map<String, Object> request) {
+        return emailVerificationUnavailable();
     }
 
     @PostMapping("/refresh")
@@ -114,5 +105,10 @@ public class AuthenticationController {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found"));
         return ResponseEntity.ok(user);
+    }
+
+    private ResponseEntity<Map<String, String>> emailVerificationUnavailable() {
+        return ResponseEntity.status(HttpStatus.GONE)
+                .body(Map.of("message", "Email verification and password reset by email are disabled"));
     }
 }
