@@ -48,7 +48,7 @@ export default function HomeScreen() {
               Invest in businesses.{'\n'}Build the future.
             </Text>
           </View>
-          <TouchableOpacity style={styles.bellBtn} activeOpacity={0.7}>
+          <TouchableOpacity style={styles.bellBtn} onPress={() => router.push('/notifications')} activeOpacity={0.7}>
             <Ionicons name="notifications-outline" size={22} color={Colors.textPrimary} />
           </TouchableOpacity>
         </View>
@@ -79,7 +79,7 @@ export default function HomeScreen() {
               { icon: 'compass-outline', label: 'Explore', route: '/(investor)/explore' },
               { icon: 'heart-outline', label: 'Watchlist', route: '/(investor)/explore' },
               { icon: 'briefcase-outline', label: 'My Deals', route: '/(investor)/portfolio' },
-              { icon: 'pulse-outline', label: 'Activity', route: '/(investor)/activity' },
+              { icon: 'notifications-outline', label: 'Notifications', route: '/notifications' },
             ].map((item) => (
               <TouchableOpacity
                 key={item.label}

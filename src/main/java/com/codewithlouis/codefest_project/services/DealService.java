@@ -368,8 +368,8 @@ public class DealService {
      */
     private Deal activateDealAfterPayment(Deal deal) {
         deal.setStatus(DealStatus.ACTIVE);
-        deal.setDisbursed(false);
-        deal.setDisbursedAt(null);
+        deal.setDisbursed(true);
+        deal.setDisbursedAt(LocalDateTime.now());
 
         Pitch pitch = deal.getPitch();
         double currentRaised = pitch.getAmountRaised() != null ? pitch.getAmountRaised() : 0.0;
@@ -380,31 +380,27 @@ public class DealService {
 
         Deal saved = dealRepository.save(deal);
 
+        double dealAmount = saved.getBid().getAmount();
+        double platformFee = dealAmount * 0.01;
+        double amountAfterCharge = dealAmount - platformFee;
+
         try {
             // Call Paystack to initiate the transfer
             paystackService.disburseFunds(saved);
-
-            // Wait for webhook to officially confirm disbursement
-            notificationService.createNotification(
-                    saved.getOwner(),
-                    NotificationType.PAYMENT_RECEIVED,
-                    "Payment Received — Disbursement Pending",
-                    "Your payment for deal #" + saved.getId() + " was received. Disbursement will be processed shortly.",
-                    saved.getId()
-            );
         } catch (Exception e) {
             System.err.println("=== DISBURSEMENT FAILED for deal #" + saved.getId() + " ===");
             System.err.println("Error: " + e.getMessage());
             e.printStackTrace();
-
-            notificationService.createNotification(
-                    saved.getOwner(),
-                    NotificationType.PAYMENT_RECEIVED,
-                    "Payment Received — Disbursement Pending",
-                    "Your payment for deal #" + saved.getId() + " was received. Disbursement will be processed shortly.",
-                    saved.getId()
-            );
         }
+
+        // Send payment received notification immediately (bypassing webhooks)
+        notificationService.createNotification(
+                saved.getOwner(),
+                NotificationType.PAYMENT_RECEIVED,
+                "Payment Received",
+                "GHS " + String.format("%.2f", amountAfterCharge) + " has been disbursed to your MoMo account for deal #" + saved.getId() + " (1% fee applied).",
+                saved.getId()
+        );
 
         return saved;
     }

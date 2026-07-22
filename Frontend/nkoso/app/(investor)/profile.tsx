@@ -144,7 +144,7 @@ export default function ProfileScreen() {
         {/* Preferences */}
         <Text style={styles.sectionLabel}>Preferences</Text>
         <View style={styles.section}>
-          <SettingsRow icon="notifications-outline" label="Notifications" onPress={() => push('/profile/notifications')} />
+          <SettingsRow icon="notifications-outline" label="Notifications" onPress={() => push('/profile/notification-settings')} />
           <View style={styles.divider} />
           <SettingsRow icon="mail-outline" label="Email preferences" onPress={() => push('/profile/email-preferences')} />
           <View style={styles.divider} />

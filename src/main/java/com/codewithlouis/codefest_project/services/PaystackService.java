@@ -116,7 +116,7 @@ public class PaystackService {
         String recipientCode = (String) recipientData.get("recipient_code");
 
         double dealAmount = deal.getBid().getAmount();
-        double platformFee = Math.min(dealAmount * 0.01, 100.0);
+        double platformFee = dealAmount * 0.01;
         double disburseAmount = dealAmount - platformFee;
         long amountInPesewas = (long) (disburseAmount * 100);
         Map<String, Object> transferBody = new HashMap<>();

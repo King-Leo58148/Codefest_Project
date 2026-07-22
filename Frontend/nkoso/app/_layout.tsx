@@ -59,6 +59,7 @@ function RootLayoutNav() {
         <Stack.Screen name="(auth)" />
         <Stack.Screen name="(investor)" />
         <Stack.Screen name="(owner)" />
+        <Stack.Screen name="notifications" />
         <Stack.Screen name="pitch/[id]" />
         <Stack.Screen name="invest/[id]" />
         <Stack.Screen name="deal/[id]" />
@@ -67,7 +68,7 @@ function RootLayoutNav() {
         <Stack.Screen name="profile/bank-account" />
         <Stack.Screen name="profile/verification" />
         <Stack.Screen name="profile/tax-documents" />
-        <Stack.Screen name="profile/notifications" />
+        <Stack.Screen name="profile/notification-settings" />
         <Stack.Screen name="profile/email-preferences" />
         <Stack.Screen name="profile/payment-methods" />
         <Stack.Screen name="profile/help" />

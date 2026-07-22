@@ -124,7 +124,7 @@ export default function OwnerDashboardScreen() {
             <Text style={styles.greeting}>Hello, {firstName}</Text>
             <Text style={styles.title}>Your Dashboard</Text>
           </View>
-          <TouchableOpacity style={styles.bellBtn} activeOpacity={0.7}>
+          <TouchableOpacity style={styles.bellBtn} onPress={() => router.push('/notifications')} activeOpacity={0.7}>
             <Ionicons name="notifications-outline" size={22} color={Colors.textPrimary} />
           </TouchableOpacity>
         </View>
