@@ -1,7 +1,6 @@
 package com.codewithlouis.codefest_project.services;
 
 import com.codewithlouis.codefest_project.model.Deal;
-import com.codewithlouis.codefest_project.model.VerificationPurpose;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -27,12 +26,6 @@ public class EmailService {
 
     @Value("${mfi.email}")
     private String mfiEmail;
-
-    // TEMPORARY: Resend's free/sandbox tier only allows sending to the
-    // account owner's email until a domain is verified on resend.com/domains.
-    // Remove this constant and the override in sendVerificationCode() once
-    // a domain is verified, so codes go to the actual signup email again.
-    private static final String RESEND_SANDBOX_RECIPIENT = "nkosobusiness@gmail.com";
 
     private final HttpClient httpClient = HttpClient.newHttpClient();
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -77,23 +70,6 @@ public class EmailService {
         send(mfiEmail, subject, body);
     }
 
-    public void sendVerificationCode(String email, String code, VerificationPurpose purpose) {
-        String subject = getVerificationSubject(purpose);
-        String body = """
-                <h2>%s</h2>
-                <p>Verification code for signup email: <b>%s</b></p>
-                <p style="font-size: 24px; font-weight: bold; letter-spacing: 4px;">%s</p>
-                <p>This code expires in 10 minutes.</p>
-                <p>If you did not request this, you can ignore this email.</p>
-                """.formatted(getVerificationHeading(purpose), email, code);
-
-        // TEMPORARY override — see RESEND_SANDBOX_RECIPIENT comment above
-        boolean sent = send(RESEND_SANDBOX_RECIPIENT, subject, body);
-        if (!sent) {
-            throw new RuntimeException("Failed to send verification email");
-        }
-    }
-
     private boolean send(String to, String subject, String htmlBody) {
         try {
             Map<String, Object> payload = new HashMap<>();
@@ -124,17 +100,4 @@ public class EmailService {
         }
     }
 
-    private String getVerificationSubject(VerificationPurpose purpose) {
-        return switch (purpose) {
-            case SIGNUP_EMAIL -> "Nkoso account verification code";
-            case PASSWORD_RESET -> "Nkoso password reset code";
-        };
-    }
-
-    private String getVerificationHeading(VerificationPurpose purpose) {
-        return switch (purpose) {
-            case SIGNUP_EMAIL -> "Verify your Nkoso account";
-            case PASSWORD_RESET -> "Reset your Nkoso password";
-        };
-    }
 }

@@ -39,17 +39,6 @@ function digitsOnly(value: string | undefined): string | undefined {
   return trimmed ? trimmed.replace(/\D/g, '') : undefined;
 }
 
-function readMessage(response: unknown, fallback: string): { message: string } {
-  if (response && typeof response === 'object' && 'message' in response) {
-    const message = (response as { message?: unknown }).message;
-    if (typeof message === 'string' && message.trim().length > 0) {
-      return { message };
-    }
-  }
-
-  return { message: fallback };
-}
-
 function readOptionalString(response: unknown, key: string): string | undefined {
   if (!response || typeof response !== 'object' || !(key in response)) {
     return undefined;
@@ -189,54 +178,6 @@ export function createAccountApi(request: RequestFn, normalizeUser: NormalizeUse
       });
 
       return readSignupResponse(response, normalizedEmail);
-    },
-
-    async verifySignupEmail(email: string, code: string): Promise<{ message: string }> {
-      const response = await request('/auth/verify-email', {
-        method: 'POST',
-        auth: false,
-        body: JSON.stringify({ email, code }),
-      });
-
-      return readMessage(response, 'Email verified successfully');
-    },
-
-    async resendSignupCode(email: string): Promise<{ message: string }> {
-      const response = await request('/auth/resend-verification-code', {
-        method: 'POST',
-        auth: false,
-        body: JSON.stringify({ email }),
-      });
-
-      return readMessage(response, 'Verification code sent successfully');
-    },
-
-    async forgotPassword(email: string): Promise<{ message: string }> {
-      const response = await request('/auth/forgot-password', {
-        method: 'POST',
-        auth: false,
-        body: JSON.stringify({ email }),
-      });
-
-      return readMessage(
-        response,
-        'If an account exists for that email, a password reset code has been sent'
-      );
-    },
-
-    async resetPassword(
-      email: string,
-      code: string,
-      newPassword: string,
-      confirmPassword: string
-    ): Promise<{ message: string }> {
-      const response = await request('/auth/reset-password', {
-        method: 'POST',
-        auth: false,
-        body: JSON.stringify({ email, code, newPassword, confirmPassword }),
-      });
-
-      return readMessage(response, 'Password reset successfully');
     },
 
     async updateProfile(input: ProfileUpdateInput): Promise<User> {

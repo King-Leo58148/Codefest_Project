@@ -52,8 +52,8 @@ export default function RegisterScreen() {
     setLoading(true);
     try {
       await registerUser(name.trim(), email.trim(), password, role);
-      router.push({
-        pathname: '/(auth)/verify-email',
+      router.replace({
+        pathname: '/(auth)/login',
         params: { email: email.trim() },
       });
     } catch (caught) {
@@ -170,7 +170,7 @@ export default function RegisterScreen() {
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
           <Button
-            title="Continue"
+            title="Create Account"
             onPress={handleRegister}
             loading={loading}
             style={styles.btn}
