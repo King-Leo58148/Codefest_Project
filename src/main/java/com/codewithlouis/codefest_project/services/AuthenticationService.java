@@ -42,8 +42,8 @@ public class AuthenticationService {
             if (existingUser.isEmailVerified()) {
                 throw new RuntimeException("Email already in use");
             }
-            existingUser.setEmailVerified(true);
-            return userRepository.save(existingUser);
+            issueSignupCode(existingUser.getEmail());
+            return existingUser;
         }
 
         User user = new User();
@@ -51,9 +51,11 @@ public class AuthenticationService {
         user.setEmail(normalizedEmail);
         user.setRole(input.getRole());
         user.setPassword(passwordEncoder.encode(input.getPassword()));
-        user.setEmailVerified(true);
+        user.setEmailVerified(false);
 
-        return userRepository.save(user);
+        User savedUser = userRepository.save(user);
+        issueSignupCode(savedUser.getEmail());
+        return savedUser;
     }
 
     public LoginResponseDto login(LoginUserDto input) {
@@ -67,6 +69,10 @@ public class AuthenticationService {
 
         User user = userRepository.findByEmailIgnoreCase(normalizedEmail)
                 .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (!user.isEmailVerified()) {
+            throw new IllegalStateException("Email not verified");
+        }
 
         RefreshToken refreshToken = refreshTokenService.createRefreshToken(user.getEmail());
 
@@ -103,23 +109,8 @@ public class AuthenticationService {
     }
 
     public void forgotPassword(ForgotPasswordRequest request) {
-        // Always return the same response whether or not the email exists
-        // (prevents account enumeration). But we do NOT suppress cooldown
-        // errors here — if a code was already sent recently, issue() will
-        // throw IllegalStateException which propagates to the caller so the
-        // user knows to check their inbox rather than thinking nothing happened.
         userRepository.findByEmailIgnoreCase(normalizeEmail(request.getEmail()))
-                .ifPresent(user -> codeService.issue(user.getEmail(), VerificationPurpose.PASSWORD_RESET));
-    }
-
-    /**
-     * Validates a password-reset token WITHOUT consuming it.
-     * Called by the controller when the user clicks the link in their email
-     * so we can redirect to the app. The token is consumed later by
-     * resetPassword() when the user actually submits their new password.
-     */
-    public void validateResetToken(String email, String token) {
-        codeService.peekToken(normalizeEmail(email), token);
+                .ifPresent(user -> issueCodeIgnoringCooldown(user.getEmail(), VerificationPurpose.PASSWORD_RESET));
     }
 
     public void resetPassword(ResetPasswordRequest request) {
@@ -127,12 +118,8 @@ public class AuthenticationService {
             throw new RuntimeException("Passwords do not match");
         }
 
-        // consumeToken verifies the hex token from the reset link and
-        // returns the normalised email that the token was issued for.
-        String normalizedEmail = codeService.consumeToken(
-                normalizeEmail(request.getEmail()),
-                request.getToken()
-        );
+        String normalizedEmail = normalizeEmail(request.getEmail());
+        codeService.consume(normalizedEmail, VerificationPurpose.PASSWORD_RESET, request.getCode());
 
         User user = userRepository.findByEmailIgnoreCase(normalizedEmail)
                 .orElseThrow(() -> new RuntimeException("User not found"));

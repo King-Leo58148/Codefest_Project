@@ -6,7 +6,6 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
-  Pressable,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -113,34 +112,20 @@ export default function ProfileScreen() {
         {/* Verification status */}
         <View style={styles.verificationCard}>
           <View style={styles.verificationItem}>
-            <Pressable
-              onPress={() => push('../profile/verification')}
-              style={styles.verificationItem}
-            >
-              <Ionicons
-                name={user?.ghanaCardVerified ? 'checkmark-circle' : 'ellipse-outline'}
-                size={18}
-                color={user?.ghanaCardVerified ? Colors.accent : Colors.textMuted}
-              />
-
-              <Text style={styles.verificationText}>Ghana Card</Text>
-
-            </Pressable>
+            <Ionicons
+              name={user?.ghanaCardVerified ? 'checkmark-circle' : 'ellipse-outline'}
+              size={18}
+              color={user?.ghanaCardVerified ? Colors.accent : Colors.textMuted}
+            />
+            <Text style={styles.verificationText}>Ghana Card</Text>
           </View>
           <View style={styles.verificationItem}>
-            <Pressable
-              onPress={() => push('../profile/verification')}
-              style={styles.verificationItem}
-            >
-              <Ionicons
-                name={user?.momoVerified ? 'checkmark-circle' : 'ellipse-outline'}
-                size={18}
-                color={user?.momoVerified ? Colors.accent : Colors.textMuted}
-              />
-
-              <Text style={styles.verificationText}>MoMo Account</Text>
-
-            </Pressable>
+            <Ionicons
+              name={user?.momoVerified ? 'checkmark-circle' : 'ellipse-outline'}
+              size={18}
+              color={user?.momoVerified ? Colors.accent : Colors.textMuted}
+            />
+            <Text style={styles.verificationText}>MoMo Account</Text>
           </View>
         </View>
 

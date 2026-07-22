@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { Stack, router, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { Linking } from 'react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useAuthStore } from '@/store/authStore';
 
@@ -47,36 +46,6 @@ function RootLayoutNav() {
     }
   }, [user, authChecked, segments]);
 
-  // Handle deep links — e.g. nkoso://reset-password?token=TOKEN&email=EMAIL
-  useEffect(() => {
-    const handleUrl = (url: string) => {
-      try {
-        const parsed = new URL(url);
-        // nkoso://reset-password → /(auth)/reset-password
-        if (parsed.hostname === 'reset-password') {
-          const token = parsed.searchParams.get('token') ?? '';
-          const email = parsed.searchParams.get('email') ?? '';
-          const error = parsed.searchParams.get('error') ?? '';
-          router.push({
-            pathname: '/(auth)/reset-password',
-            params: { token, email, error },
-          } as any);
-        }
-      } catch {
-        // Ignore malformed URLs
-      }
-    };
-
-    // Handle link that opened the app cold
-    Linking.getInitialURL().then((url) => {
-      if (url) handleUrl(url);
-    });
-
-    // Handle links while app is foregrounded
-    const subscription = Linking.addEventListener('url', ({ url }) => handleUrl(url));
-    return () => subscription.remove();
-  }, []);
-
   return (
     <>
       <StatusBar style="auto" />
@@ -103,7 +72,6 @@ function RootLayoutNav() {
         <Stack.Screen name="profile/payment-methods" />
         <Stack.Screen name="profile/help" />
         <Stack.Screen name="profile/contact-support" />
-        <Stack.Screen name="notifications" options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="+not-found" />
       </Stack>
     </>

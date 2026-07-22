@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -13,110 +14,100 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { forgotPassword } from '@/services/api';
+import { forgotPassword, resetPassword } from '@/services/api';
+import {
+  FORGOT_PASSWORD_NEUTRAL_MESSAGE,
+  isSixDigitCode,
+  passwordsMatch,
+} from '@/services/accountValidation';
+
+type Stage = 'request' | 'reset';
 
 export default function ForgotPasswordScreen() {
   const params = useLocalSearchParams<{ email?: string | string[] }>();
   const initialEmail = Array.isArray(params.email) ? params.email[0] : params.email;
 
-  const [email, setEmail]     = useState(initialEmail?.trim() ?? '');
+  const [stage, setStage] = useState<Stage>('request');
+  const [email, setEmail] = useState(initialEmail?.trim() ?? '');
+  const [code, setCode] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError]     = useState('');
-  const [sent, setSent]       = useState(false);
+  const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
 
   const getErrorMessage = (value: unknown, fallback: string) => {
     if (value instanceof Error && value.message.trim().length > 0) {
       return value.message;
     }
+
     return fallback;
   };
 
-  const handleSend = async () => {
+  const handleRequestCode = async () => {
     if (!email.trim()) {
       setError('Enter the email address linked to your account.');
       return;
     }
+
     setError('');
     setLoading(true);
     try {
-      await forgotPassword(email.trim());
-      setSent(true);
+      await forgotPassword(email);
+      setMessage(FORGOT_PASSWORD_NEUTRAL_MESSAGE);
+      setStage('reset');
+      setCode('');
+      setNewPassword('');
+      setConfirmPassword('');
     } catch (caught) {
-      // Show generic message so we don't reveal whether the email exists.
-      // Only show the real error if it's something actionable (e.g. cooldown).
-      const msg = caught instanceof Error ? caught.message : '';
-      if (msg.toLowerCase().includes('recently') || msg.toLowerCase().includes('cooldown')) {
-        setError(msg);
-      } else {
-        setSent(true); // still show success UI for anti-enumeration
-      }
+      setError(getErrorMessage(caught, 'We could not start password recovery.'));
     } finally {
       setLoading(false);
     }
   };
 
-  // ── Sent state ──────────────────────────────────────────────────────────────
-  if (sent) {
-    return (
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
-        <ScrollView
-          contentContainerStyle={styles.container}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          <TouchableOpacity
-            style={styles.backBtn}
-            onPress={() => router.back()}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="arrow-back" size={22} color={Colors.textPrimary} />
-          </TouchableOpacity>
+  const handleResetPassword = async () => {
+    if (!email.trim()) {
+      setError('Enter the email address linked to your account.');
+      return;
+    }
 
-          <View style={styles.iconBox}>
-            <Ionicons name="mail-outline" size={40} color={Colors.accent} />
-          </View>
+    if (!isSixDigitCode(code)) {
+      setError('Enter the full six-digit reset code.');
+      return;
+    }
 
-          <Text style={styles.title}>Check your email</Text>
-          <Text style={styles.subtitle}>
-            If an account exists for <Text style={styles.emailHighlight}>{email}</Text>,
-            we've sent a password reset link. Tap the button in the email to choose
-            a new password — the link opens the app directly.
-          </Text>
+    if (!newPassword || !confirmPassword) {
+      setError('Enter and confirm your new password.');
+      return;
+    }
 
-          <View style={styles.tipCard}>
-            <Ionicons name="information-circle-outline" size={18} color={Colors.primary} />
-            <Text style={styles.tipText}>
-              The link expires in 30 minutes. Check your spam folder if you don't see it
-              within a few minutes.
-            </Text>
-          </View>
+    if (!passwordsMatch(newPassword, confirmPassword)) {
+      setError('Passwords do not match.');
+      return;
+    }
 
-          <Button
-            title="Back to sign in"
-            onPress={() =>
-              router.replace({
-                pathname: '/(auth)/login',
-                params: email.trim() ? { email: email.trim() } : undefined,
-              })
-            }
-          />
+    setError('');
+    setLoading(true);
+    try {
+      const response = await resetPassword(email, code, newPassword, confirmPassword);
+      Alert.alert('Password updated', response.message, [
+        {
+          text: 'Sign in',
+          onPress: () =>
+            router.replace({
+              pathname: '/(auth)/login',
+              params: { email: email.trim() },
+            }),
+        },
+      ]);
+    } catch (caught) {
+      setError(getErrorMessage(caught, 'We could not reset your password.'));
+    } finally {
+      setLoading(false);
+    }
+  };
 
-          <TouchableOpacity
-            style={styles.retryLink}
-            onPress={() => { setSent(false); setError(''); }}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.retryLinkText}>Didn't receive it? Try again</Text>
-          </TouchableOpacity>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    );
-  }
-
-  // ── Request state ───────────────────────────────────────────────────────────
   return (
     <KeyboardAvoidingView
       style={styles.flex}
@@ -143,8 +134,17 @@ export default function ForgotPasswordScreen() {
 
         <Text style={styles.title}>Forgot your password?</Text>
         <Text style={styles.subtitle}>
-          Enter your email address and we'll send you a link to reset your password.
+          {stage === 'request'
+            ? 'Request a reset code and we will email the next steps.'
+            : 'Enter the reset code and choose a new password.'}
         </Text>
+
+        {message ? (
+          <View style={styles.infoBox}>
+            <Ionicons name="mail-outline" size={16} color={Colors.primary} />
+            <Text style={styles.infoText}>{message}</Text>
+          </View>
+        ) : null}
 
         <View style={styles.form}>
           <Input
@@ -159,14 +159,73 @@ export default function ForgotPasswordScreen() {
             accessibilityLabel="Email address"
           />
 
+          {stage === 'reset' ? (
+            <>
+              <Input
+                label="Reset code"
+                placeholder="123456"
+                value={code}
+                onChangeText={(value) => setCode(value.replace(/\D/g, '').slice(0, 6))}
+                keyboardType="number-pad"
+                maxLength={6}
+                textContentType="oneTimeCode"
+                autoComplete="one-time-code"
+                leftIcon="key-outline"
+                accessibilityLabel="Reset code"
+              />
+              <Input
+                label="New password"
+                placeholder="Enter a new password"
+                value={newPassword}
+                onChangeText={setNewPassword}
+                secure
+                leftIcon="lock-closed-outline"
+              />
+              <Input
+                label="Confirm new password"
+                placeholder="Re-enter your new password"
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                secure
+                leftIcon="lock-closed-outline"
+              />
+            </>
+          ) : null}
+
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-          <Button
-            title="Send reset link"
-            onPress={handleSend}
-            loading={loading}
-            disabled={!email.trim()}
-          />
+          {stage === 'request' ? (
+            <Button
+              title="Send Reset Code"
+              onPress={handleRequestCode}
+              loading={loading}
+            />
+          ) : (
+            <>
+              <Button
+                title="Reset Password"
+                onPress={handleResetPassword}
+                loading={loading}
+                disabled={!isSixDigitCode(code) || !passwordsMatch(newPassword, confirmPassword)}
+              />
+              <TouchableOpacity
+                style={styles.secondaryAction}
+                onPress={() => {
+                  setStage('request');
+                  setMessage('');
+                  setError('');
+                  setCode('');
+                  setNewPassword('');
+                  setConfirmPassword('');
+                }}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel="Use a different email"
+              >
+                <Text style={styles.secondaryActionText}>Request a new code</Text>
+              </TouchableOpacity>
+            </>
+          )}
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -209,9 +268,20 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     marginBottom: 24,
   },
-  emailHighlight: {
-    fontWeight: '700',
-    color: Colors.textPrimary,
+  infoBox: {
+    flexDirection: 'row',
+    backgroundColor: '#EFF6FF',
+    borderRadius: 10,
+    padding: 12,
+    gap: 10,
+    marginBottom: 16,
+    alignItems: 'flex-start',
+  },
+  infoText: {
+    flex: 1,
+    fontSize: 12,
+    color: Colors.primary,
+    lineHeight: 18,
   },
   form: {
     flex: 1,
@@ -221,27 +291,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginBottom: 8,
   },
-  tipCard: {
-    flexDirection: 'row',
-    backgroundColor: '#EFF6FF',
-    borderRadius: 12,
-    padding: 14,
-    gap: 10,
-    alignItems: 'flex-start',
-    marginBottom: 24,
-  },
-  tipText: {
-    flex: 1,
-    fontSize: 13,
-    color: Colors.primary,
-    lineHeight: 19,
-  },
-  retryLink: {
+  secondaryAction: {
     alignItems: 'center',
     marginTop: 16,
     paddingVertical: 12,
   },
-  retryLinkText: {
+  secondaryActionText: {
     fontSize: 14,
     fontWeight: '600',
     color: Colors.primary,

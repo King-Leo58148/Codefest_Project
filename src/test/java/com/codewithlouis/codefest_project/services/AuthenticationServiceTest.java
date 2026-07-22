@@ -285,7 +285,7 @@ class AuthenticationServiceTest {
     private ResetPasswordRequest resetPasswordRequest(String email) {
         ResetPasswordRequest request = new ResetPasswordRequest();
         request.setEmail(email);
-        request.setToken("dummy-reset-token");
+        request.setCode("123456");
         request.setNewPassword("NewPassword1!");
         request.setConfirmPassword("NewPassword1!");
         return request;

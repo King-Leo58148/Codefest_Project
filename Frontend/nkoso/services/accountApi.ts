@@ -226,14 +226,14 @@ export function createAccountApi(request: RequestFn, normalizeUser: NormalizeUse
 
     async resetPassword(
       email: string,
-      token: string,
+      code: string,
       newPassword: string,
       confirmPassword: string
     ): Promise<{ message: string }> {
       const response = await request('/auth/reset-password', {
         method: 'POST',
         auth: false,
-        body: JSON.stringify({ email, token, newPassword, confirmPassword }),
+        body: JSON.stringify({ email, code, newPassword, confirmPassword }),
       });
 
       return readMessage(response, 'Password reset successfully');

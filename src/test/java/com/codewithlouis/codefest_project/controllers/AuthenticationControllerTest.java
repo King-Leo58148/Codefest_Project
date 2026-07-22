@@ -200,7 +200,7 @@ class AuthenticationControllerTest {
     void resetPasswordReturnsConfirmationMessage() throws Exception {
         ResetPasswordRequest request = new ResetPasswordRequest();
         request.setEmail("user@example.com");
-        request.setToken("dummy-reset-token");
+        request.setCode("123456");
         request.setNewPassword("NewPassword1!");
         request.setConfirmPassword("NewPassword1!");
 
