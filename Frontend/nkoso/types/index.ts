@@ -120,6 +120,8 @@ export interface Deal {
   mfiApproved: boolean;
   paystackRef?: string;
   disbursedAt?: string;
+  platformFee?: number;
+  netDisbursementAmount?: number;
   repaymentSchedule: Repayment[];
   status: DealStatus;
   amount: number;
@@ -136,7 +138,10 @@ export interface Repayment {
   amount: number;
   status: RepaymentStatus;
   momoRef?: string;
+  paystackRef?: string;
   collectedAt?: string;
+  paidAt?: string;
+  transferredAt?: string;
 }
 
 export interface Investment {

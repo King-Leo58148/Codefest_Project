@@ -6,16 +6,26 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/Colors';
-import { useQuery } from '@tanstack/react-query';
-import { getMyDeals } from '@/services/api';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import * as WebBrowser from 'expo-web-browser';
+import {
+  getDealRepayments,
+  getMyDeals,
+  initiateRepaymentPayment,
+  verifyRepaymentPayment,
+} from '@/services/api';
+import { useAuthStore } from '@/store/authStore';
 
 export default function RepaymentScheduleScreen() {
   const { pitchId } = useLocalSearchParams<{ pitchId: string }>();
+  const { user } = useAuthStore();
+  const queryClient = useQueryClient();
 
   const { data: myDeals = [], isLoading } = useQuery({
     queryKey: ['myDeals'],
@@ -23,8 +33,54 @@ export default function RepaymentScheduleScreen() {
   });
   
   const deal = myDeals.find((d) => d.pitchId === pitchId);
+  const isOwner = user?.role === 'OWNER';
 
-  if (isLoading) {
+  const {
+    data: repaymentSchedule = [],
+    isLoading: loadingRepayments,
+  } = useQuery({
+    queryKey: ['dealRepayments', deal?.id],
+    queryFn: () => getDealRepayments(deal!.id),
+    enabled: !!deal?.id,
+  });
+
+  const payMutation = useMutation({
+    mutationFn: async (repaymentId: string) => {
+      if (!deal) throw new Error('No deal found.');
+
+      const response = await initiateRepaymentPayment(deal.id, repaymentId);
+      if (!response?.authorization_url) {
+        throw new Error('Could not start Paystack checkout.');
+      }
+
+      await WebBrowser.openBrowserAsync(response.authorization_url);
+
+      let lastError: unknown = null;
+      for (let attempt = 0; attempt < 4; attempt++) {
+        try {
+          return await verifyRepaymentPayment(deal.id, repaymentId, response.reference);
+        } catch (error) {
+          lastError = error;
+          await new Promise((resolve) => setTimeout(resolve, 2000 * (attempt + 1)));
+        }
+      }
+
+      throw lastError instanceof Error ? lastError : new Error('Repayment could not be confirmed.');
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['dealRepayments', deal?.id] });
+      queryClient.invalidateQueries({ queryKey: ['myDeals'] });
+      Alert.alert('Repayment confirmed', 'Your repayment was confirmed through Paystack.');
+    },
+    onError: (error) => {
+      Alert.alert(
+        'Repayment not confirmed',
+        error instanceof Error ? error.message : 'If checkout completed, pull to refresh in a moment.'
+      );
+    },
+  });
+
+  if (isLoading || loadingRepayments) {
     return (
       <SafeAreaView style={[styles.safe, { justifyContent: 'center', alignItems: 'center' }]}>
         <ActivityIndicator size="large" color={Colors.primary} />
@@ -47,8 +103,6 @@ export default function RepaymentScheduleScreen() {
       </SafeAreaView>
     );
   }
-
-  const repaymentSchedule = deal.repaymentSchedule || [];
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -132,6 +186,20 @@ export default function RepaymentScheduleScreen() {
                         <Text style={styles.collectedText}>
                           Collected on {repayment.collectedAt}
                         </Text>
+                      )}
+                      {isOwner && repayment.status === 'PENDING' && (
+                        <TouchableOpacity
+                          style={styles.payButton}
+                          onPress={() => payMutation.mutate(repayment.id)}
+                          disabled={payMutation.isPending}
+                        >
+                          {payMutation.isPending && payMutation.variables === repayment.id ? (
+                            <ActivityIndicator size="small" color="#fff" />
+                          ) : (
+                            <Ionicons name="card-outline" size={16} color="#fff" />
+                          )}
+                          <Text style={styles.payButtonText}>Pay with Paystack</Text>
+                        </TouchableOpacity>
                       )}
                     </View>
                   </View>
@@ -266,5 +334,20 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.textMuted,
     marginTop: 8,
+  },
+  payButton: {
+    marginTop: 12,
+    backgroundColor: Colors.primary,
+    borderRadius: 8,
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 6,
+  },
+  payButtonText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 13,
   },
 });

@@ -30,6 +30,12 @@ public class Repayment {
 
     private String momoRef;
 
+    private String paystackRef;
+
+    private LocalDateTime paidAt;
+
+    private LocalDateTime transferredAt;
+
     private LocalDateTime collectedAt;
 
     private Integer installmentNumber;

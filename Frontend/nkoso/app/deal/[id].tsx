@@ -159,12 +159,6 @@ export default function DealRoomScreen() {
     signMutation.mutate();
   };
 
-  const handleMfiApprove = () => {
-    Alert.alert('MFI Approved', 'The MFI partner has approved this deal. The investor can now proceed with payment.', [
-      { text: 'OK', onPress: () => setMfiApproved(true) },
-    ]);
-  };
-
   const handlePayment = () => {
     payMutation.mutate();
   };
@@ -190,6 +184,19 @@ export default function DealRoomScreen() {
       done: deal.disbursedAt !== undefined,
       icon: 'phone-portrait-outline' as const,
     },
+  ];
+
+  const platformFee = deal.platformFee ?? deal.amount * 0.01;
+  const terms = [
+    { label: 'Investment amount', value: `GH₵${deal.amount.toLocaleString()}` },
+    ...(isInvestor ? [
+      { label: 'Platform fee', value: `GH₵${platformFee.toLocaleString()}` },
+      { label: 'Total checkout', value: `GH₵${(deal.amount + platformFee).toLocaleString()}` },
+    ] : []),
+    { label: 'Owner receives', value: `GH₵${(deal.netDisbursementAmount ?? deal.amount).toLocaleString()}` },
+    { label: 'Return type', value: deal.returnType.replace('_', ' ') },
+    { label: 'Return value', value: `${deal.returnValue}%` },
+    { label: 'Timeline', value: `${deal.timelineMonths} months` },
   ];
 
   return (
@@ -220,12 +227,7 @@ export default function DealRoomScreen() {
         {/* Deal terms */}
         <Text style={styles.sectionTitle}>Deal terms</Text>
         <View style={styles.termsCard}>
-          {[
-            { label: 'Investment amount', value: `GH₵${deal.amount.toLocaleString()}` },
-            { label: 'Return type', value: deal.returnType.replace('_', ' ') },
-            { label: 'Return value', value: `${deal.returnValue}%` },
-            { label: 'Timeline', value: `${deal.timelineMonths} months` },
-          ].map((item, i, arr) => (
+          {terms.map((item, i, arr) => (
             <View key={item.label}>
               <View style={styles.termsRow}>
                 <Text style={styles.termsLabel}>{item.label}</Text>
@@ -349,14 +351,6 @@ export default function DealRoomScreen() {
           />
         )}
 
-        {bothSigned && !mfiApproved && user?.role === 'ADMIN' && (
-          <Button
-            title="Simulate MFI Approval"
-            onPress={handleMfiApprove}
-            variant="secondary"
-          />
-        )}
-
         {mfiApproved && isInvestor && deal.status !== 'ACTIVE' && (
           <Button
             title={deal.paystackRef ? 'Retry payment' : 'Proceed with payment'}
@@ -370,9 +364,17 @@ export default function DealRoomScreen() {
             <Ionicons name="checkmark-circle" size={18} color={Colors.accent} />
             <Text style={styles.successText}>
               Deal approved! Payment will be disbursed to the business owner's MoMo account
-              within 24 hours of payment confirmation.
+              after payment confirmation. Nkoso keeps only the platform fee shown above.
             </Text>
           </View>
+        )}
+
+        {deal.status === 'ACTIVE' && (
+          <Button
+            title="View Repayments"
+            onPress={() => router.push(`/repayments/${deal.pitchId}`)}
+            variant="secondary"
+          />
         )}
 
         <View style={{ height: 24 }} />

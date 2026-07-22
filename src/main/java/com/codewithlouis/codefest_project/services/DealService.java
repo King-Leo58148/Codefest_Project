@@ -273,7 +273,7 @@ public class DealService {
 
     /**
      * Called by the Paystack webhook whenever a charge.success event is received.
-     * This is independent of the frontend calling /verify-payment — Paystack
+     * This is independent of the frontend calling /verify-payment; Paystack
      * notifies the backend directly, so payment gets confirmed even if the
      * app never calls verify-payment (closed early, crashed, no network, etc.).
      */
@@ -296,6 +296,11 @@ public class DealService {
         String reference = (String) data.get("reference");
 
         if (reference == null || reference.isBlank()) {
+            return;
+        }
+
+        if (reference.startsWith("NKOSO-REPAY-")) {
+            repaymentService.handlePaystackCharge(reference);
             return;
         }
 
@@ -355,7 +360,7 @@ public class DealService {
                     deal.getOwner(),
                     NotificationType.PAYMENT_RECEIVED,
                     "Payment Received",
-                    "GHS " + deal.getBid().getAmount() + " has been disbursed to your MoMo account for deal #" + deal.getId(),
+                    "GHS " + getNetDisbursementAmount(deal) + " has been disbursed to your MoMo account for deal #" + deal.getId(),
                     deal.getId()
             );
         }
@@ -368,8 +373,10 @@ public class DealService {
      */
     private Deal activateDealAfterPayment(Deal deal) {
         deal.setStatus(DealStatus.ACTIVE);
-        deal.setDisbursed(true);
-        deal.setDisbursedAt(LocalDateTime.now());
+        double dealAmount = deal.getBid().getAmount();
+        double platformFee = paystackService.calculatePlatformFee(dealAmount);
+        deal.setPlatformFee(platformFee);
+        deal.setNetDisbursementAmount(dealAmount);
 
         Pitch pitch = deal.getPitch();
         double currentRaised = pitch.getAmountRaised() != null ? pitch.getAmountRaised() : 0.0;
@@ -380,28 +387,46 @@ public class DealService {
 
         Deal saved = dealRepository.save(deal);
 
-        double dealAmount = saved.getBid().getAmount();
-        double platformFee = dealAmount * 0.01;
-        double amountAfterCharge = dealAmount - platformFee;
-
         try {
             // Call Paystack to initiate the transfer
             paystackService.disburseFunds(saved);
+            saved.setDisbursed(true);
+            saved.setDisbursedAt(LocalDateTime.now());
+            saved = dealRepository.save(saved);
+
+            notificationService.createNotification(
+                    saved.getOwner(),
+                    NotificationType.PAYMENT_RECEIVED,
+                    "Payment Received",
+                    "GHS " + String.format("%.2f", getNetDisbursementAmount(saved)) + " has been disbursed to your MoMo account for deal #" + saved.getId() + ". Platform fee of GHS " + String.format("%.2f", getPlatformFee(saved)) + " was retained by Nkoso.",
+                    saved.getId()
+            );
         } catch (Exception e) {
             System.err.println("=== DISBURSEMENT FAILED for deal #" + saved.getId() + " ===");
             System.err.println("Error: " + e.getMessage());
             e.printStackTrace();
+
+            notificationService.createNotification(
+                    saved.getOwner(),
+                    NotificationType.PAYMENT_RECEIVED,
+                    "Disbursement Pending",
+                    "Payment was confirmed for deal #" + saved.getId() + ", but Paystack transfer did not complete yet. Nkoso will retry or review this disbursement.",
+                    saved.getId()
+            );
         }
 
-        // Send payment received notification immediately (bypassing webhooks)
-        notificationService.createNotification(
-                saved.getOwner(),
-                NotificationType.PAYMENT_RECEIVED,
-                "Payment Received",
-                "GHS " + String.format("%.2f", amountAfterCharge) + " has been disbursed to your MoMo account for deal #" + saved.getId() + " (1% fee applied).",
-                saved.getId()
-        );
-
         return saved;
+    }
+
+    private double getPlatformFee(Deal deal) {
+        return deal.getPlatformFee() != null
+                ? deal.getPlatformFee()
+                : paystackService.calculatePlatformFee(deal.getBid().getAmount());
+    }
+
+    private double getNetDisbursementAmount(Deal deal) {
+        return deal.getNetDisbursementAmount() != null
+                ? deal.getNetDisbursementAmount()
+                : deal.getBid().getAmount();
     }
 }

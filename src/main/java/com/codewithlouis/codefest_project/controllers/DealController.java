@@ -71,7 +71,23 @@ public class DealController {
         return ResponseEntity.ok(dealService.verifyPayment(dealId, reference));
     }
 
-    // Paystack calls this directly — must be in permitAll() in SecurityConfiguration
+    @PostMapping("/{dealId}/repayments/{repaymentId}/pay")
+    public ResponseEntity<Map<String, Object>> initiateRepaymentPayment(
+            @PathVariable Integer dealId,
+            @PathVariable Integer repaymentId) {
+        return ResponseEntity.ok(repaymentService.initiateRepaymentPayment(dealId, repaymentId));
+    }
+
+    @PostMapping("/{dealId}/repayments/{repaymentId}/verify-payment")
+    public ResponseEntity<Repayment> verifyRepaymentPayment(
+            @PathVariable Integer dealId,
+            @PathVariable Integer repaymentId,
+            @RequestBody(required = false) VerifyPaymentRequest body) {
+        String reference = (body != null) ? body.getReference() : null;
+        return ResponseEntity.ok(repaymentService.verifyRepaymentPayment(dealId, repaymentId, reference));
+    }
+
+    // Paystack calls this directly; it must be permitAll() in SecurityConfiguration.
     @PostMapping("/webhook/paystack")
     public ResponseEntity<Void> paystackWebhook(@RequestBody Map<String, Object> payload) {
         dealService.handlePaystackWebhook(payload);

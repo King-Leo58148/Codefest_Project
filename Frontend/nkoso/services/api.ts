@@ -7,6 +7,7 @@ import {
   Industry,
   Investment,
   Pitch,
+  Repayment,
   SignupVerificationResponse,
   User,
   VerificationAsset,
@@ -326,8 +327,48 @@ export async function verifyPayment(dealId: string, reference: string): Promise<
     body: JSON.stringify({ reference }),
   });
 }
-export async function getDealRepayments(dealId: string): Promise<any[]> {
-  return request(`/api/deals/${dealId}/repayments`) as Promise<any[]>;
+export async function getDealRepayments(dealId: string): Promise<Repayment[]> {
+  return ownerDataApi.normalizeDeal({
+    repaymentSchedule: await request(`/api/deals/${dealId}/repayments`),
+  }).repaymentSchedule;
+}
+export async function initiateRepaymentPayment(
+  dealId: string,
+  repaymentId: string
+): Promise<PaystackInitResponse> {
+  return request(`/api/deals/${dealId}/repayments/${repaymentId}/pay`, {
+    method: 'POST',
+  }) as Promise<PaystackInitResponse>;
+}
+export async function verifyRepaymentPayment(
+  dealId: string,
+  repaymentId: string,
+  reference: string
+): Promise<Repayment> {
+  return ownerDataApi.normalizeRepayment(
+    await request(`/api/deals/${dealId}/repayments/${repaymentId}/verify-payment`, {
+      method: 'POST',
+      body: JSON.stringify({ reference }),
+    })
+  );
+}
+
+export async function getAdminDeals(): Promise<Deal[]> {
+  return ownerDataApi.normalizeDealList(await request('/api/admin/deals'));
+}
+export async function approveMfiDeal(dealId: string): Promise<Deal> {
+  return ownerDataApi.normalizeDeal(
+    await request(`/api/admin/deals/${dealId}/approve-mfi`, {
+      method: 'PUT',
+    })
+  );
+}
+export async function rejectMfiDeal(dealId: string): Promise<Deal> {
+  return ownerDataApi.normalizeDeal(
+    await request(`/api/admin/deals/${dealId}/reject-mfi`, {
+      method: 'PUT',
+    })
+  );
 }
 
 // Notifications

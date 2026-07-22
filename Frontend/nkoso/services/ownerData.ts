@@ -231,7 +231,10 @@ export function normalizeRepayment(input: unknown): Repayment {
     amount: readNumber(repayment.amount),
     status: normalizeEnum<RepaymentStatus>(repayment.status, REPAYMENT_STATUSES, 'PENDING'),
     momoRef: readOptionalString(repayment.momoRef),
+    paystackRef: readOptionalString(repayment.paystackRef),
     collectedAt: readOptionalString(repayment.collectedAt),
+    paidAt: readOptionalString(repayment.paidAt),
+    transferredAt: readOptionalString(repayment.transferredAt),
   };
 }
 
@@ -250,6 +253,8 @@ export function normalizeDeal(input: unknown): Deal {
     mfiApproved: readBoolean(deal.mfiApproved),
     paystackRef: readOptionalString(deal.paystackRef),
     disbursedAt: readOptionalString(deal.disbursedAt),
+    platformFee: readNumber(deal.platformFee),
+    netDisbursementAmount: readNumber(deal.netDisbursementAmount),
     repaymentSchedule: Array.isArray(deal.repaymentSchedule)
       ? deal.repaymentSchedule.map(normalizeRepayment)
       : [],
@@ -318,6 +323,7 @@ export function createOwnerDataApi(request: RequestFn) {
     normalizePitchList,
     normalizeBid,
     normalizeBidList,
+    normalizeRepayment,
     normalizeDeal,
     normalizeDealList,
     getMyPitches,

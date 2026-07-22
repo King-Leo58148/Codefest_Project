@@ -7,10 +7,12 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 public interface RepaymentRepository extends JpaRepository<Repayment, Integer> {
     List<Repayment> findByDealId(Integer dealId);
     List<Repayment> findByDealIdIn(List<Integer> dealIds);
     List<Repayment> findByStatusAndDueDateLessThanEqual(RepaymentStatus status, LocalDate date);
     List<Repayment> findByStatus(RepaymentStatus status);
+    Optional<Repayment> findByPaystackRef(String paystackRef);
 }
