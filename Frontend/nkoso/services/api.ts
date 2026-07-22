@@ -67,10 +67,6 @@ export async function registerUser(
   return accountApi.signup(name, email, password, role);
 }
 
-export const verifySignupEmail = accountApi.verifySignupEmail;
-export const resendSignupCode = accountApi.resendSignupCode;
-export const forgotPassword = accountApi.forgotPassword;
-export const resetPassword = accountApi.resetPassword;
 export const updateProfile = accountApi.updateProfile;
 
 export async function verifyGhanaCard(

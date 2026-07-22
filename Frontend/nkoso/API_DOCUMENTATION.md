@@ -32,15 +32,12 @@ The deployment health check is available without authentication at `GET /actuato
 The Spring backend exposes these main endpoints:
 
 ### Authentication
-- `POST /auth/signup`
+- `POST /auth/signup` (creates an immediately verified account; email verification is disabled)
 - `POST /auth/login`
 - `POST /auth/refresh`
 - `POST /auth/logout`
 - `GET /auth/me`
-- `POST /auth/verify-email` (six-digit email code)
-- `POST /auth/resend-verification-code`
-- `POST /auth/forgot-password` (always returns a neutral response)
-- `POST /auth/reset-password` (email, six-digit code, new/confirm password)
+- Email code endpoints are disabled: `/auth/verify-email`, `/auth/resend-verification-code`, `/auth/forgot-password`, and `/auth/reset-password` return `410 Gone`.
 - `PATCH /api/profile` (only display name, current/new/confirm password, and MoMo number)
 
 ### Pitches
