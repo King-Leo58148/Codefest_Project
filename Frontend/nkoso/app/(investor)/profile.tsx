@@ -100,17 +100,28 @@ export default function ProfileScreen() {
           <SettingsRow icon="card-outline" label="Bank account" onPress={() => push('/profile/bank-account')} />
           <View style={styles.divider} />
           <SettingsRow
-            icon="shield-checkmark-outline"
-            label="Investor verification"
+            icon="card-outline"
+            label="Ghana Card"
             value={user?.ghanaCardVerified ? 'Verified' : 'Pending'}
-            onPress={() => push('/profile/verification')}
+            onPress={() => push('/profile/verification?tab=ghana-card')}
+          />
+          <View style={styles.divider} />
+          <SettingsRow
+            icon="phone-portrait-outline"
+            label="MoMo Account"
+            value={user?.momoVerified ? 'Verified' : 'Pending'}
+            onPress={() => push('/profile/verification?tab=momo')}
           />
           <View style={styles.divider} />
           <SettingsRow icon="document-text-outline" label="Tax documents" onPress={() => push('/profile/tax-documents')} />
         </View>
 
         {/* Verification status */}
-        <View style={styles.verificationCard}>
+        <TouchableOpacity
+          style={styles.verificationCard}
+          onPress={() => push('/profile/verification')}
+          activeOpacity={0.8}
+        >
           <View style={styles.verificationItem}>
             <Ionicons
               name={user?.ghanaCardVerified ? 'checkmark-circle' : 'ellipse-outline'}
@@ -127,7 +138,8 @@ export default function ProfileScreen() {
             />
             <Text style={styles.verificationText}>MoMo Account</Text>
           </View>
-        </View>
+          <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
+        </TouchableOpacity>
 
         {/* Preferences */}
         <Text style={styles.sectionLabel}>Preferences</Text>

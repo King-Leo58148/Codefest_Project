@@ -52,10 +52,7 @@ export default function RegisterScreen() {
     setLoading(true);
     try {
       await registerUser(name.trim(), email.trim(), password, role);
-      router.replace({
-        pathname: '/(auth)/login',
-        params: { email: email.trim() },
-      });
+      router.replace('/(auth)/verify-ghana-card');
     } catch (caught) {
       setError(getErrorMessage(caught, 'Registration failed. Please try again.'));
     } finally {

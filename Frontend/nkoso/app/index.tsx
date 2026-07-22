@@ -38,7 +38,7 @@ export default function CustomSplashScreen() {
           router.replace('/(investor)');
         }
       } else {
-        router.replace('/(auth)/login');
+        router.replace('/(auth)/welcome');
       }
     }
   }, [isAnimationDone, isLoading, user]);

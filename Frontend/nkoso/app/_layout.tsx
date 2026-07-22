@@ -42,7 +42,7 @@ function RootLayoutNav() {
 
     // If user is logged out, and we aren't in the auth screens or splash screen, redirect to login
     if (!user && !inAuthGroup && !isIndex) {
-      router.replace('/(auth)/login');
+      router.replace('/(auth)/welcome');
     }
   }, [user, authChecked, segments]);
 
