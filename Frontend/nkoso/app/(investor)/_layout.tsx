@@ -55,23 +55,15 @@ export default function InvestorTabLayout() {
         }}
       />
       <MaterialTopTabs.Screen
-        name="portfolio"
+        name="active-deals"
         options={{
-          title: 'Portfolio',
+          title: 'Active Deals',
           tabBarIcon: ({ color }) => (
             <Ionicons name="briefcase-outline" size={24} color={color} />
           ),
         }}
       />
-      <MaterialTopTabs.Screen
-        name="activity"
-        options={{
-          title: 'Activity',
-          tabBarIcon: ({ color }) => (
-            <Ionicons name="pulse-outline" size={24} color={color} />
-          ),
-        }}
-      />
+
       <MaterialTopTabs.Screen
         name="profile"
         options={{

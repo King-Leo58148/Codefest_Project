@@ -62,7 +62,7 @@ export default function PortfolioScreen() {
               <TouchableOpacity
                 key={deal.id}
                 style={styles.investCard}
-                onPress={() => router.push(`/deal/${deal.id}`)}
+                onPress={() => router.push({ pathname: '/deal/[id]', params: { id: deal.id } })}
                 activeOpacity={0.7}
               >
                 <View style={styles.investInfo}>

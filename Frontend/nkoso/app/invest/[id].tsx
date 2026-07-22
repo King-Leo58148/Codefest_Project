@@ -64,7 +64,7 @@ export default function InvestScreen() {
       Alert.alert(
         'Bid placed!',
         `Your bid of GH₵${finalAmount.toLocaleString()} has been sent to ${pitch.businessName}. You'll be notified when they respond.`,
-        [{ text: 'OK', onPress: () => router.replace('/(investor)/portfolio') }]
+        [{ text: 'OK', onPress: () => router.replace('/(investor)/active-deals') }]
       );
     },
     onError: () => {

@@ -90,7 +90,7 @@ export default function OwnerDashboardScreen() {
         const deals = await getMyDeals();
         const deal = deals.find((d) => d.bidId === bid.id);
         if (deal) {
-          router.push(`/deal/${deal.id}`);
+          router.push({ pathname: '/deal/[id]', params: { id: deal.id } });
           return;
         }
         Alert.alert('Processing', 'Your deal is being created.');

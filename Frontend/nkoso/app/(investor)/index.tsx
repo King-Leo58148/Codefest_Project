@@ -78,7 +78,7 @@ export default function HomeScreen() {
             {[
               { icon: 'compass-outline', label: 'Explore', route: '/(investor)/explore' },
               { icon: 'heart-outline', label: 'Watchlist', route: '/(investor)/explore' },
-              { icon: 'briefcase-outline', label: 'My Deals', route: '/(investor)/portfolio' },
+              { icon: 'briefcase-outline', label: 'My Deals', route: '/(investor)/active-deals' },
               { icon: 'notifications-outline', label: 'Notifications', route: '/notifications' },
             ].map((item) => (
               <TouchableOpacity
