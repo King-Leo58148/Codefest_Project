@@ -1,7 +1,8 @@
 import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
 
 export default defineConfig({
-  // ...your existing config
+  plugins: [react()],
   define: {
     global: 'window',
   },
