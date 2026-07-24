@@ -45,7 +45,12 @@ function PitchDetail() {
       setBidAmount('')
       setTimeout(() => navigate('/my-bids'), 3000)
     } catch (err) {
-      setBidError(err.response?.data?.error || 'Failed to place bid.')
+      const serverMsg = err.response?.data?.message || err.response?.data?.error || err.message || ''
+      if (serverMsg.toLowerCase().includes('verification') || serverMsg.includes('Please complete verification process')) {
+        setBidError('Please complete verification process.')
+      } else {
+        setBidError(err.response?.data?.error || err.response?.data?.message || 'Failed to place bid.')
+      }
     } finally {
       setBidding(false)
     }

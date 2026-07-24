@@ -67,8 +67,13 @@ export default function InvestScreen() {
         [{ text: 'OK', onPress: () => router.replace('/(investor)/active-deals') }]
       );
     },
-    onError: () => {
-      Alert.alert('Error', 'Failed to place bid. Please try again.');
+    onError: (error: any) => {
+      const msg = error?.message || '';
+      if (msg.includes('verification') || msg.includes('Please complete verification process')) {
+        Alert.alert('Verification required', 'Please complete verification process.');
+      } else {
+        Alert.alert('Error', 'Failed to place bid. Please try again.');
+      }
     }
   });
 

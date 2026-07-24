@@ -94,7 +94,12 @@ export default function PitchesScreen() {
       );
     },
     onError: (error: any) => {
-      Alert.alert('Error', error.message || 'Failed to submit pitch');
+      const msg = error?.message || '';
+      if (msg.includes('verification') || msg.includes('Please complete verification process')) {
+        Alert.alert('Verification required', 'Please complete verification process.');
+      } else {
+        Alert.alert('Error', error.message || 'Failed to submit pitch');
+      }
     }
   });
 

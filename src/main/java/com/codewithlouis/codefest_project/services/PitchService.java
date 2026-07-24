@@ -33,7 +33,7 @@ public class PitchService {
 
         // 2. Verification checks
         if (!owner.isGhanaCardVerified() || !owner.isMomoVerified()) {
-            throw new RuntimeException("You must complete Ghana Card and MoMo verification before posting a pitch");
+            throw new RuntimeException("Please complete verification process.");
         }
         if (owner.getRole() != Role.OWNER && owner.getRole() != Role.BOTH) {
             throw new RuntimeException("Only business owners can post a pitch");

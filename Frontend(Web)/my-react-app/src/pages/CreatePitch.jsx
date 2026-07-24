@@ -58,7 +58,12 @@ function CreatePitch() {
       setStep(3)
     } catch (err) {
       console.error('Failed to create pitch', err)
-      setError('Failed to create pitch. Please check your inputs and try again.')
+      const serverMsg = err.response?.data?.message || err.response?.data?.error || err.message || ''
+      if (serverMsg.toLowerCase().includes('verification') || serverMsg.includes('Please complete verification process')) {
+        setError('Please complete verification process.')
+      } else {
+        setError('Failed to create pitch. Please check your inputs and try again.')
+      }
     } finally {
       setLoading(false)
     }

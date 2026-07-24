@@ -8,6 +8,7 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Linking,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -25,6 +26,10 @@ const TOPICS = [
   'Account access',
   'Other',
 ];
+
+const SUPPORT_PHONE = '+233207113678';
+const SUPPORT_WHATSAPP = '233207113678'; // wa.me requires no leading +
+const SUPPORT_EMAIL = 'nkosobusiness@gmail.com';
 
 export default function ContactSupportScreen() {
   const { user } = useAuthStore();
@@ -52,6 +57,23 @@ export default function ContactSupportScreen() {
     setLoading(false);
     setSubmitted(true);
   };
+
+  const openLink = async (url: string, errorLabel: string) => {
+    try {
+      const supported = await Linking.canOpenURL(url);
+      if (supported) {
+        await Linking.openURL(url);
+      } else {
+        Alert.alert('Unable to open', `Could not open ${errorLabel}.`);
+      }
+    } catch {
+      Alert.alert('Unable to open', `Could not open ${errorLabel}.`);
+    }
+  };
+
+  const handleWhatsApp = () => openLink(`https://wa.me/${SUPPORT_WHATSAPP}`, 'WhatsApp');
+  const handleCall = () => openLink(`tel:${SUPPORT_PHONE}`, 'the dialer');
+  const handleEmail = () => openLink(`mailto:${SUPPORT_EMAIL}`, 'email');
 
   if (submitted) {
     return (
@@ -98,21 +120,21 @@ export default function ContactSupportScreen() {
         >
           {/* Quick contact channels */}
           <View style={styles.channelsRow}>
-            <TouchableOpacity style={styles.channelBtn} activeOpacity={0.8}>
+            <TouchableOpacity style={styles.channelBtn} activeOpacity={0.8} onPress={handleWhatsApp}>
               <View style={[styles.channelIcon, { backgroundColor: '#F0FDF4' }]}>
                 <Ionicons name="logo-whatsapp" size={20} color="#16A34A" />
               </View>
               <Text style={styles.channelLabel}>WhatsApp</Text>
               <Text style={styles.channelSub}>Fastest</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.channelBtn} activeOpacity={0.8}>
+            <TouchableOpacity style={styles.channelBtn} activeOpacity={0.8} onPress={handleCall}>
               <View style={[styles.channelIcon, { backgroundColor: '#EFF6FF' }]}>
                 <Ionicons name="call-outline" size={20} color={Colors.primary} />
               </View>
               <Text style={styles.channelLabel}>Call us</Text>
               <Text style={styles.channelSub}>Mon–Fri 8am–6pm</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.channelBtn} activeOpacity={0.8}>
+            <TouchableOpacity style={styles.channelBtn} activeOpacity={0.8} onPress={handleEmail}>
               <View style={[styles.channelIcon, { backgroundColor: '#FFF7ED' }]}>
                 <Ionicons name="mail-outline" size={20} color="#EA580C" />
               </View>
@@ -155,18 +177,16 @@ export default function ContactSupportScreen() {
             leftIcon="document-outline"
           />
 
-          <View style={styles.textareaContainer}>
-            <Text style={styles.fieldLabel}>Message</Text>
-            <Input
-              value={message}
-              onChangeText={setMessage}
-              placeholder="Describe your issue in detail. The more context you provide, the faster we can help."
-              multiline
-              numberOfLines={5}
-              textAlignVertical="top"
-              style={styles.textarea}
-            />
-          </View>
+          <Input
+            label="Message"
+            value={message}
+            onChangeText={setMessage}
+            placeholder="Describe your issue in detail. The more context you provide, the faster we can help."
+            multiline
+            numberOfLines={5}
+            textAlignVertical="top"
+            style={styles.textarea}
+          />
 
           <View style={styles.replyInfo}>
             <Ionicons name="time-outline" size={14} color={Colors.textMuted} />
@@ -252,7 +272,6 @@ const styles = StyleSheet.create({
   },
   topicChipText: { fontSize: 13, fontWeight: '500', color: Colors.textSecondary },
   topicChipTextActive: { color: '#fff' },
-  textareaContainer: { gap: 0 },
   textarea: { minHeight: 120, paddingTop: 14 },
   replyInfo: {
     flexDirection: 'row',
