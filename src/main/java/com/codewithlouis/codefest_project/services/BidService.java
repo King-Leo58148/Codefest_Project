@@ -31,7 +31,7 @@ public class BidService {
         User investor = getCurrentUser();
 
         if (!investor.isGhanaCardVerified() || !investor.isMomoVerified()) {
-            throw new RuntimeException("You must complete verification before placing a bid");
+            throw new RuntimeException("Please complete verification process.");
         }
 
         Pitch pitch = pitchRepository.findById(pitchId)

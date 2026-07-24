@@ -193,30 +193,32 @@ export default function VerificationScreen() {
               <View style={styles.verifiedBox}>
                 <Ionicons name="checkmark-circle" size={20} color={Colors.accent} />
                 <Text style={styles.verifiedText}>
-                  Your Ghana Card is verified. You can re-verify below if needed.
+                  Your Ghana Card is verified. No further action is needed.
                 </Text>
               </View>
-            ) : null}
-
-            <Input
-              placeholder="GHA-XXXXXXXXX-X"
-              value={cardNumber}
-              onChangeText={setCardNumber}
-              autoCapitalize="characters"
-              leftIcon="card-outline"
-              label="Card Number"
-            />
-            <TouchableOpacity onPress={chooseImage} style={styles.upload}>
-              <Ionicons name="image-outline" size={20} color={Colors.primary} />
-              <Text style={styles.uploadText}>
-                {asset ? asset.fileName || "Ghana Card image selected ✓" : "Choose Ghana Card image"}
-              </Text>
-            </TouchableOpacity>
-            <Button
-              title={user?.ghanaCardVerified ? "Re-verify Ghana Card" : "Verify Ghana Card"}
-              onPress={verifyCard}
-              loading={cardLoading}
-            />
+            ) : (
+              <>
+                <Input
+                  placeholder="GHA-XXXXXXXXX-X"
+                  value={cardNumber}
+                  onChangeText={setCardNumber}
+                  autoCapitalize="characters"
+                  leftIcon="card-outline"
+                  label="Card Number"
+                />
+                <TouchableOpacity onPress={chooseImage} style={styles.upload}>
+                  <Ionicons name="image-outline" size={20} color={Colors.primary} />
+                  <Text style={styles.uploadText}>
+                    {asset ? asset.fileName || "Ghana Card image selected ✓" : "Choose Ghana Card image"}
+                  </Text>
+                </TouchableOpacity>
+                <Button
+                  title="Verify Ghana Card"
+                  onPress={verifyCard}
+                  loading={cardLoading}
+                />
+              </>
+            )}
           </View>
         ) : (
           <View style={styles.card}>

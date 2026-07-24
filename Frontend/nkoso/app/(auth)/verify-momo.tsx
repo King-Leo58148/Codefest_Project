@@ -13,15 +13,19 @@ import { Colors } from '@/constants/Colors';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { useAuthStore } from '@/store/authStore';
-import { verifyMomo } from '@/services/api';
+import { verifyMomo, getCurrentUser } from '@/services/api';
 
 export default function VerifyMomoScreen() {
   const [momoNumber, setMomoNumber] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const { user, setUser } = useAuthStore();
+  const { user, setUser, token } = useAuthStore();
 
   const handleVerify = async () => {
+    if (!token || !user) {
+      setError('User session not initialized. Please sign in to complete verification.');
+      return;
+    }
     const cleaned = momoNumber.replace(/\D/g, '');
     if (!cleaned || cleaned.length < 10) {
       setError('Please enter a valid MTN MoMo number (10 digits).');
@@ -31,8 +35,9 @@ export default function VerifyMomoScreen() {
     setLoading(true);
     try {
       const verified = await verifyMomo(cleaned);
-      if (verified && user) {
-        setUser({ ...user, momoVerified: true, momoNumber: cleaned });
+      if (verified) {
+        const currentUser = await getCurrentUser();
+        setUser(currentUser);
         Alert.alert(
           'Verification Complete!',
           'Your identity and MoMo account have been verified. Welcome to Nkɔso!',
@@ -40,7 +45,7 @@ export default function VerifyMomoScreen() {
             {
               text: 'Continue',
               onPress: () => {
-                if (user.role === 'OWNER') {
+                if (currentUser.role === 'OWNER') {
                   router.replace('/(owner)');
                 } else {
                   router.replace('/(investor)');
@@ -49,6 +54,8 @@ export default function VerifyMomoScreen() {
             },
           ]
         );
+      } else {
+        setError('MoMo verification failed. Please check your number and try again.');
       }
     } catch {
       setError('MoMo verification failed. Please check your number and try again.');

@@ -112,8 +112,7 @@ export default function ProfileScreen() {
             value={user?.momoVerified ? 'Verified' : 'Pending'}
             onPress={() => push('/profile/verification?tab=momo')}
           />
-          <View style={styles.divider} />
-          <SettingsRow icon="document-text-outline" label="Tax documents" onPress={() => push('/profile/tax-documents')} />
+
         </View>
 
         {/* Verification status */}

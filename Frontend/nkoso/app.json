@@ -4,18 +4,21 @@
     "slug": "nkoso",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/nkoso-app-icon.png",
     "scheme": "nkoso",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.anonymous.nkoso",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "backgroundColor": "#FFFFFF",
+        "foregroundImage": "./assets/images/nkoso-adaptive-foreground.png",
+        "monochromeImage": "./assets/images/nkoso-adaptive-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.anonymous.nkoso"
@@ -23,22 +26,28 @@
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/nkoso-app-icon.png"
     },
     "plugins": [
       "expo-router",
       [
         "expo-splash-screen",
         {
-          "image": "./assets/logo.png",
+          "image": "./assets/images/nkoso-splash.png",
           "resizeMode": "contain",
-          "backgroundColor": "#0D1B3E"
+          "backgroundColor": "#FFFFFF"
         }
       ],
       "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "08d74f63-a321-4f9d-bf4a-57570c267f1a"
+      }
     }
   }
 }

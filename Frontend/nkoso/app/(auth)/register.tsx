@@ -13,8 +13,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
-import { registerUser } from '@/services/api';
+import { registerUser, loginUser } from '@/services/api';
 import { passwordsMatch } from '@/services/accountValidation';
+import { useAuthStore } from '@/store/authStore';
 
 type Role = 'INVESTOR' | 'OWNER';
 
@@ -26,6 +27,8 @@ export default function RegisterScreen() {
   const [role, setRole] = useState<Role>('INVESTOR');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const { setUser, setToken } = useAuthStore();
 
   const getErrorMessage = (value: unknown, fallback: string) => {
     if (value instanceof Error && value.message.trim().length > 0) {
@@ -52,6 +55,9 @@ export default function RegisterScreen() {
     setLoading(true);
     try {
       await registerUser(name.trim(), email.trim(), password, role);
+      const session = await loginUser(email.trim(), password);
+      setUser(session.user);
+      setToken(session.token);
       router.replace('/(auth)/verify-ghana-card');
     } catch (caught) {
       setError(getErrorMessage(caught, 'Registration failed. Please try again.'));

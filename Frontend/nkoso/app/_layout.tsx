@@ -67,7 +67,7 @@ function RootLayoutNav() {
         <Stack.Screen name="profile/personal-info" />
         <Stack.Screen name="profile/bank-account" />
         <Stack.Screen name="profile/verification" />
-        <Stack.Screen name="profile/tax-documents" />
+
         <Stack.Screen name="profile/notification-settings" />
         <Stack.Screen name="profile/email-preferences" />
         <Stack.Screen name="profile/payment-methods" />
