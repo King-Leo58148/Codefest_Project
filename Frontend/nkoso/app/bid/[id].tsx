@@ -7,13 +7,15 @@ import {
   TouchableOpacity,
   TextInput,
   Alert,
-  ActivityIndicator,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/Colors';
 import { Button } from '@/components/ui/Button';
+import { ScreenState } from '@/components/ui/ScreenState';
+import { cardStyles } from '@/components/ui/Card';
+import { FadeInView } from '@/components/ui/FadeInView';
 import { getBid, counterBid } from '@/services/api';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
@@ -64,21 +66,45 @@ export default function BidDetailScreen() {
   });
 
   const handleCounter = () => {
+    const amt = parseFloat(counterAmount);
+    if (isNaN(amt) || amt < 100) {
+      Alert.alert('Invalid amount', 'Minimum counter amount is GH₵ 100');
+      return;
+    }
+    const ret = parseFloat(counterReturn);
+    if (bid?.returnType === 'EQUITY' && (isNaN(ret) || ret < 1 || ret > 100)) {
+      Alert.alert('Invalid equity', 'Equity must be between 1% and 100%');
+      return;
+    }
+    if (bid?.returnType === 'REVENUE_SHARE' && (isNaN(ret) || ret < 1 || ret > 100)) {
+      Alert.alert('Invalid revenue share', 'Revenue share must be between 1% and 100%');
+      return;
+    }
+    if (bid?.returnType === 'FIXED' && (isNaN(ret) || ret < 100)) {
+      Alert.alert('Invalid fixed return', 'Minimum fixed return is GH₵ 100');
+      return;
+    }
     counterMutation.mutate();
   };
 
   if (loadingBid) {
     return (
-      <SafeAreaView style={[styles.safe, { justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color={Colors.primary} />
+      <SafeAreaView style={styles.safe} edges={['top']}>
+        <ScreenState loading title="Loading bid details" />
       </SafeAreaView>
     );
   }
 
   if (!bid) {
     return (
-      <SafeAreaView style={styles.safe}>
-        <Text style={{ textAlign: 'center', marginTop: 40 }}>Bid not found.</Text>
+      <SafeAreaView style={styles.safe} edges={['top']}>
+        <ScreenState
+          icon="people-outline"
+          title="Bid not found"
+          detail="This bid may no longer be available."
+          action="Go back"
+          onPress={() => router.back()}
+        />
       </SafeAreaView>
     );
   }
@@ -86,7 +112,7 @@ export default function BidDetailScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} activeOpacity={0.7}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} activeOpacity={0.72}>
           <Ionicons name="arrow-back" size={22} color={Colors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Bid Details</Text>
@@ -95,7 +121,7 @@ export default function BidDetailScreen() {
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
         {/* Investor info */}
-        <View style={styles.investorCard}>
+        <FadeInView style={styles.investorCard}>
           <View style={styles.investorAvatar}>
             <Text style={styles.investorAvatarText}>{bid.investorName ? bid.investorName[0] : 'I'}</Text>
           </View>
@@ -108,7 +134,7 @@ export default function BidDetailScreen() {
               {bid.status}
             </Text>
           </View>
-        </View>
+        </FadeInView>
 
         {/* Original bid */}
         <Text style={styles.sectionTitle}>Original bid</Text>
@@ -262,8 +288,8 @@ const styles = StyleSheet.create({
     borderBottomColor: Colors.border,
   },
   backBtn: {
-    width: 38,
-    height: 38,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -279,6 +305,7 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   investorCard: {
+    ...cardStyles.surface,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
@@ -325,6 +352,7 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
   },
   termsCard: {
+    ...cardStyles.surface,
     backgroundColor: Colors.borderLight,
     borderRadius: 14,
     overflow: 'hidden',
@@ -356,6 +384,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.borderLight,
     borderRadius: 10,
     padding: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   noteText: {
     flex: 1,
@@ -380,11 +410,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Colors.inputBg,
-    borderRadius: 10,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: Colors.border,
     paddingHorizontal: 14,
-    height: 50,
+    minHeight: 52,
   },
   fieldInputText: {
     flex: 1,
@@ -397,7 +427,7 @@ const styles = StyleSheet.create({
   },
   noteInput: {
     backgroundColor: Colors.inputBg,
-    borderRadius: 10,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: Colors.border,
     padding: 14,
@@ -411,6 +441,8 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 12,
     alignItems: 'flex-start',
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   acceptedInfo: { gap: 4 },
   acceptedTitle: {

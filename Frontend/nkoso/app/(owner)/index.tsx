@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  ActivityIndicator,
   RefreshControl,
   Alert,
 } from 'react-native';
@@ -16,9 +15,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '@/constants/Colors';
 import { useAuthStore } from '@/store/authStore';
+import { ScreenState } from '@/components/ui/ScreenState';
+import { cardStyles } from '@/components/ui/Card';
 import { useQuery } from '@tanstack/react-query';
-import { getMyPitches, getBidsForPitch, getMyDeals } from '@/services/api';
+import { getMyPitches, getBidsForPitch, getMyDeals, getNotifications } from '@/services/api';
 import { ProgressBar } from '@/components/ui/ProgressBar';
+import { FadeInView, SlideInView } from '@/components/ui/FadeInView';
+import { PressableScale } from '@/components/ui/PressableScale';
+import { MiniChart } from '@/components/portfolio/MiniChart';
 
 export default function OwnerDashboardScreen() {
   const { user } = useAuthStore();
@@ -51,13 +55,17 @@ export default function OwnerDashboardScreen() {
     enabled: myPitches.length > 0,
   });
 
-  // Refresh dashboard data every time this screen regains focus
-  // (e.g. after coming back from paying/signing a deal in the Deal Room)
+  const { data: notifications = [] } = useQuery({
+    queryKey: ['notifications'],
+    queryFn: () => getNotifications(),
+  });
+
+  const unreadNotifCount = notifications.filter((n: any) => !n.read).length;
+
   useFocusEffect(
     React.useCallback(() => {
       refetchPitches();
       if (myPitches.length > 0) refetchBids();
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [pitchIds])
   );
 
@@ -82,8 +90,6 @@ export default function OwnerDashboardScreen() {
     )
     .slice(0, 3);
 
-  // If a bid has been accepted, route to its Deal Room instead of
-  // the read-only Bid Details screen.
   const handleBidPress = async (bid: (typeof allBids)[number]) => {
     if (bid.status === 'ACCEPTED') {
       try {
@@ -96,7 +102,7 @@ export default function OwnerDashboardScreen() {
         Alert.alert('Processing', 'Your deal is being created.');
         return;
       } catch {
-        // fall through to bid details if the deals lookup fails
+        // fall through to bid details
       }
     }
     router.push(`/bid/${bid.id}`);
@@ -104,194 +110,230 @@ export default function OwnerDashboardScreen() {
 
   if (loadingPitches || loadingBids) {
     return (
-      <SafeAreaView style={[styles.safe, { justifyContent: 'center', alignItems: 'center' }]} edges={['top']}>
-        <ActivityIndicator size="large" color={Colors.primary} />
+      <SafeAreaView style={styles.safe} edges={['top']}>
+        <ScreenState loading title="Loading dashboard" />
       </SafeAreaView>
     );
   }
+
+  const sparklineData = [totalRaised * 0.2, totalRaised * 0.35, totalRaised * 0.5, totalRaised * 0.65, totalRaised * 0.8, totalRaised || 1000];
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
         }
       >
         {/* Header */}
-        <View style={styles.header}>
+        <SlideInView from="left" style={styles.header}>
           <View>
-            <Text style={styles.greeting}>Hello, {firstName}</Text>
-            <Text style={styles.title}>Your Dashboard</Text>
+            <Text style={styles.greeting}>Welcome back, {firstName}</Text>
+            <Text style={styles.title}>Business Dashboard</Text>
           </View>
-          <TouchableOpacity style={styles.bellBtn} onPress={() => router.push('/notifications')} activeOpacity={0.7}>
+          <TouchableOpacity
+            style={styles.bellBtn}
+            onPress={() => router.push('/notifications')}
+            activeOpacity={0.75}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
             <Ionicons name="notifications-outline" size={22} color={Colors.textPrimary} />
+            {unreadNotifCount > 0 && <View style={styles.bellDot} />}
+          </TouchableOpacity>
+        </SlideInView>
+
+        {/* Stats Row */}
+        <FadeInView delay={60} style={styles.statsRow}>
+          <View style={[styles.statCardSmall, styles.primaryStatCard]}>
+            <View style={styles.statCardTop}>
+              <Text style={styles.statLabelLight}>TOTAL CAPITAL RAISED</Text>
+              <Ionicons name="trending-up" size={16} color={Colors.accent} />
+            </View>
+            <Text style={styles.statValueLight}>GH₵{formatCurrency(totalRaised)}</Text>
+            <View style={styles.chartWrap}>
+              <MiniChart data={sparklineData} width={130} height={32} color={Colors.accent} showFill />
+            </View>
+          </View>
+
+          <View style={styles.statSubRow}>
+            <View style={styles.statCardSmall}>
+              <Text style={styles.statValue}>{allBids.length}</Text>
+              <Text style={styles.statLabel}>Total bids</Text>
+            </View>
+            <View style={[styles.statCardSmall, pendingBids > 0 && styles.statCardHighlight]}>
+              <Text style={[styles.statValue, pendingBids > 0 && styles.statValueHighlight]}>
+                {pendingBids}
+              </Text>
+              <Text style={styles.statLabel}>Pending bids</Text>
+            </View>
+          </View>
+        </FadeInView>
+
+        {/* Active Pitch Card(s) */}
+        <View style={styles.sectionHeaderRow}>
+          <Text style={styles.sectionTitle}>
+            Active pitch{livePitches.length !== 1 ? 'es' : ''}
+          </Text>
+          <TouchableOpacity onPress={() => router.push('/(owner)/pitches')} activeOpacity={0.7}>
+            <Text style={styles.viewAll}>Manage</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Stats Row */}
-        <View style={styles.statsRow}>
-          <View style={styles.statCard}>
-            <Text style={styles.statValue}>GH₵{formatCurrency(totalRaised)}</Text>
-            <Text style={styles.statLabel}>Total raised</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statValue}>{allBids.length}</Text>
-            <Text style={styles.statLabel}>Total bids</Text>
-          </View>
-          <View style={[styles.statCard, pendingBids > 0 && styles.statCardHighlight]}>
-            <Text
-              style={[styles.statValue, pendingBids > 0 && styles.statValueHighlight]}
-            >
-              {pendingBids}
-            </Text>
-            <Text style={styles.statLabel}>Pending bids</Text>
-          </View>
-        </View>
-
-        {/* Active Pitch Card(s) */}
-        <Text style={styles.sectionTitle}>
-          Active pitch{livePitches.length !== 1 ? 'es' : ''}
-        </Text>
         {livePitches.length > 0 ? (
-          livePitches.map((pitch) => {
+          livePitches.map((pitch, index) => {
             const raisedAmount = Number(pitch.amountRaised ?? 0);
             const neededAmount = Number(pitch.amountNeeded ?? 0);
             const fundedPercent =
               neededAmount > 0 ? (raisedAmount / neededAmount) * 100 : 0;
             return (
-              <View key={pitch.id} style={styles.pitchCard}>
-                <LinearGradient
-                  colors={[Colors.primary, '#162040']}
-                  style={styles.pitchGradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                >
-                  <View style={styles.pitchCardHeader}>
-                    <View>
-                      <Text style={styles.pitchName}>{pitch.businessName}</Text>
-                      <Text style={styles.pitchIndustry}>{pitch.industry}</Text>
-                    </View>
-                    <View style={styles.statusBadge}>
-                      <View style={styles.statusDot} />
-                      <Text style={styles.statusText}>Live</Text>
-                    </View>
-                  </View>
+              <FadeInView key={pitch.id} delay={100 + index * 40}>
+                <PressableScale onPress={() => router.push(`/pitch/${pitch.id}`)}>
+                  <View style={styles.pitchCard}>
+                    <LinearGradient
+                      colors={[Colors.primary, '#162040']}
+                      style={styles.pitchGradient}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                    >
+                      <View style={styles.pitchCardHeader}>
+                        <View style={{ flex: 1, marginRight: 8 }}>
+                          <Text style={styles.pitchName} numberOfLines={1}>{pitch.businessName}</Text>
+                          <Text style={styles.pitchIndustry}>{pitch.industry}</Text>
+                        </View>
+                        <View style={styles.statusBadge}>
+                          <View style={styles.statusDot} />
+                          <Text style={styles.statusText}>Live</Text>
+                        </View>
+                      </View>
 
-                  <View style={styles.pitchAmounts}>
-                    <Text style={styles.pitchRaised}>
-                      GH₵{formatCurrency(pitch.amountRaised)}
-                    </Text>
-                    <Text style={styles.pitchGoal}>
-                      of GH₵{formatCurrency(pitch.amountNeeded)}
-                    </Text>
-                  </View>
+                      <View style={styles.pitchAmounts}>
+                        <Text style={styles.pitchRaised}>
+                          GH₵{formatCurrency(pitch.amountRaised)}
+                        </Text>
+                        <Text style={styles.pitchGoal}>
+                          of GH₵{formatCurrency(pitch.amountNeeded)}
+                        </Text>
+                      </View>
 
-                  <ProgressBar percent={fundedPercent} height={6} color={Colors.accent} />
-                  <Text style={styles.pitchPercent}>{fundedPercent.toFixed(0)}% funded</Text>
+                      <ProgressBar percent={fundedPercent} height={6} color={Colors.accent} />
+                      <View style={styles.percentRow}>
+                        <Text style={styles.pitchPercent}>{fundedPercent.toFixed(0)}% funded</Text>
+                        <Text style={styles.pitchPercentSub}>
+                          GH₵{(neededAmount - raisedAmount > 0 ? neededAmount - raisedAmount : 0).toLocaleString()} remaining
+                        </Text>
+                      </View>
 
-                  <View style={styles.pitchMeta}>
-                    <Ionicons name="location-outline" size={12} color="rgba(255,255,255,0.6)" />
-                    <Text style={styles.pitchMetaText}>{pitch.location}</Text>
-                    <Ionicons name="calendar-outline" size={12} color="rgba(255,255,255,0.6)" />
-                    <Text style={styles.pitchMetaText}>
-                      Ends {formatDate(pitch.campaignEndDate)}
-                    </Text>
+                      <View style={styles.pitchMeta}>
+                        <View style={styles.pitchMetaChip}>
+                          <Ionicons name="location-outline" size={11} color="rgba(255,255,255,0.7)" />
+                          <Text style={styles.pitchMetaText}>{pitch.location}</Text>
+                        </View>
+                        <View style={styles.pitchMetaChip}>
+                          <Ionicons name="calendar-outline" size={11} color="rgba(255,255,255,0.7)" />
+                          <Text style={styles.pitchMetaText}>
+                            Ends {formatDate(pitch.campaignEndDate)}
+                          </Text>
+                        </View>
+                      </View>
+                    </LinearGradient>
                   </View>
-                </LinearGradient>
-              </View>
+                </PressableScale>
+              </FadeInView>
             );
           })
         ) : (
-          <View style={styles.pitchCard}>
-            <View
-              style={[
-                styles.pitchGradient,
-                { backgroundColor: Colors.surface, padding: 30, alignItems: 'center' },
-              ]}
-            >
-              <Text style={{ color: Colors.textMuted }}>No active pitches found.</Text>
+          <FadeInView delay={100}>
+            <View style={styles.emptyPitchCard}>
+              <Ionicons name="megaphone-outline" size={32} color={Colors.textMuted} />
+              <Text style={styles.emptyPitchTitle}>No active pitches</Text>
+              <Text style={styles.emptyPitchSubtitle}>Create a pitch to start receiving investment bids</Text>
+              <TouchableOpacity
+                style={styles.createPitchAction}
+                onPress={() => router.push('/(owner)/pitches')}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="add-circle-outline" size={16} color={Colors.primary} />
+                <Text style={styles.createPitchActionText}>Create Pitch</Text>
+              </TouchableOpacity>
             </View>
-          </View>
+          </FadeInView>
         )}
 
         {/* Quick Actions */}
         <Text style={styles.sectionTitle}>Quick actions</Text>
         <View style={styles.actionsRow}>
-          <TouchableOpacity
-            style={styles.actionCard}
-            onPress={() => router.push('/(owner)/bids')}
-            activeOpacity={0.8}
-          >
-            <View style={[styles.actionIcon, { backgroundColor: '#EFF6FF' }]}>
-              <Ionicons name="people-outline" size={22} color="#3B82F6" />
-            </View>
-            <Text style={styles.actionLabel}>Review Bids</Text>
-            {pendingBids > 0 && (
-              <View style={styles.actionBadge}>
-                <Text style={styles.actionBadgeText}>{pendingBids}</Text>
+          <PressableScale style={{ flex: 1 }} onPress={() => router.push('/(owner)/bids')}>
+            <View style={styles.actionCard}>
+              <View style={[styles.actionIcon, { backgroundColor: '#EFF6FF' }]}>
+                <Ionicons name="people" size={20} color="#2563EB" />
               </View>
-            )}
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.actionCard}
-            onPress={() => router.push('/(owner)/pitches')}
-            activeOpacity={0.8}
-          >
-            <View style={[styles.actionIcon, { backgroundColor: '#FFF7ED' }]}>
-              <Ionicons name="megaphone-outline" size={22} color="#EA580C" />
+              <Text style={styles.actionLabel}>Review Bids</Text>
+              {pendingBids > 0 && (
+                <View style={styles.actionBadge}>
+                  <Text style={styles.actionBadgeText}>{pendingBids}</Text>
+                </View>
+              )}
             </View>
-            <Text style={styles.actionLabel}>My Pitches</Text>
-          </TouchableOpacity>
+          </PressableScale>
 
-          <TouchableOpacity
-            style={styles.actionCard}
-            onPress={() => router.push('/(owner)/profile')}
-            activeOpacity={0.8}
-          >
-            <View style={[styles.actionIcon, { backgroundColor: '#F0FDF4' }]}>
-              <Ionicons name="person-outline" size={22} color={Colors.accent} />
+          <PressableScale style={{ flex: 1 }} onPress={() => router.push('/(owner)/pitches')}>
+            <View style={styles.actionCard}>
+              <View style={[styles.actionIcon, { backgroundColor: '#FFF7ED' }]}>
+                <Ionicons name="megaphone" size={20} color="#EA580C" />
+              </View>
+              <Text style={styles.actionLabel}>My Pitches</Text>
             </View>
-            <Text style={styles.actionLabel}>Profile</Text>
-          </TouchableOpacity>
+          </PressableScale>
+
+          <PressableScale style={{ flex: 1 }} onPress={() => router.push('/(owner)/profile')}>
+            <View style={styles.actionCard}>
+              <View style={[styles.actionIcon, { backgroundColor: '#F0FDF4' }]}>
+                <Ionicons name="person" size={20} color={Colors.accent} />
+              </View>
+              <Text style={styles.actionLabel}>Profile</Text>
+            </View>
+          </PressableScale>
         </View>
 
         {/* Recent bids */}
-        <Text style={styles.sectionTitle}>Recent bids</Text>
+        <View style={styles.sectionHeaderRow}>
+          <Text style={styles.sectionTitle}>Recent bids</Text>
+          <TouchableOpacity onPress={() => router.push('/(owner)/bids')} activeOpacity={0.7}>
+            <Text style={styles.viewAll}>View all</Text>
+          </TouchableOpacity>
+        </View>
+
         {recentBids.length > 0 ? (
-          recentBids.map((bid) => (
-            <TouchableOpacity
-              key={bid.id}
-              style={styles.bidRow}
-              onPress={() => handleBidPress(bid)}
-              activeOpacity={0.8}
-            >
-              <View style={styles.bidAvatar}>
-                <Text style={styles.bidAvatarText}>
-                  {bid.investorName ? bid.investorName[0] : 'I'}
-                </Text>
-              </View>
-              <View style={styles.bidInfo}>
-                <Text style={styles.bidInvestor}>{bid.investorName || 'Investor'}</Text>
-                <Text style={styles.bidDetails}>
-                  GH₵{formatCurrency(bid.amount)} · {bid.returnType} · {bid.timelineMonths}mo
-                </Text>
-              </View>
-              <View style={[styles.bidStatus, { backgroundColor: getBidStatusBg(bid.status) }]}>
-                <Text style={[styles.bidStatusText, { color: getBidStatusColor(bid.status) }]}>
-                  {bid.status}
-                </Text>
-              </View>
-            </TouchableOpacity>
+          recentBids.map((bid, idx) => (
+            <FadeInView key={bid.id} delay={idx * 30}>
+              <PressableScale onPress={() => handleBidPress(bid)}>
+                <View style={styles.bidRow}>
+                  <View style={styles.bidAvatar}>
+                    <Text style={styles.bidAvatarText}>
+                      {bid.investorName ? bid.investorName[0] : 'I'}
+                    </Text>
+                  </View>
+                  <View style={styles.bidInfo}>
+                    <Text style={styles.bidInvestor}>{bid.investorName || 'Investor'}</Text>
+                    <Text style={styles.bidDetails}>
+                      GH₵{formatCurrency(bid.amount)} · {bid.returnType.replace(/_/g, ' ')} · {bid.timelineMonths}mo
+                    </Text>
+                  </View>
+                  <View style={[styles.bidStatus, { backgroundColor: getBidStatusBg(bid.status) }]}>
+                    <Text style={[styles.bidStatusText, { color: getBidStatusColor(bid.status) }]}>
+                      {bid.status}
+                    </Text>
+                  </View>
+                </View>
+              </PressableScale>
+            </FadeInView>
           ))
         ) : (
-          <Text style={{ textAlign: 'center', color: Colors.textMuted, marginTop: 10, marginBottom: 20 }}>
-            No bids yet
+          <Text style={{ textAlign: 'center', color: Colors.textMuted, marginTop: 6, marginBottom: 20, fontSize: 13 }}>
+            No bids received yet
           </Text>
         )}
-
-
 
         <View style={{ height: 24 }} />
       </ScrollView>
@@ -318,7 +360,7 @@ function getBidStatusBg(status: string) {
     case 'PENDING': return '#FFF7ED';
     case 'COUNTERED': return '#EFF6FF';
     case 'ACCEPTED': return '#F0FDF4';
-    case 'REJECTED': return '#FFF1F2';
+    case 'REJECTED': return '#FEF2F2';
     default: return Colors.borderLight;
   }
 }
@@ -326,7 +368,7 @@ function getBidStatusBg(status: string) {
 function getBidStatusColor(status: string) {
   switch (status) {
     case 'PENDING': return '#EA580C';
-    case 'COUNTERED': return '#3B82F6';
+    case 'COUNTERED': return '#2563EB';
     case 'ACCEPTED': return Colors.accent;
     case 'REJECTED': return Colors.accentRed;
     default: return Colors.textMuted;
@@ -340,56 +382,104 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     paddingHorizontal: 20,
-    paddingTop: 12,
+    paddingTop: 14,
     paddingBottom: 8,
   },
   greeting: {
     fontSize: 14,
     color: Colors.textSecondary,
-    marginBottom: 4,
+    marginBottom: 2,
+    fontWeight: '500',
   },
   title: {
     fontSize: 24,
     fontWeight: '800',
     color: Colors.textPrimary,
+    letterSpacing: -0.4,
   },
   bellBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: Colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
-    shadowRadius: 4,
+    shadowRadius: 6,
     elevation: 2,
+    position: 'relative',
+  },
+  bellDot: {
+    position: 'absolute',
+    top: 10,
+    right: 11,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: Colors.accentRed,
+    borderWidth: 1.5,
+    borderColor: Colors.surface,
   },
   statsRow: {
-    flexDirection: 'row',
     paddingHorizontal: 20,
     gap: 10,
     marginBottom: 20,
     marginTop: 8,
   },
-  statCard: {
+  primaryStatCard: {
+    backgroundColor: Colors.primary,
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    elevation: 4,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  statCardTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  statLabelLight: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.7)',
+    fontWeight: '700',
+    letterSpacing: 0.6,
+  },
+  statValueLight: {
+    fontSize: 32,
+    fontWeight: '800',
+    color: '#fff',
+    letterSpacing: -0.5,
+  },
+  chartWrap: {
+    marginTop: 8,
+    alignItems: 'flex-end',
+  },
+  statSubRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  statCardSmall: {
+    ...cardStyles.surface,
     flex: 1,
     backgroundColor: Colors.surface,
-    borderRadius: 14,
+    borderRadius: 16,
     padding: 14,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 1,
   },
   statCardHighlight: {
     backgroundColor: '#FFF7ED',
+    borderColor: '#FED7AA',
   },
   statValue: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '800',
     color: Colors.textPrimary,
     marginBottom: 2,
@@ -401,19 +491,31 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: Colors.textSecondary,
     textAlign: 'center',
+    fontWeight: '500',
   },
-  sectionTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: Colors.textPrimary,
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: 20,
     marginBottom: 10,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+    letterSpacing: -0.3,
+  },
+  viewAll: {
+    fontSize: 13,
+    color: Colors.primary,
+    fontWeight: '600',
   },
   pitchCard: {
     marginHorizontal: 20,
     borderRadius: 20,
     overflow: 'hidden',
-    marginBottom: 16,
+    marginBottom: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
@@ -433,10 +535,12 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '800',
     color: '#fff',
+    letterSpacing: -0.3,
   },
   pitchIndustry: {
     fontSize: 12,
-    color: 'rgba(255,255,255,0.6)',
+    color: 'rgba(255,255,255,0.7)',
+    marginTop: 2,
   },
   statusBadge: {
     flexDirection: 'row',
@@ -445,7 +549,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(34,197,94,0.2)',
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(34,197,94,0.4)',
   },
   statusDot: {
     width: 6,
@@ -456,7 +562,7 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: 11,
     color: Colors.accent,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   pitchAmounts: {
     flexDirection: 'row',
@@ -467,25 +573,82 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: '800',
     color: '#fff',
+    letterSpacing: -0.5,
   },
   pitchGoal: {
     fontSize: 13,
-    color: 'rgba(255,255,255,0.6)',
+    color: 'rgba(255,255,255,0.7)',
+  },
+  percentRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   pitchPercent: {
     fontSize: 12,
     color: Colors.accent,
-    fontWeight: '600',
+    fontWeight: '700',
+  },
+  pitchPercentSub: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.6)',
   },
   pitchMeta: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 10,
+    marginTop: 4,
+  },
+  pitchMetaChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
   },
   pitchMetaText: {
     fontSize: 11,
-    color: 'rgba(255,255,255,0.6)',
-    marginRight: 8,
+    color: 'rgba(255,255,255,0.85)',
+    fontWeight: '500',
+  },
+  emptyPitchCard: {
+    marginHorizontal: 20,
+    marginBottom: 20,
+    backgroundColor: Colors.surface,
+    borderRadius: 18,
+    padding: 24,
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: 1.5,
+    borderColor: Colors.borderLight,
+    borderStyle: 'dashed',
+  },
+  emptyPitchTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+  },
+  emptyPitchSubtitle: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+  },
+  createPitchAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    backgroundColor: Colors.borderLight,
+  },
+  createPitchActionText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: Colors.primary,
   },
   actionsRow: {
     flexDirection: 'row',
@@ -494,23 +657,19 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   actionCard: {
+    ...cardStyles.surface,
     flex: 1,
     backgroundColor: Colors.surface,
-    borderRadius: 14,
+    borderRadius: 16,
     padding: 14,
     alignItems: 'center',
     gap: 8,
     position: 'relative',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 1,
   },
   actionIcon: {
     width: 44,
     height: 44,
-    borderRadius: 12,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -537,31 +696,27 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   bidRow: {
+    ...cardStyles.surface,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Colors.surface,
     marginHorizontal: 20,
-    marginBottom: 8,
-    borderRadius: 14,
+    marginBottom: 10,
+    borderRadius: 16,
     padding: 14,
     gap: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 1,
   },
   bidAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     backgroundColor: Colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
   bidAvatarText: {
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: '800',
     color: '#fff',
   },
   bidInfo: {
@@ -569,7 +724,7 @@ const styles = StyleSheet.create({
   },
   bidInvestor: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
     color: Colors.textPrimary,
     marginBottom: 2,
   },
@@ -578,30 +733,12 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
   },
   bidStatus: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
   },
   bidStatusText: {
     fontSize: 11,
-    fontWeight: '600',
-  },
-  createPitchBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginHorizontal: 20,
-    marginTop: 12,
-    paddingVertical: 14,
-    borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: Colors.primary,
-    borderStyle: 'dashed',
-    gap: 8,
-  },
-  createPitchText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.primary,
+    fontWeight: '700',
   },
 });

@@ -7,13 +7,15 @@ import {
   TouchableOpacity,
   TextInput,
   Alert,
-  ActivityIndicator,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/Colors';
 import { Button } from '@/components/ui/Button';
+import { ScreenState } from '@/components/ui/ScreenState';
+import { FadeInView } from '@/components/ui/FadeInView';
+import { cardStyles } from '@/components/ui/Card';
 import { placeBid, getPitch } from '@/services/api';
 import { useQuery, useMutation } from '@tanstack/react-query';
 
@@ -34,29 +36,120 @@ export default function InvestScreen() {
   const [returnValue, setReturnValue] = useState('');
   const [timelineMonths, setTimelineMonths] = useState('12');
   const [note, setNote] = useState('');
-  const [loading, setLoading] = useState(false);
   const [step, setStep] = useState<'amount' | 'terms' | 'review'>('amount');
+  const [equityError, setEquityError] = useState('');
+  const [amountError, setAmountError] = useState('');
+
+  const finalAmount = customAmount ? parseInt(customAmount, 10) || amount : amount;
+  const platformFee = Math.min(finalAmount * 0.01, 100);
+
+  const handleCustomAmountChange = (v: string) => {
+    setCustomAmount(v);
+    const num = parseInt(v, 10);
+    if (v !== '' && (isNaN(num) || num < 100)) {
+      setAmountError('Minimum investment amount is GH₵ 100');
+    } else {
+      setAmountError('');
+    }
+  };
+
+  const handleCustomAmountBlur = () => {
+    if (finalAmount < 100) {
+      setAmountError('Minimum investment amount is GH₵ 100');
+    } else {
+      setAmountError('');
+    }
+  };
+
+  const handleReturnValueChange = (v: string) => {
+    if (returnType === 'EQUITY') {
+      const num = parseFloat(v);
+      if (!isNaN(num) && num > 100) {
+        setReturnValue('100');
+        setEquityError('Equity cannot exceed 100%');
+        return;
+      } else if (v !== '' && !isNaN(num) && num < 1) {
+        setEquityError('Minimum equity is 1%');
+      } else {
+        setEquityError('');
+      }
+    } else if (returnType === 'REVENUE_SHARE') {
+      const num = parseFloat(v);
+      if (!isNaN(num) && num > 100) {
+        setReturnValue('100');
+        setEquityError('Revenue share cannot exceed 100%');
+        return;
+      } else if (v !== '' && !isNaN(num) && num < 1) {
+        setEquityError('Minimum revenue share is 1%');
+      } else {
+        setEquityError('');
+      }
+    } else if (returnType === 'FIXED') {
+      const num = parseFloat(v);
+      if (v !== '' && (isNaN(num) || num < 100)) {
+        setEquityError('Minimum fixed return is GH₵ 100');
+      } else {
+        setEquityError('');
+      }
+    } else {
+      setEquityError('');
+    }
+    setReturnValue(v);
+  };
+
+  const handleReturnValueBlur = () => {
+    const num = parseFloat(returnValue);
+    if (returnType === 'EQUITY') {
+      if (isNaN(num) || num < 1 || returnValue === '') {
+        setReturnValue('1');
+        setEquityError('Minimum equity is 1%');
+      } else if (num > 100) {
+        setReturnValue('100');
+        setEquityError('Equity cannot exceed 100%');
+      } else {
+        setEquityError('');
+      }
+    } else if (returnType === 'REVENUE_SHARE') {
+      if (isNaN(num) || num < 1 || returnValue === '') {
+        setReturnValue('1');
+        setEquityError('Minimum revenue share is 1%');
+      } else if (num > 100) {
+        setReturnValue('100');
+        setEquityError('Revenue share cannot exceed 100%');
+      } else {
+        setEquityError('');
+      }
+    } else if (returnType === 'FIXED') {
+      if (isNaN(num) || num < 100 || returnValue === '') {
+        setReturnValue('100');
+        setEquityError('Minimum fixed return is GH₵ 100');
+      } else {
+        setEquityError('');
+      }
+    }
+  };
 
   if (loadingPitch) {
     return (
-      <SafeAreaView style={[styles.safe, { justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color={Colors.primary} />
+      <SafeAreaView style={styles.safe} edges={['top']}>
+        <ScreenState loading title="Loading investment details" />
       </SafeAreaView>
     );
   }
 
   if (!pitch) {
     return (
-      <SafeAreaView style={styles.safe}>
-        <View style={styles.notFound}>
-          <Text style={styles.notFoundText}>Pitch not found.</Text>
-        </View>
+      <SafeAreaView style={styles.safe} edges={['top']}>
+        <ScreenState
+          icon="megaphone-outline"
+          title="Pitch not found"
+          detail="This opportunity may no longer be available."
+          action="Go back"
+          onPress={() => router.back()}
+        />
       </SafeAreaView>
     );
   }
-
-  const finalAmount = customAmount ? parseInt(customAmount, 10) || amount : amount;
-  const platformFee = Math.min(finalAmount * 0.01, 100);
 
   const mutation = useMutation({
     mutationFn: (data: any) => placeBid(data),
@@ -82,14 +175,37 @@ export default function InvestScreen() {
       Alert.alert('Missing details', 'Please enter your expected return value.');
       return;
     }
+    const num = parseFloat(returnValue);
+    if (returnType === 'EQUITY' && (num < 1 || num > 100)) {
+      Alert.alert('Invalid equity', 'Equity must be between 1% and 100%');
+      return;
+    }
+    if (returnType === 'REVENUE_SHARE' && (num < 1 || num > 100)) {
+      Alert.alert('Invalid revenue share', 'Revenue share must be between 1% and 100%');
+      return;
+    }
+    if (returnType === 'FIXED' && num < 100) {
+      Alert.alert('Invalid fixed return', 'Minimum fixed return is GH₵ 100');
+      return;
+    }
     mutation.mutate({
       pitchId: pitch.id,
       amount: finalAmount,
       returnType,
-      returnValue: parseFloat(returnValue),
+      returnValue: num,
       timelineMonths: parseInt(timelineMonths, 10),
       note,
     });
+  };
+
+  const isReturnInvalid = () => {
+    if (!returnValue) return true;
+    const num = parseFloat(returnValue);
+    if (isNaN(num)) return true;
+    if (returnType === 'EQUITY') return num < 1 || num > 100;
+    if (returnType === 'REVENUE_SHARE') return num < 1 || num > 100;
+    if (returnType === 'FIXED') return num < 100;
+    return false;
   };
 
   return (
@@ -99,7 +215,7 @@ export default function InvestScreen() {
         <TouchableOpacity
           onPress={() => (step === 'amount' ? router.back() : setStep(step === 'review' ? 'terms' : 'amount'))}
           style={styles.backBtn}
-          activeOpacity={0.7}
+          activeOpacity={0.72}
         >
           <Ionicons name="arrow-back" size={22} color={Colors.textPrimary} />
         </TouchableOpacity>
@@ -109,7 +225,7 @@ export default function InvestScreen() {
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
         {/* Step indicator */}
-        <View style={styles.stepRow}>
+        <FadeInView style={styles.stepRow}>
           {(['amount', 'terms', 'review'] as const).map((s, i) => (
             <View key={s} style={styles.stepItem}>
               <View
@@ -130,7 +246,7 @@ export default function InvestScreen() {
               </Text>
             </View>
           ))}
-        </View>
+        </FadeInView>
 
         {/* Step 1: Amount */}
         {step === 'amount' && (
@@ -152,6 +268,7 @@ export default function InvestScreen() {
                   onPress={() => {
                     setAmount(a);
                     setCustomAmount('');
+                    setAmountError('');
                   }}
                   activeOpacity={0.8}
                 >
@@ -177,27 +294,33 @@ export default function InvestScreen() {
                   placeholderTextColor={Colors.textMuted}
                   keyboardType="numeric"
                   value={customAmount}
-                  onChangeText={(v) => {
-                    setCustomAmount(v);
-                  }}
+                  onChangeText={handleCustomAmountChange}
+                  onBlur={handleCustomAmountBlur}
                 />
               </View>
+              {amountError ? (
+                <Text style={{ color: Colors.accentRed, fontSize: 12, marginTop: 4 }}>
+                  {amountError}
+                </Text>
+              ) : null}
             </View>
 
             <View style={styles.minNote}>
               <Ionicons name="information-circle-outline" size={14} color={Colors.textMuted} />
               <Text style={styles.minNoteText}>
-                Minimum investment: GH₵{pitch.minimumInvestment.toLocaleString()}
+                Minimum investment: GH₵100
               </Text>
             </View>
 
             <Button
               title="Continue"
+              disabled={finalAmount < 100}
               onPress={() => {
-                if (finalAmount < pitch.minimumInvestment) {
+                if (finalAmount < 100) {
+                  setAmountError('Minimum investment amount is GH₵ 100');
                   Alert.alert(
                     'Minimum not met',
-                    `Minimum investment is GH₵${pitch.minimumInvestment.toLocaleString()}`
+                    'Minimum investment amount is GH₵ 100'
                   );
                   return;
                 }
@@ -218,7 +341,18 @@ export default function InvestScreen() {
                 <TouchableOpacity
                   key={rt}
                   style={[styles.rtChip, returnType === rt && styles.rtChipActive]}
-                  onPress={() => setReturnType(rt)}
+                  onPress={() => {
+                    setReturnType(rt);
+                    setEquityError('');
+                    if (rt === 'EQUITY' || rt === 'REVENUE_SHARE') {
+                      const num = parseFloat(returnValue);
+                      if (isNaN(num) || num < 1) setReturnValue('1');
+                      else if (num > 100) setReturnValue('100');
+                    } else if (rt === 'FIXED') {
+                      const num = parseFloat(returnValue);
+                      if (isNaN(num) || num < 100) setReturnValue('100');
+                    }
+                  }}
                   activeOpacity={0.8}
                 >
                   <Text
@@ -242,14 +376,20 @@ export default function InvestScreen() {
                 {returnType === 'FIXED' && <Text style={[styles.fieldSuffix, {marginRight: 4}]}>GH₵</Text>}
                 <TextInput
                   style={styles.fieldInputText}
-                  placeholder="e.g. 100"
+                  placeholder={returnType === 'FIXED' ? 'e.g. 100' : '1-100'}
                   placeholderTextColor={Colors.textMuted}
                   keyboardType="decimal-pad"
                   value={returnValue}
-                  onChangeText={setReturnValue}
+                  onChangeText={handleReturnValueChange}
+                  onBlur={handleReturnValueBlur}
                 />
                 {returnType !== 'FIXED' && <Text style={styles.fieldSuffix}>%</Text>}
               </View>
+              {equityError ? (
+                <Text style={{ color: Colors.accentRed, fontSize: 12, marginTop: 4 }}>
+                  {equityError}
+                </Text>
+              ) : null}
             </View>
 
             <View style={styles.fieldRow}>
@@ -279,7 +419,27 @@ export default function InvestScreen() {
               textAlignVertical="top"
             />
 
-            <Button title="Review bid" onPress={() => setStep('review')} />
+            <Button
+              title="Review bid"
+              disabled={isReturnInvalid()}
+              onPress={() => {
+                if (isReturnInvalid()) {
+                  const num = parseFloat(returnValue);
+                  if (returnType === 'FIXED' && (isNaN(num) || num < 100)) {
+                    setEquityError('Minimum fixed return is GH₵ 100');
+                    Alert.alert('Invalid fixed return', 'Minimum fixed return is GH₵ 100');
+                  } else if (returnType === 'REVENUE_SHARE') {
+                    setEquityError('Minimum revenue share is 1%');
+                    Alert.alert('Invalid revenue share', 'Revenue share must be between 1% and 100%');
+                  } else {
+                    setEquityError('Minimum equity is 1%');
+                    Alert.alert('Invalid equity', 'Equity must be between 1% and 100%');
+                  }
+                  return;
+                }
+                setStep('review');
+              }}
+            />
           </>
         )}
 
@@ -360,14 +520,15 @@ const styles = StyleSheet.create({
     borderBottomColor: Colors.border,
   },
   backBtn: {
-    width: 38,
-    height: 38,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerTitle: {
     flex: 1,
     fontSize: 16,
+    lineHeight: 22,
     fontWeight: '700',
     color: Colors.textPrimary,
     textAlign: 'center',
@@ -410,6 +571,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 20,
+    lineHeight: 26,
     fontWeight: '800',
     color: Colors.textPrimary,
   },
@@ -437,8 +599,9 @@ const styles = StyleSheet.create({
   },
   presetBtn: {
     paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 10,
+    paddingVertical: 12,
+    minHeight: 44,
+    borderRadius: 12,
     backgroundColor: Colors.borderLight,
     borderWidth: 1.5,
     borderColor: Colors.border,
@@ -466,11 +629,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Colors.inputBg,
-    borderRadius: 10,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: Colors.border,
     paddingHorizontal: 14,
-    height: 50,
+    minHeight: 52,
     gap: 6,
   },
   customCurrency: {
@@ -504,11 +667,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Colors.inputBg,
-    borderRadius: 10,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: Colors.border,
     paddingHorizontal: 14,
-    height: 50,
+    minHeight: 52,
   },
   fieldInputText: {
     flex: 1,
@@ -527,8 +690,9 @@ const styles = StyleSheet.create({
   },
   rtChip: {
     flex: 1,
-    paddingVertical: 10,
-    borderRadius: 10,
+    minHeight: 44,
+    paddingVertical: 12,
+    borderRadius: 12,
     backgroundColor: Colors.borderLight,
     borderWidth: 1.5,
     borderColor: Colors.border,
@@ -546,7 +710,7 @@ const styles = StyleSheet.create({
   rtChipTextActive: { color: '#fff' },
   noteInput: {
     backgroundColor: Colors.inputBg,
-    borderRadius: 10,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: Colors.border,
     padding: 14,
@@ -555,6 +719,7 @@ const styles = StyleSheet.create({
     minHeight: 90,
   },
   reviewCard: {
+    ...cardStyles.surface,
     backgroundColor: Colors.borderLight,
     borderRadius: 14,
     overflow: 'hidden',
@@ -597,6 +762,8 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 12,
     gap: 4,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   notePreviewLabel: {
     fontSize: 12,
@@ -615,6 +782,8 @@ const styles = StyleSheet.create({
     padding: 12,
     gap: 8,
     alignItems: 'flex-start',
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   reviewTermsText: {
     flex: 1,

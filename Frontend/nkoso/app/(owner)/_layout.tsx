@@ -1,7 +1,38 @@
 import { MaterialTopTabs } from '@/components/MaterialTopTabs';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
-import { Platform } from 'react-native';
+import { Platform, View, StyleSheet } from 'react-native';
+
+type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
+
+function TabIcon({
+  name,
+  activeName,
+  color,
+  focused,
+}: {
+  name: IoniconName;
+  activeName: IoniconName;
+  color: string;
+  focused: boolean;
+}) {
+  return (
+    <View style={{ alignItems: 'center' }}>
+      {focused && (
+        <View
+          style={{
+            width: 4,
+            height: 4,
+            borderRadius: 2,
+            backgroundColor: Colors.primary,
+            marginBottom: 4,
+          }}
+        />
+      )}
+      <Ionicons name={focused ? activeName : name} size={22} color={color} />
+    </View>
+  );
+}
 
 export default function OwnerTabLayout() {
   return (
@@ -12,22 +43,30 @@ export default function OwnerTabLayout() {
         tabBarActiveTintColor: Colors.primary,
         tabBarInactiveTintColor: Colors.tabInactive,
         tabBarStyle: {
-          borderTopColor: 'rgba(0, 0, 0, 0.1)',
-          borderTopWidth: 1,
-          height: Platform.OS === 'ios' ? 80 : 60,
+          borderTopColor: Colors.border,
+          borderTopWidth: StyleSheet.hairlineWidth,
+          height: Platform.OS === 'ios' ? 84 : 66,
           elevation: 0,
           backgroundColor: '#ffffff',
-          shadowOpacity: 0,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.06,
+          shadowRadius: 8,
+        },
+        tabBarItemStyle: {
+          minHeight: 56,
+          paddingVertical: 6,
         },
         tabBarIndicatorStyle: {
           height: 0,
           backgroundColor: 'transparent',
         },
         tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: '500',
+          fontSize: 10,
+          fontWeight: '600',
           textTransform: 'none',
-          marginTop: 4,
+          marginTop: 3,
+          letterSpacing: 0.1,
         },
         tabBarShowIcon: true,
       }}
@@ -36,17 +75,17 @@ export default function OwnerTabLayout() {
         name="index"
         options={{
           title: 'Home',
-          tabBarIcon: ({ color }) => (
-            <Ionicons name="grid-outline" size={24} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon name="grid-outline" activeName="grid" color={color} focused={focused} />
           ),
         }}
       />
       <MaterialTopTabs.Screen
         name="pitches"
         options={{
-          title: 'My Pitches',
-          tabBarIcon: ({ color }) => (
-            <Ionicons name="megaphone-outline" size={24} color={color} />
+          title: 'Pitches',
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon name="megaphone-outline" activeName="megaphone" color={color} focused={focused} />
           ),
         }}
       />
@@ -54,8 +93,8 @@ export default function OwnerTabLayout() {
         name="bids"
         options={{
           title: 'Bids',
-          tabBarIcon: ({ color }) => (
-            <Ionicons name="people-outline" size={24} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon name="people-outline" activeName="people" color={color} focused={focused} />
           ),
         }}
       />
@@ -63,8 +102,8 @@ export default function OwnerTabLayout() {
         name="deals"
         options={{
           title: 'Deals',
-          tabBarIcon: ({ color }) => (
-            <Ionicons name="briefcase-outline" size={24} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon name="briefcase-outline" activeName="briefcase" color={color} focused={focused} />
           ),
         }}
       />
@@ -72,8 +111,8 @@ export default function OwnerTabLayout() {
         name="profile"
         options={{
           title: 'Profile',
-          tabBarIcon: ({ color }) => (
-            <Ionicons name="person-outline" size={24} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon name="person-outline" activeName="person" color={color} focused={focused} />
           ),
         }}
       />

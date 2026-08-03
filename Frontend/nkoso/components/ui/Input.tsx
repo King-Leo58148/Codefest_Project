@@ -30,12 +30,19 @@ export function Input({
   ...props
 }: InputProps) {
   const [showPassword, setShowPassword] = useState(false);
+  const [focused, setFocused] = useState(false);
   const isPassword = secure;
 
   return (
     <View style={styles.container}>
       {label && <Text style={styles.label}>{label}</Text>}
-      <View style={[styles.inputWrapper, error ? styles.inputError : null]}>
+      <View
+        style={[
+          styles.inputWrapper,
+          focused && styles.inputFocused,
+          error ? styles.inputError : null,
+        ]}
+      >
         {leftIcon && (
           <Ionicons
             name={leftIcon}
@@ -49,11 +56,20 @@ export function Input({
           secureTextEntry={isPassword && !showPassword}
           placeholderTextColor={Colors.textMuted}
           {...props}
+          onFocus={(event) => {
+            setFocused(true);
+            props.onFocus?.(event);
+          }}
+          onBlur={(event) => {
+            setFocused(false);
+            props.onBlur?.(event);
+          }}
         />
         {isPassword && (
           <TouchableOpacity
             onPress={() => setShowPassword((s) => !s)}
             style={styles.rightIcon}
+            activeOpacity={0.7}
           >
             <Ionicons
               name={showPassword ? 'eye-off-outline' : 'eye-outline'}
@@ -63,7 +79,7 @@ export function Input({
           </TouchableOpacity>
         )}
         {rightIcon && !isPassword && (
-          <TouchableOpacity onPress={onRightIconPress} style={styles.rightIcon}>
+          <TouchableOpacity onPress={onRightIconPress} style={styles.rightIcon} activeOpacity={0.7}>
             <Ionicons name={rightIcon} size={18} color={Colors.textMuted} />
           </TouchableOpacity>
         )}
@@ -75,23 +91,27 @@ export function Input({
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 16,
+    marginBottom: 14,
   },
   label: {
     fontSize: 13,
+    lineHeight: 18,
     fontWeight: '500',
     color: Colors.textSecondary,
-    marginBottom: 6,
+    marginBottom: 7,
   },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Colors.inputBg,
-    borderRadius: 10,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: Colors.border,
     paddingHorizontal: 14,
-    height: 50,
+    minHeight: 52,
+  },
+  inputFocused: {
+    borderColor: Colors.primary,
   },
   inputError: {
     borderColor: Colors.accentRed,
@@ -101,17 +121,22 @@ const styles = StyleSheet.create({
   },
   rightIcon: {
     marginLeft: 10,
-    padding: 2,
+    minWidth: 32,
+    minHeight: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   input: {
     flex: 1,
     fontSize: 15,
+    lineHeight: 20,
     color: Colors.textPrimary,
     height: '100%',
   },
   error: {
     fontSize: 12,
+    lineHeight: 16,
     color: Colors.accentRed,
-    marginTop: 4,
+    marginTop: 5,
   },
 });

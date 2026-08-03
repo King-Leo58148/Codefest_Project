@@ -46,7 +46,7 @@ export default function CustomSplashScreen() {
   return (
     <View style={styles.container}>
       <Animated.Image 
-        source={require('../assets/images/splash-icon.png')} 
+        source={require('../assets/images/nkoso-app-icon.png')} 
         style={[styles.logo, { transform: [{ scale }], opacity }]}
         resizeMode="contain"
       />

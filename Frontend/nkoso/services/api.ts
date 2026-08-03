@@ -328,17 +328,35 @@ export async function verifyPayment(dealId: string, reference: string): Promise<
   });
 }
 export async function getDealRepayments(dealId: string): Promise<Repayment[]> {
-  return ownerDataApi.normalizeDeal({
-    repaymentSchedule: await request(`/api/deals/${dealId}/repayments`),
-  }).repaymentSchedule;
+  try {
+    const raw = await request(`/api/deals/${dealId}/repayments`);
+    return ownerDataApi.normalizeDeal({ repaymentSchedule: raw }).repaymentSchedule || [];
+  } catch (error) {
+    console.warn(`[getDealRepayments] Fallback for deal ${dealId}:`, error);
+    return [];
+  }
 }
 export async function initiateRepaymentPayment(
   dealId: string,
-  repaymentId: string
+  repaymentId?: string,
+  amount?: number
 ): Promise<PaystackInitResponse> {
-  return request(`/api/deals/${dealId}/repayments/${repaymentId}/pay`, {
-    method: 'POST',
-  }) as Promise<PaystackInitResponse>;
+  const numericDealId = dealId.replace(/\D/g, '') || dealId;
+  const numRepaymentId = repaymentId && !isNaN(Number(repaymentId)) ? Number(repaymentId) : null;
+
+  try {
+    return (await request(`/api/deals/${numericDealId}/repay`, {
+      method: 'POST',
+      body: JSON.stringify({ amount, repaymentId: numRepaymentId }),
+    })) as PaystackInitResponse;
+  } catch (error) {
+    if (numRepaymentId) {
+      return (await request(`/api/deals/${numericDealId}/repayments/${numRepaymentId}/pay`, {
+        method: 'POST',
+      })) as PaystackInitResponse;
+    }
+    throw error;
+  }
 }
 export async function verifyRepaymentPayment(
   dealId: string,

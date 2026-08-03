@@ -1,9 +1,12 @@
 import 'text-encoding';
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, FlatList, KeyboardAvoidingView, Platform } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import { Colors } from '@/constants/Colors';
+import { cardStyles } from '@/components/ui/Card';
+import { ScreenState } from '@/components/ui/ScreenState';
 import { getDealMessages, sendDealMessage } from '@/services/api';
 import { BASE_URL } from '@/services/backendClient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -13,17 +16,25 @@ export default function DealChat({ dealId }: { dealId: string }) {
   const [messages, setMessages] = useState<any[]>([]);
   const [inputMsg, setInputMsg] = useState('');
   const [connected, setConnected] = useState(false);
+  const [loadingMessages, setLoadingMessages] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const stompClient = useRef<any>(null);
   const flatListRef = useRef<FlatList>(null);
   const { user } = useAuthStore();
 
   useEffect(() => {
     // 1. Fetch initial messages
+    setLoadingMessages(true);
+    setLoadError('');
     getDealMessages(dealId)
       .then((data) => {
         setMessages(data);
       })
-      .catch(console.error);
+      .catch((error) => {
+        console.error(error);
+        setLoadError('Could not load messages.');
+      })
+      .finally(() => setLoadingMessages(false));
 
     // 2. Connect WebSocket
     const connectWS = async () => {
@@ -109,7 +120,17 @@ export default function DealChat({ dealId }: { dealId: string }) {
           onContentSizeChange={scrollToBottom}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
-            <Text style={styles.emptyText}>No messages yet. Send a message to start negotiating.</Text>
+            loadingMessages ? (
+              <ScreenState loading title="Loading messages" />
+            ) : loadError ? (
+              <ScreenState icon="alert-circle-outline" title={loadError} />
+            ) : (
+              <ScreenState
+                icon="chatbubble-outline"
+                title="No messages yet"
+                detail="Send a message to start negotiating."
+              />
+            )
           }
         />
       </View>
@@ -127,8 +148,9 @@ export default function DealChat({ dealId }: { dealId: string }) {
             style={[styles.sendBtn, (!connected || !inputMsg.trim()) && styles.sendBtnDisabled]} 
             onPress={handleSend}
             disabled={!connected || !inputMsg.trim()}
+            activeOpacity={0.72}
           >
-            <Text style={styles.sendText}>Send</Text>
+            <Ionicons name="send" size={16} color={Colors.surface} />
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -138,17 +160,11 @@ export default function DealChat({ dealId }: { dealId: string }) {
 
 const styles = StyleSheet.create({
   container: {
+    ...cardStyles.surface,
     backgroundColor: Colors.surface,
-    borderRadius: 14,
+    borderRadius: 16,
     overflow: 'hidden',
     height: 400,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 1,
   },
   header: {
     flexDirection: 'row',
@@ -160,7 +176,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
   },
   headerTitle: {
-    fontSize: 15,
+    fontSize: 16,
+    lineHeight: 22,
     fontWeight: '700',
     color: Colors.textPrimary,
   },
@@ -193,6 +210,7 @@ const styles = StyleSheet.create({
   listContent: {
     padding: 12,
     paddingBottom: 20,
+    flexGrow: 1,
   },
   msgContainer: {
     marginBottom: 12,
@@ -255,7 +273,7 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    height: 40,
+    minHeight: 44,
     backgroundColor: Colors.background,
     borderWidth: 1,
     borderColor: Colors.border,
@@ -266,18 +284,13 @@ const styles = StyleSheet.create({
   },
   sendBtn: {
     backgroundColor: Colors.primary,
-    paddingHorizontal: 16,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
   },
   sendBtnDisabled: {
     backgroundColor: Colors.border,
-  },
-  sendText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600',
   },
 });

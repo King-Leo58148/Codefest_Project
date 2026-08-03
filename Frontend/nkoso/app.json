@@ -33,9 +33,9 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/nkoso-splash.png",
+          "image": "./assets/images/nkoso-app-icon.png",
           "resizeMode": "contain",
-          "backgroundColor": "#FFFFFF"
+          "backgroundColor": "#0D1B3E"
         }
       ],
       "expo-web-browser"
