@@ -11,7 +11,7 @@ import {
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Colors } from '@/constants/Colors';
+import { useTheme } from '@/store/themeStore';
 import { Button } from '@/components/ui/Button';
 
 interface NotifSection {
@@ -23,31 +23,32 @@ const NOTIF_CONFIG: NotifSection[] = [
   {
     section: 'Investments',
     items: [
-      { key: 'bid_accepted', label: 'Bid accepted', sub: 'When a business owner accepts your bid', icon: 'checkmark-circle-outline' },
-      { key: 'bid_rejected', label: 'Bid rejected', sub: 'When a bid you placed is declined', icon: 'close-circle-outline' },
-      { key: 'bid_countered', label: 'Counter offer', sub: 'When an owner proposes different terms', icon: 'swap-horizontal-outline' },
-      { key: 'repayment_due', label: 'Repayment due', sub: 'Reminders before repayment dates', icon: 'calendar-outline' },
-      { key: 'repayment_received', label: 'Repayment received', sub: 'When a return lands in your MoMo', icon: 'cash-outline' },
+      { key: 'bid_accepted', label: 'Bid Accepted', sub: 'When a business owner accepts your bid', icon: 'checkmark-circle-outline' },
+      { key: 'bid_rejected', label: 'Bid Rejected', sub: 'When a bid you placed is declined', icon: 'close-circle-outline' },
+      { key: 'bid_countered', label: 'Counter Offer', sub: 'When an owner proposes different terms', icon: 'swap-horizontal-outline' },
+      { key: 'repayment_due', label: 'Repayment Due', sub: 'Reminders before repayment dates', icon: 'calendar-outline' },
+      { key: 'repayment_received', label: 'Repayment Received', sub: 'When a return lands in your MoMo', icon: 'cash-outline' },
     ],
   },
   {
-    section: 'Deals & pitches',
+    section: 'Deals & Pitches',
     items: [
-      { key: 'deal_signed', label: 'Deal signed', sub: 'When all parties sign the deal', icon: 'document-text-outline' },
-      { key: 'deal_disbursed', label: 'Funds disbursed', sub: 'When funds are released to the business', icon: 'arrow-up-circle-outline' },
-      { key: 'new_pitch', label: 'New pitches', sub: 'When new businesses list on Nkɔso', icon: 'megaphone-outline' },
+      { key: 'deal_signed', label: 'Deal Signed', sub: 'When all parties sign the deal', icon: 'document-text-outline' },
+      { key: 'deal_disbursed', label: 'Funds Disbursed', sub: 'When funds are released to the business', icon: 'arrow-up-circle-outline' },
+      { key: 'new_pitch', label: 'New Pitches', sub: 'When new businesses list on Nkɔso', icon: 'megaphone-outline' },
     ],
   },
   {
-    section: 'Account',
+    section: 'Account Security',
     items: [
-      { key: 'security_alert', label: 'Security alerts', sub: 'Sign-ins and suspicious activity', icon: 'shield-outline' },
-      { key: 'promo', label: 'Promotions & news', sub: 'Nkɔso product updates and offers', icon: 'gift-outline' },
+      { key: 'security_alert', label: 'Security Alerts', sub: 'Sign-ins and security notifications', icon: 'shield-outline' },
+      { key: 'promo', label: 'Promotions & Updates', sub: 'Nkɔso product updates and offers', icon: 'gift-outline' },
     ],
   },
 ];
 
-export default function NotificationsScreen() {
+export default function NotificationSettingsScreen() {
+  const { isDark, colors } = useTheme();
   const defaultState: Record<string, boolean> = {};
   NOTIF_CONFIG.forEach((s) => s.items.forEach((i) => { defaultState[i.key] = i.key !== 'promo'; }));
 
@@ -58,118 +59,127 @@ export default function NotificationsScreen() {
 
   const handleSave = async () => {
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 800));
+    await new Promise((r) => setTimeout(r, 600));
     setLoading(false);
-    Alert.alert('Saved', 'Your notification preferences have been updated.', [
+    Alert.alert('Preferences Saved', 'Notification settings updated.', [
       { text: 'OK', onPress: () => router.back() },
     ]);
   };
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
-      <View style={styles.header}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top']}>
+      <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} activeOpacity={0.7}>
-          <Ionicons name="arrow-back" size={22} color={Colors.textPrimary} />
+          <Ionicons name="arrow-back" size={22} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Notifications</Text>
+        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Notification Settings</Text>
         <View style={{ width: 38 }} />
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {NOTIF_CONFIG.map((section) => (
-          <View key={section.section}>
-            <Text style={styles.sectionLabel}>{section.section}</Text>
-            <View style={styles.card}>
-              {section.items.map((item, idx) => (
-                <View key={item.key}>
-                  <View style={styles.row}>
-                    <View style={styles.rowLeft}>
-                      <View style={styles.iconBox}>
-                        <Ionicons name={item.icon} size={18} color={Colors.primary} />
-                      </View>
-                      <View style={styles.rowText}>
-                        <Text style={styles.rowLabel}>{item.label}</Text>
-                        <Text style={styles.rowSub}>{item.sub}</Text>
-                      </View>
-                    </View>
-                    <Switch
-                      value={prefs[item.key]}
-                      onValueChange={() => toggle(item.key)}
-                      trackColor={{ false: Colors.border, true: Colors.accent }}
-                      thumbColor="#fff"
-                    />
+        {NOTIF_CONFIG.map((sec) => (
+          <View key={sec.section} style={styles.sectionBlock}>
+            <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>{sec.section}</Text>
+
+            <View style={[styles.sectionCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              {sec.items.map((item, idx) => (
+                <View
+                  key={item.key}
+                  style={[
+                    styles.row,
+                    idx < sec.items.length - 1 && { borderBottomColor: colors.border, borderBottomWidth: 1 },
+                  ]}
+                >
+                  <View style={[styles.iconBox, { backgroundColor: colors.surfaceSubtle }]}>
+                    <Ionicons name={item.icon} size={20} color={isDark ? colors.accent : colors.primary} />
                   </View>
-                  {idx < section.items.length - 1 && <View style={styles.divider} />}
+
+                  <View style={styles.textCol}>
+                    <Text style={[styles.itemTitle, { color: colors.textPrimary }]}>{item.label}</Text>
+                    <Text style={[styles.itemSub, { color: colors.textSecondary }]}>{item.sub}</Text>
+                  </View>
+
+                  <Switch
+                    value={prefs[item.key] ?? false}
+                    onValueChange={() => toggle(item.key)}
+                    trackColor={{ false: isDark ? '#1E293B' : '#E2E8F0', true: '#16A34A' }}
+                    thumbColor="#FFFFFF"
+                  />
                 </View>
               ))}
             </View>
           </View>
         ))}
 
-        <Button title="Save preferences" onPress={handleSave} loading={loading} />
+        <Button
+          title="Save Notification Settings"
+          onPress={handleSave}
+          loading={loading}
+          style={{ marginTop: 12 }}
+        />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.background },
+  safe: {
+    flex: 1,
+  },
   header: {
+    height: 60,
+    paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: Colors.surface,
+    justifyContent: 'space-between',
     borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
   },
-  backBtn: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center' },
+  backBtn: {
+    padding: 4,
+  },
   headerTitle: {
-    flex: 1,
     fontSize: 17,
     fontWeight: '700',
-    color: Colors.textPrimary,
-    textAlign: 'center',
   },
-  content: { padding: 20, gap: 8, paddingBottom: 40 },
-  sectionLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: Colors.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 8,
-    marginTop: 8,
+  content: {
+    padding: 20,
+    gap: 20,
   },
-  card: {
-    backgroundColor: Colors.surface,
-    borderRadius: 14,
+  sectionBlock: {
+    gap: 8,
+  },
+  sectionTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    letterSpacing: -0.2,
+  },
+  sectionCard: {
+    borderRadius: 18,
+    borderWidth: 1,
     overflow: 'hidden',
-    marginBottom: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 1,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    padding: 14,
+    gap: 12,
   },
-  rowLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
   iconBox: {
     width: 36,
     height: 36,
-    borderRadius: 10,
-    backgroundColor: Colors.borderLight,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  rowText: { flex: 1 },
-  rowLabel: { fontSize: 14, fontWeight: '600', color: Colors.textPrimary },
-  rowSub: { fontSize: 12, color: Colors.textSecondary, marginTop: 2, lineHeight: 16 },
-  divider: { height: 1, backgroundColor: Colors.borderLight, marginLeft: 64 },
+  textCol: {
+    flex: 1,
+  },
+  itemTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  itemSub: {
+    fontSize: 11,
+    marginTop: 2,
+  },
 });

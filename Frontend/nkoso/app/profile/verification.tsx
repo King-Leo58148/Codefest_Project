@@ -11,7 +11,7 @@ import * as ImagePicker from "expo-image-picker";
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Colors } from "@/constants/Colors";
+import { useTheme } from "@/store/themeStore";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { getCurrentUser, verifyGhanaCard, verifyMomo } from "@/services/api";
@@ -23,6 +23,7 @@ type Tab = "ghana-card" | "momo";
 export default function VerificationScreen() {
   const { tab } = useLocalSearchParams<{ tab?: Tab }>();
   const [activeTab, setActiveTab] = useState<Tab>(tab === "momo" ? "momo" : "ghana-card");
+  const { isDark, colors } = useTheme();
 
   const { user, setUser } = useAuthStore();
   const [cardNumber, setCardNumber] = useState("");
@@ -58,213 +59,119 @@ export default function VerificationScreen() {
     }
   };
 
-  const verifyCard = async () => {
-    const number = cardNumber.replace(/\s/g, "").toUpperCase();
-    if (!number || number.length < 10)
-      return Alert.alert("Invalid Ghana Card", "Enter a valid Ghana Card number.");
-    if (!asset)
-      return Alert.alert("Image required", "Choose a clear Ghana Card image before continuing.");
+  const submitCard = async () => {
+    if (!cardNumber.trim()) return Alert.alert("Card number required", "Enter your Ghana Card number.");
     setCardLoading(true);
     try {
-      const verified = await verifyGhanaCard(number, asset);
-      if (!verified)
-        return Alert.alert(
-          "Not verified",
-          "We could not verify this Ghana Card. Check the details and image.",
-        );
+      await verifyGhanaCard(cardNumber.trim(), asset);
       await refreshUser();
-      setCardNumber("");
-      setAsset(null);
-      Alert.alert("Verified ✓", "Your Ghana Card has been verified.");
-    } catch (error) {
-      Alert.alert(
-        "Could not verify",
-        error instanceof Error ? error.message : "Please try again.",
-      );
+      Alert.alert("Verification submitted", "Ghana Card submitted successfully.");
+    } catch (err: any) {
+      Alert.alert("Submission failed", err?.message || "Check your input.");
     } finally {
       setCardLoading(false);
     }
   };
 
-  const verifyNumber = async () => {
-    const number = momoNumber.replace(/\D/g, "");
-    if (number.length !== 10)
-      return Alert.alert("Invalid MoMo number", "Enter a 10-digit MoMo number.");
+  const submitMomo = async () => {
+    if (!momoNumber.trim()) return Alert.alert("MoMo number required", "Enter a 10-digit number.");
     setMomoLoading(true);
     try {
-      const verified = await verifyMomo(number);
-      if (!verified)
-        return Alert.alert("Not verified", "We could not verify this MoMo number.");
+      await verifyMomo(momoNumber.trim());
       await refreshUser();
-      Alert.alert("Verified ✓", "Your MoMo number has been verified.");
-    } catch (error) {
-      Alert.alert(
-        "Could not verify",
-        error instanceof Error ? error.message : "Please try again.",
-      );
+      Alert.alert("MoMo verified", "Your Mobile Money account is verified.");
+    } catch (err: any) {
+      Alert.alert("Verification failed", err?.message || "Check your MoMo number.");
     } finally {
       setMomoLoading(false);
     }
   };
 
   return (
-    <SafeAreaView style={styles.safe} edges={["top"]}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={22} color={Colors.textPrimary} />
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={["top"]}>
+      <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.icon}>
+          <Ionicons name="arrow-back" size={22} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.title}>Identity verification</Text>
-        <View style={{ width: 22 }} />
+        <Text style={[styles.title, { color: colors.textPrimary }]}>Identity & MoMo Verification</Text>
+        <View style={{ width: 40 }} />
       </View>
 
-      {/* Status banner */}
-      <View style={styles.banner}>
-        <Ionicons
-          name={user?.ghanaCardVerified && user?.momoVerified ? "shield-checkmark" : "shield-outline"}
-          size={22}
-          color={Colors.primary}
-        />
-        <Text style={styles.bannerText}>
-          {user?.ghanaCardVerified && user?.momoVerified
-            ? "Your account is fully verified."
-            : "Complete your Ghana Card and MoMo verification to unlock full platform access."}
-        </Text>
-      </View>
-
-      {/* Tab switcher */}
-      <View style={styles.tabBar}>
+      <View style={[styles.tabBar, { backgroundColor: colors.surfaceSubtle }]}>
         <TouchableOpacity
-          style={[styles.tab, activeTab === "ghana-card" && styles.tabActive]}
+          style={[styles.tab, activeTab === "ghana-card" && { backgroundColor: isDark ? colors.accent : colors.primary }]}
           onPress={() => setActiveTab("ghana-card")}
-          activeOpacity={0.8}
         >
-          <Ionicons
-            name="card-outline"
-            size={16}
-            color={activeTab === "ghana-card" ? Colors.primary : Colors.textMuted}
-          />
-          <Text style={[styles.tabText, activeTab === "ghana-card" && styles.tabTextActive]}>
+          <Text style={[styles.tabText, { color: colors.textSecondary }, activeTab === "ghana-card" && { color: "#FFFFFF", fontWeight: "800" }]}>
             Ghana Card
           </Text>
-          {user?.ghanaCardVerified && (
-            <Ionicons name="checkmark-circle" size={14} color={Colors.accent} />
-          )}
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.tab, activeTab === "momo" && styles.tabActive]}
+          style={[styles.tab, activeTab === "momo" && { backgroundColor: isDark ? colors.accent : colors.primary }]}
           onPress={() => setActiveTab("momo")}
-          activeOpacity={0.8}
         >
-          <Ionicons
-            name="phone-portrait-outline"
-            size={16}
-            color={activeTab === "momo" ? Colors.primary : Colors.textMuted}
-          />
-          <Text style={[styles.tabText, activeTab === "momo" && styles.tabTextActive]}>
-            MoMo
+          <Text style={[styles.tabText, { color: colors.textSecondary }, activeTab === "momo" && { color: "#FFFFFF", fontWeight: "800" }]}>
+            MoMo Account
           </Text>
-          {user?.momoVerified && (
-            <Ionicons name="checkmark-circle" size={14} color={Colors.accent} />
-          )}
         </TouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
         {activeTab === "ghana-card" ? (
-          <View style={styles.card}>
-            <View style={styles.cardHeader}>
-              <View style={styles.iconBox}>
-                <Ionicons name="card-outline" size={28} color={Colors.primary} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.cardTitle}>Ghana Card Verification</Text>
-                <Text style={styles.cardSubtitle}>
-                  Upload a clear image of your national ID card
-                </Text>
-              </View>
-              <Text style={[styles.badge, user?.ghanaCardVerified ? styles.done : styles.pending]}>
-                {user?.ghanaCardVerified ? "Verified" : "Pending"}
-              </Text>
-            </View>
-
-            {user?.ghanaCardVerified ? (
-              <View style={styles.verifiedBox}>
-                <Ionicons name="checkmark-circle" size={20} color={Colors.accent} />
-                <Text style={styles.verifiedText}>
-                  Your Ghana Card is verified. No further action is needed.
-                </Text>
-              </View>
-            ) : (
-              <>
-                <Input
-                  placeholder="GHA-XXXXXXXXX-X"
-                  value={cardNumber}
-                  onChangeText={setCardNumber}
-                  autoCapitalize="characters"
-                  leftIcon="card-outline"
-                  label="Card Number"
-                />
-                <TouchableOpacity onPress={chooseImage} style={styles.upload}>
-                  <Ionicons name="image-outline" size={20} color={Colors.primary} />
-                  <Text style={styles.uploadText}>
-                    {asset ? asset.fileName || "Ghana Card image selected ✓" : "Choose Ghana Card image"}
-                  </Text>
-                </TouchableOpacity>
-                <Button
-                  title="Verify Ghana Card"
-                  onPress={verifyCard}
-                  loading={cardLoading}
-                />
-              </>
-            )}
-          </View>
-        ) : (
-          <View style={styles.card}>
-            <View style={styles.cardHeader}>
-              <View style={[styles.iconBox, { backgroundColor: "#FFF7ED" }]}>
-                <Ionicons name="phone-portrait-outline" size={28} color="#F97316" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.cardTitle}>MoMo Verification</Text>
-                <Text style={styles.cardSubtitle}>
-                  Verify the MTN Mobile Money number you use for payments
-                </Text>
-              </View>
-              <Text style={[styles.badge, user?.momoVerified ? styles.done : styles.pending]}>
-                {user?.momoVerified ? "Verified" : "Pending"}
-              </Text>
-            </View>
-
-            {user?.momoVerified ? (
-              <View style={styles.verifiedBox}>
-                <Ionicons name="checkmark-circle" size={20} color={Colors.accent} />
-                <Text style={styles.verifiedText}>
-                  Your MoMo number {user?.momoNumber ? `(${user.momoNumber})` : ""} is verified. You can update it below.
-                </Text>
-              </View>
-            ) : null}
-
-            <View style={styles.infoBox}>
-              <Ionicons name="information-circle-outline" size={16} color={Colors.primary} />
-              <Text style={styles.infoText}>
-                We verify your MoMo account is active. Repayments are collected automatically on agreed dates.
-              </Text>
-            </View>
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Ghana Card Verification</Text>
+            <Text style={[styles.sectionSub, { color: colors.textSecondary }]}>
+              Verify your national identity card to unlock full deal-making access.
+            </Text>
 
             <Input
-              label="MTN MoMo Number"
-              placeholder="024 XXX XXXX"
+              label="Ghana Card Number (GHA-XXXXXXXXX-X)"
+              value={cardNumber}
+              onChangeText={setCardNumber}
+              placeholder="e.g. GHA-123456789-0"
+              leftIcon="card-outline"
+            />
+
+            <Text style={[styles.uploadLabel, { color: colors.textPrimary }]}>Upload Card Document / Photo</Text>
+            <TouchableOpacity
+              style={[styles.uploadBox, { backgroundColor: colors.surfaceSubtle, borderColor: colors.border }]}
+              onPress={chooseImage}
+            >
+              <Ionicons name={asset ? "checkmark-circle" : "cloud-upload-outline"} size={28} color={asset ? "#16A34A" : colors.textMuted} />
+              <Text style={[styles.uploadText, { color: colors.textPrimary }]}>
+                {asset ? "Photo Selected" : "Tap to upload image file"}
+              </Text>
+            </TouchableOpacity>
+
+            <Button
+              title="Submit Ghana Card for Verification"
+              onPress={submitCard}
+              loading={cardLoading}
+              style={{ marginTop: 10 }}
+            />
+          </View>
+        ) : (
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Mobile Money Account</Text>
+            <Text style={[styles.sectionSub, { color: colors.textSecondary }]}>
+              Verify your Mobile Money phone number for automated repayments and disbursements.
+            </Text>
+
+            <Input
+              label="MoMo Phone Number"
               value={momoNumber}
               onChangeText={setMomoNumber}
+              placeholder="024XXXXXXX"
               keyboardType="phone-pad"
               leftIcon="phone-portrait-outline"
             />
+
             <Button
-              title={user?.momoVerified ? "Update MoMo Number" : "Verify MoMo Number"}
-              onPress={verifyNumber}
+              title="Verify MoMo Account"
+              onPress={submitMomo}
               loading={momoLoading}
+              style={{ marginTop: 10 }}
             />
           </View>
         )}
@@ -274,140 +181,71 @@ export default function VerificationScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.background },
+  safe: {
+    flex: 1,
+  },
   header: {
-    height: 62,
-    paddingHorizontal: 18,
-    backgroundColor: Colors.surface,
+    height: 60,
+    paddingHorizontal: 16,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: Colors.border,
+    borderBottomWidth: 1,
   },
-  title: { fontSize: 17, fontWeight: "700", color: Colors.textPrimary },
-  banner: {
-    backgroundColor: "#EFF6FF",
-    marginHorizontal: 16,
-    marginTop: 14,
-    borderRadius: 10,
-    padding: 14,
-    flexDirection: "row",
-    gap: 10,
-    alignItems: "center",
+  icon: {
+    width: 40,
   },
-  bannerText: {
-    flex: 1,
-    fontSize: 13,
-    lineHeight: 19,
-    color: Colors.textPrimary,
+  title: {
+    fontSize: 17,
+    fontWeight: "700",
   },
   tabBar: {
     flexDirection: "row",
-    marginHorizontal: 16,
-    marginTop: 14,
-    backgroundColor: Colors.surface,
-    borderRadius: 12,
     padding: 4,
-    gap: 4,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: Colors.border,
+    margin: 16,
+    borderRadius: 12,
   },
   tab: {
     flex: 1,
-    flexDirection: "row",
+    paddingVertical: 8,
+    alignItems: "center",
+    borderRadius: 10,
+  },
+  tabText: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  content: {
+    paddingHorizontal: 16,
+    paddingBottom: 40,
+  },
+  section: {
+    gap: 12,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+  },
+  sectionSub: {
+    fontSize: 13,
+    marginTop: -4,
+    lineHeight: 18,
+  },
+  uploadLabel: {
+    fontSize: 13,
+    fontWeight: "700",
+    marginTop: 4,
+  },
+  uploadBox: {
+    height: 100,
+    borderRadius: 14,
+    borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
     gap: 6,
-    paddingVertical: 10,
-    borderRadius: 9,
-  },
-  tabActive: {
-    backgroundColor: "#EFF6FF",
-  },
-  tabText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: Colors.textMuted,
-  },
-  tabTextActive: {
-    color: Colors.primary,
-  },
-  content: { padding: 16, gap: 16, paddingBottom: 40 },
-  card: {
-    padding: 16,
-    gap: 14,
-    backgroundColor: Colors.surface,
-    borderRadius: 14,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 1,
-  },
-  cardHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  iconBox: {
-    width: 52,
-    height: 52,
-    borderRadius: 14,
-    backgroundColor: "#EFF6FF",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  cardTitle: { fontSize: 16, fontWeight: "700", color: Colors.textPrimary },
-  cardSubtitle: { marginTop: 2, fontSize: 12, color: Colors.textSecondary },
-  badge: {
-    fontSize: 11,
-    fontWeight: "700",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    alignSelf: "flex-start",
-  },
-  done: { backgroundColor: "#DCFCE7", color: "#15803D" },
-  pending: { backgroundColor: "#FFF7ED", color: "#C2410C" },
-  verifiedBox: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    backgroundColor: "#F0FDF4",
-    borderRadius: 8,
-    padding: 12,
-  },
-  verifiedText: { flex: 1, fontSize: 13, color: Colors.textSecondary, lineHeight: 18 },
-  infoBox: {
-    flexDirection: "row",
-    backgroundColor: "#EFF6FF",
-    borderRadius: 10,
-    padding: 12,
-    gap: 8,
-    alignItems: "flex-start",
-  },
-  infoText: {
-    flex: 1,
-    fontSize: 12,
-    color: Colors.primary,
-    lineHeight: 18,
-  },
-  upload: {
-    height: 50,
-    borderRadius: 10,
-    borderWidth: 1.5,
-    borderColor: Colors.primary,
-    borderStyle: "dashed",
-    paddingHorizontal: 14,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
   },
   uploadText: {
-    fontSize: 14,
-    color: Colors.primary,
+    fontSize: 13,
     fontWeight: "600",
-    flex: 1,
   },
 });

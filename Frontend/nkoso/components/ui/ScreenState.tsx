@@ -1,8 +1,8 @@
 import React from 'react';
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '@/constants/Colors';
 import { FadeInView } from '@/components/ui/FadeInView';
+import { useTheme } from '@/store/themeStore';
 
 interface ScreenStateProps {
   icon?: keyof typeof Ionicons.glyphMap;
@@ -21,19 +21,25 @@ export function ScreenState({
   loading = false,
   onPress,
 }: ScreenStateProps) {
+  const { colors, isDark } = useTheme();
+
   return (
     <FadeInView style={styles.container}>
       {loading ? (
-        <ActivityIndicator size="large" color={Colors.primary} />
+        <ActivityIndicator size="large" color={isDark ? colors.accent : colors.primary} />
       ) : (
-        <View style={styles.iconBox}>
-          <Ionicons name={icon} size={30} color={Colors.textMuted} />
+        <View style={[styles.iconBox, { backgroundColor: colors.surfaceSubtle }]}>
+          <Ionicons name={icon} size={30} color={colors.textMuted} />
         </View>
       )}
-      <Text style={styles.title}>{title}</Text>
-      {detail ? <Text style={styles.detail}>{detail}</Text> : null}
+      <Text style={[styles.title, { color: colors.textPrimary }]}>{title}</Text>
+      {detail ? <Text style={[styles.detail, { color: colors.textSecondary }]}>{detail}</Text> : null}
       {action ? (
-        <TouchableOpacity style={styles.action} onPress={onPress} activeOpacity={0.72}>
+        <TouchableOpacity
+          style={[styles.action, { backgroundColor: isDark ? colors.accent : colors.primary }]}
+          onPress={onPress}
+          activeOpacity={0.72}
+        >
           <Text style={styles.actionText}>{action}</Text>
         </TouchableOpacity>
       ) : null}
@@ -53,36 +59,28 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: Colors.borderLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
   title: {
-    fontSize: 18,
-    lineHeight: 24,
-    fontWeight: '700',
-    color: Colors.textPrimary,
+    fontSize: 16,
+    fontWeight: '800',
     textAlign: 'center',
   },
   detail: {
-    fontSize: 14,
-    lineHeight: 20,
-    color: Colors.textSecondary,
+    fontSize: 13,
     textAlign: 'center',
+    lineHeight: 18,
   },
   action: {
-    minHeight: 44,
-    marginTop: 4,
+    marginTop: 8,
     paddingHorizontal: 18,
-    paddingVertical: 12,
+    paddingVertical: 10,
     borderRadius: 12,
-    backgroundColor: Colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   actionText: {
-    fontSize: 14,
+    color: '#FFFFFF',
+    fontSize: 13,
     fontWeight: '700',
-    color: Colors.surface,
   },
 });

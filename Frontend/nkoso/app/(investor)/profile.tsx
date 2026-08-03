@@ -1,366 +1,320 @@
 import React from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  Alert,
-} from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View, Switch } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Colors } from '@/constants/Colors';
 import { useAuthStore } from '@/store/authStore';
-import { cardStyles } from '@/components/ui/Card';
+import { useTheme } from '@/store/themeStore';
 import { FadeInView, SlideInView } from '@/components/ui/FadeInView';
 import { PressableScale } from '@/components/ui/PressableScale';
-import { useQuery } from '@tanstack/react-query';
-import { getMyDeals } from '@/services/api';
 
-// ─── settings row ─────────────────────────────────────────────────────────────
-
-interface SettingsRowProps {
+function Row({
+  icon,
+  label,
+  value,
+  onPress,
+  danger,
+  rightComponent,
+}: {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
   value?: string;
   onPress?: () => void;
-  showArrow?: boolean;
   danger?: boolean;
-}
+  rightComponent?: React.ReactNode;
+}) {
+  const { isDark, colors } = useTheme();
 
-function SettingsRow({ icon, label, value, onPress, showArrow = true, danger = false }: SettingsRowProps) {
   return (
-    <TouchableOpacity style={styles.settingsRow} onPress={onPress} activeOpacity={0.72}>
-      <View style={styles.settingsRowLeft}>
-        <View style={[styles.iconContainer, danger && styles.dangerIconContainer]}>
-          <Ionicons name={icon} size={18} color={danger ? Colors.accentRed : Colors.primary} />
-        </View>
-        <Text style={[styles.settingsRowLabel, danger && styles.dangerText]}>{label}</Text>
+    <TouchableOpacity
+      accessibilityRole="button"
+      onPress={onPress}
+      disabled={!onPress}
+      style={styles.row}
+      activeOpacity={0.72}
+    >
+      <View style={[styles.iconContainer, { backgroundColor: danger ? '#FEF2F2' : colors.surfaceSubtle }]}>
+        <Ionicons name={icon} size={18} color={danger ? '#DC2626' : (isDark ? colors.accent : colors.primary)} />
       </View>
-      <View style={styles.settingsRowRight}>
-        {value && <Text style={styles.settingsRowValue}>{value}</Text>}
-        {showArrow && <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />}
-      </View>
+      <Text style={[styles.rowLabel, { color: danger ? '#DC2626' : colors.textPrimary }]}>{label}</Text>
+      {value ? <Text style={[styles.rowValue, { color: colors.textSecondary }]}>{value}</Text> : null}
+      {rightComponent ? (
+        rightComponent
+      ) : (
+        <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+      )}
     </TouchableOpacity>
   );
 }
 
-// ─── verification timeline ────────────────────────────────────────────────────
-/**
- * 3-step progress strip instead of a flat row of icons.
- * Principle: "status shown as a timeline/progress not a data dump" +
- * goal-gradient (highlights the next incomplete step).
- */
-function VerificationTimeline({ ghanaCardVerified, momoVerified }: { ghanaCardVerified: boolean; momoVerified: boolean }) {
-  const steps = [
-    { label: 'Profile Created', icon: 'person-circle-outline' as const, done: true },
-    { label: 'Ghana Card',       icon: 'card-outline' as const,          done: ghanaCardVerified },
-    { label: 'MoMo Account',    icon: 'phone-portrait-outline' as const, done: momoVerified },
-  ];
-  const completedCount = steps.filter(s => s.done).length;
-  const progressPct    = Math.round((completedCount / steps.length) * 100);
-
-  return (
-    <PressableScale onPress={() => router.push('/profile/verification' as any)}>
-      <View style={vStyles.card}>
-        <View style={vStyles.header}>
-          <Ionicons name="shield-checkmark-outline" size={18} color={Colors.accent} />
-          <Text style={vStyles.title}>Identity Verification</Text>
-          <View style={vStyles.pctBadge}>
-            <Text style={vStyles.pctText}>{progressPct}%</Text>
-          </View>
-        </View>
-
-        {/* Progress bar */}
-        <View style={vStyles.barBg}>
-          <View style={[vStyles.barFill, { width: `${progressPct}%` as any }]} />
-        </View>
-
-        {/* Steps */}
-        <View style={vStyles.stepsRow}>
-          {steps.map((step, i) => {
-            const isNext = !step.done && (i === 0 || steps[i - 1].done);
-            return (
-              <React.Fragment key={step.label}>
-                <View style={vStyles.step}>
-                  <View style={[
-                    vStyles.stepDot,
-                    step.done && vStyles.stepDotDone,
-                    isNext && vStyles.stepDotNext,
-                  ]}>
-                    <Ionicons
-                      name={step.done ? 'checkmark' : step.icon}
-                      size={step.done ? 12 : 14}
-                      color={step.done ? '#fff' : isNext ? Colors.primary : Colors.textMuted}
-                    />
-                  </View>
-                  <Text style={[
-                    vStyles.stepLabel,
-                    step.done && vStyles.stepLabelDone,
-                    isNext && vStyles.stepLabelNext,
-                  ]}>
-                    {step.label}
-                  </Text>
-                </View>
-                {i < steps.length - 1 && (
-                  <View style={[vStyles.stepConnector, steps[i + 1].done && vStyles.stepConnectorDone]} />
-                )}
-              </React.Fragment>
-            );
-          })}
-        </View>
-
-        {!ghanaCardVerified || !momoVerified ? (
-          <Text style={vStyles.cta}>
-            {!ghanaCardVerified ? 'Complete Ghana Card verification to unlock investing →' : 'Add MoMo to enable instant transfers →'}
-          </Text>
-        ) : (
-          <Text style={vStyles.ctaDone}>✓ Full verification complete — you can invest freely</Text>
-        )}
-      </View>
-    </PressableScale>
-  );
-}
-
-const push = (href: string) => router.push(href as any);
-
-// ─── main screen ──────────────────────────────────────────────────────────────
-
-export default function ProfileScreen() {
+export default function InvestorProfileScreen() {
   const { user, logout } = useAuthStore();
+  const { isDark, colors, toggleTheme } = useTheme();
 
-  const { data: deals = [] } = useQuery({
-    queryKey: ['myDeals'],
-    queryFn: () => getMyDeals(),
-  });
-
-  const ACTIVE_STATUSES = ['PENDING_SIGNATURES', 'PENDING_MFI', 'MFI_APPROVED', 'PAYMENT_PENDING', 'FUNDED', 'ACTIVE'];
-  const activeDeals    = deals.filter(d => ACTIVE_STATUSES.includes(d.status));
-  const totalInvested  = activeDeals.reduce((s, d) => s + d.amount, 0);
-
-  const handleLogout = () => {
-    Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Sign Out', style: 'destructive', onPress: () => logout() },
-    ]);
-  };
-
-  const initials = user?.name
+  const initials = (user?.name || '?')
     .split(' ')
-    .map((n) => n[0])
+    .map((part) => part[0])
     .join('')
-    .toUpperCase()
-    .slice(0, 2) ?? '?';
+    .slice(0, 2)
+    .toUpperCase();
 
-  const isFullyVerified = user?.ghanaCardVerified && user?.momoVerified;
+  const openGhanaCard = () => router.push('/profile/verification?tab=ghana-card' as any);
+  const openMomo = () => router.push('/profile/verification?tab=momo' as any);
+  const openVerification = () => router.push('/profile/verification' as any);
+
+  const signOut = () =>
+    Alert.alert('Sign out', 'Are you sure you want to sign out?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Sign out', style: 'destructive', onPress: () => logout() },
+    ]);
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
-
-        {/* ── Profile header ── */}
-        <SlideInView from="left" style={styles.profileHeader}>
-          <View style={styles.avatarRow}>
-            {/* Avatar with optional verification ring */}
-            <View style={[styles.avatarWrap, isFullyVerified && styles.avatarWrapVerified]}>
-              <View style={styles.avatar}>
-                <Text style={styles.avatarText}>{initials}</Text>
-              </View>
-            </View>
-            <View style={styles.profileInfo}>
-              <Text style={styles.profileName}>{user?.name}</Text>
-              <Text style={styles.profileEmail}>{user?.email}</Text>
-              <View style={styles.roleTag}>
-                <Ionicons name="shield-checkmark" size={12} color={Colors.accent} />
-                <Text style={styles.roleTagText}>Investor Account</Text>
-              </View>
-            </View>
-            <TouchableOpacity style={styles.editBtn} activeOpacity={0.72} onPress={() => push('/profile/personal-info')}>
-              <Text style={styles.editBtnText}>Edit</Text>
-            </TouchableOpacity>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top']}>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Header */}
+        <SlideInView from="left" style={styles.header}>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>{initials}</Text>
           </View>
-
-          {/* 2-stat strip — reciprocity: surface value immediately */}
-          <View style={styles.statsStrip}>
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>GH₵{totalInvested.toLocaleString()}</Text>
-              <Text style={styles.statLabel}>Total Invested</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>{activeDeals.length}</Text>
-              <Text style={styles.statLabel}>Active Deals</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>{isFullyVerified ? '100%' : user?.ghanaCardVerified ? '67%' : '33%'}</Text>
-              <Text style={styles.statLabel}>Verified</Text>
+          <View style={styles.identity}>
+            <Text style={[styles.name, { color: colors.textPrimary }]}>{user?.name || 'Your account'}</Text>
+            <Text style={[styles.email, { color: colors.textSecondary }]}>{user?.email}</Text>
+            <View style={[styles.roleTag, { backgroundColor: colors.surfaceSubtle }]}>
+              <Ionicons name="shield-checkmark" size={12} color={isDark ? colors.accent : colors.primary} />
+              <Text style={[styles.roleTagText, { color: colors.textPrimary }]}>Accredited Investor</Text>
             </View>
           </View>
         </SlideInView>
 
-        {/* ── Verification timeline ── */}
-        <FadeInView delay={60} style={{ marginHorizontal: 20, marginBottom: 20 }}>
-          <VerificationTimeline
-            ghanaCardVerified={user?.ghanaCardVerified ?? false}
-            momoVerified={user?.momoVerified ?? false}
+        {/* Verification Status Card */}
+        <FadeInView delay={100} style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View style={styles.cardHeader}>
+            <View>
+              <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>Investor Verification & Payouts</Text>
+              <Text style={[styles.cardSubtitle, { color: colors.textSecondary }]}>KYC compliance & Mobile Money details</Text>
+            </View>
+            <PressableScale style={styles.manageBtn} onPress={openVerification}>
+              <Text style={styles.manageBtnText}>Manage</Text>
+            </PressableScale>
+          </View>
+
+          <View style={styles.verificationList}>
+            <TouchableOpacity style={styles.vItem} onPress={openGhanaCard} activeOpacity={0.75}>
+              <Ionicons
+                name={user?.ghanaCardVerified ? 'checkmark-circle' : 'alert-circle'}
+                size={20}
+                color={user?.ghanaCardVerified ? '#16A34A' : '#D97706'}
+              />
+              <View style={styles.vItemContent}>
+                <Text style={[styles.vItemTitle, { color: colors.textPrimary }]}>Ghana Card Identity</Text>
+                <Text style={[styles.vItemSub, { color: colors.textSecondary }]}>
+                  {user?.ghanaCardVerified ? 'Verified & Compliant' : 'Action Required'}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+            </TouchableOpacity>
+
+            <View style={[styles.vDivider, { backgroundColor: colors.border }]} />
+
+            <TouchableOpacity style={styles.vItem} onPress={openMomo} activeOpacity={0.75}>
+              <Ionicons
+                name={user?.momoVerified ? 'checkmark-circle' : 'wallet-outline'}
+                size={20}
+                color={user?.momoVerified ? '#16A34A' : '#D97706'}
+              />
+              <View style={styles.vItemContent}>
+                <Text style={[styles.vItemTitle, { color: colors.textPrimary }]}>Payout Mobile Money</Text>
+                <Text style={[styles.vItemSub, { color: colors.textSecondary }]}>
+                  {user?.momoNumber ? `${user.momoNumber} (${user.momoProvider})` : 'Set up MoMo payout account'}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+            </TouchableOpacity>
+          </View>
+        </FadeInView>
+
+        {/* Appearance & Theme Section */}
+        <FadeInView delay={150} style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Appearance</Text>
+          <Row
+            icon={isDark ? 'moon' : 'sunny'}
+            label="Dark Mode Theme"
+            rightComponent={
+              <Switch
+                value={isDark}
+                onValueChange={toggleTheme}
+                trackColor={{ false: '#CBD5E1', true: '#16A34A' }}
+                thumbColor="#FFFFFF"
+              />
+            }
           />
         </FadeInView>
 
-        {/* ── Account ── */}
-        <Text style={styles.sectionLabel}>Account Settings</Text>
-        <View style={styles.section}>
-          <SettingsRow icon="person-outline" label="Personal information" onPress={() => push('/profile/personal-info')} />
-          <View style={styles.divider} />
-          <SettingsRow icon="card-outline" label="Bank account" onPress={() => push('/profile/bank-account')} />
-          <View style={styles.divider} />
-          <SettingsRow
-            icon="document-text-outline"
-            label="Ghana Card Verification"
-            value={user?.ghanaCardVerified ? 'Verified ✓' : 'Pending'}
-            onPress={() => push('/profile/verification?tab=ghana-card')}
+        {/* Preferences Section */}
+        <FadeInView delay={200} style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Preferences & Settings</Text>
+          <Row
+            icon="person-outline"
+            label="Personal Details"
+            onPress={() => router.push('/profile/personal-info')}
           />
-          <View style={styles.divider} />
-          <SettingsRow
-            icon="phone-portrait-outline"
-            label="MoMo Account"
-            value={user?.momoVerified ? 'Verified ✓' : 'Pending'}
-            onPress={() => push('/profile/verification?tab=momo')}
+          <Row
+            icon="notifications-outline"
+            label="Notification Alerts"
+            onPress={() => router.push('/profile/notification-settings')}
           />
-        </View>
+          <Row
+            icon="mail-outline"
+            label="Email Preferences"
+            onPress={() => router.push('/profile/email-preferences')}
+          />
+        </FadeInView>
 
-        {/* ── Preferences ── */}
-        <Text style={styles.sectionLabel}>Preferences</Text>
-        <View style={styles.section}>
-          <SettingsRow icon="notifications-outline" label="Notifications"        onPress={() => push('/profile/notification-settings')} />
-          <View style={styles.divider} />
-          <SettingsRow icon="mail-outline"          label="Email preferences"    onPress={() => push('/profile/email-preferences')} />
-          <View style={styles.divider} />
-          <SettingsRow icon="wallet-outline"        label="Saved payment methods" onPress={() => push('/profile/payment-methods')} />
-        </View>
+        {/* Support Section */}
+        <FadeInView delay={250} style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Support & Help</Text>
+          <Row icon="help-circle-outline" label="Help Center" onPress={() => router.push('/profile/help')} />
+          <Row icon="headset-outline" label="Contact Support" onPress={() => router.push('/profile/contact-support')} />
+        </FadeInView>
 
-        {/* ── Support ── */}
-        <Text style={styles.sectionLabel}>Support & Info</Text>
-        <View style={styles.section}>
-          <SettingsRow icon="help-circle-outline" label="Help center"     onPress={() => push('/profile/help')} />
-          <View style={styles.divider} />
-          <SettingsRow icon="chatbubble-outline"  label="Contact support" onPress={() => push('/profile/contact-support')} />
-        </View>
+        {/* Danger Action */}
+        <FadeInView delay={300} style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Row icon="log-out-outline" label="Sign Out" danger onPress={signOut} />
+        </FadeInView>
 
-        {/* ── Logout ── */}
-        <View style={[styles.section, styles.logoutSection]}>
-          <SettingsRow icon="log-out-outline" label="Log out" onPress={handleLogout} showArrow={false} danger />
-        </View>
-
-        <Text style={styles.version}>Nkɔso v1.0.0 · Made in Ghana 🇬🇭</Text>
+        <View style={{ height: 40 }} />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-// ─── verification timeline styles ─────────────────────────────────────────────
-
-const vStyles = StyleSheet.create({
-  card: {
-    backgroundColor: Colors.surface, borderRadius: 18,
-    padding: 16, borderWidth: 1, borderColor: '#BBF7D0',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05, shadowRadius: 8, elevation: 2, gap: 12,
-  },
-  header:    { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  title:     { flex: 1, fontSize: 14, fontWeight: '700', color: Colors.textPrimary },
-  pctBadge:  { backgroundColor: Colors.accent + '20', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 },
-  pctText:   { fontSize: 11, fontWeight: '700', color: Colors.accent },
-  barBg:     { height: 4, backgroundColor: Colors.borderLight, borderRadius: 2, overflow: 'hidden' },
-  barFill:   { height: '100%', backgroundColor: Colors.accent, borderRadius: 2 },
-  stepsRow:  { flexDirection: 'row', alignItems: 'center' },
-  step:      { alignItems: 'center', flex: 1 },
-  stepDot: {
-    width: 34, height: 34, borderRadius: 17,
-    backgroundColor: Colors.borderLight, borderWidth: 2, borderColor: Colors.border,
-    alignItems: 'center', justifyContent: 'center', marginBottom: 6,
-  },
-  stepDotDone: { backgroundColor: Colors.accent, borderColor: Colors.accent },
-  stepDotNext: { borderColor: Colors.primary, borderWidth: 2, backgroundColor: '#EFF6FF' },
-  stepLabel:     { fontSize: 10, color: Colors.textMuted, fontWeight: '600', textAlign: 'center' },
-  stepLabelDone: { color: Colors.accent },
-  stepLabelNext: { color: Colors.primary },
-  stepConnector: { height: 2, flex: 0.4, backgroundColor: Colors.borderLight, marginBottom: 22 },
-  stepConnectorDone: { backgroundColor: Colors.accent },
-  cta:     { fontSize: 11, color: Colors.primary, fontWeight: '600', lineHeight: 16 },
-  ctaDone: { fontSize: 11, color: Colors.accent, fontWeight: '600' },
-});
-
-// ─── main styles ──────────────────────────────────────────────────────────────
-
 const styles = StyleSheet.create({
-  safe:    { flex: 1, backgroundColor: Colors.background },
-  content: { paddingBottom: 30 },
-
-  profileHeader: {
-    backgroundColor: Colors.surface, paddingHorizontal: 20,
-    paddingVertical: 20, marginBottom: 16,
-    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Colors.border,
+  safe: {
+    flex: 1,
   },
-  avatarRow:  { flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 16 },
-  avatarWrap: { padding: 2, borderRadius: 34, borderWidth: 2, borderColor: 'transparent' },
-  // Gradient-style ring when fully verified — distinct from a plain border
-  avatarWrapVerified: {
-    borderColor: Colors.accent,
-    shadowColor: Colors.accent,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.45,
-    shadowRadius: 6,
-    elevation: 4,
+  content: {
+    padding: 16,
+    gap: 16,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    marginBottom: 4,
   },
   avatar: {
-    width: 64, height: 64, borderRadius: 32,
-    backgroundColor: Colors.primary,
-    alignItems: 'center', justifyContent: 'center',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#0D1B3E',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  avatarText:   { fontSize: 22, fontWeight: '800', color: '#fff' },
-  profileInfo:  { flex: 1, gap: 2 },
-  profileName:  { fontSize: 19, fontWeight: '800', color: Colors.textPrimary, letterSpacing: -0.3 },
-  profileEmail: { fontSize: 13, color: Colors.textSecondary },
-  roleTag:      { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
-  roleTagText:  { fontSize: 11, fontWeight: '600', color: Colors.accent },
-  editBtn: {
-    minHeight: 38, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 10,
-    backgroundColor: Colors.borderLight, borderWidth: 1, borderColor: Colors.border,
+  avatarText: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: '800',
   },
-  editBtnText: { fontSize: 13, fontWeight: '700', color: Colors.textPrimary },
-
-  statsStrip: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: Colors.background, borderRadius: 14,
-    paddingVertical: 12, paddingHorizontal: 8,
+  identity: {
+    gap: 2,
   },
-  statItem:    { flex: 1, alignItems: 'center', gap: 2 },
-  statDivider: { width: 1, height: 30, backgroundColor: Colors.border },
-  statValue:   { fontSize: 16, fontWeight: '800', color: Colors.textPrimary, letterSpacing: -0.2 },
-  statLabel:   { fontSize: 10, color: Colors.textMuted, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.3 },
-
-  sectionLabel: {
-    fontSize: 12, fontWeight: '700', color: Colors.textMuted,
-    paddingHorizontal: 20, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.6,
+  name: {
+    fontSize: 18,
+    fontWeight: '800',
   },
-  section: {
-    ...cardStyles.surface,
-    backgroundColor: Colors.surface, marginHorizontal: 20, borderRadius: 16, marginBottom: 20, overflow: 'hidden',
+  email: {
+    fontSize: 13,
   },
-  logoutSection: { marginBottom: 12, backgroundColor: '#FEF2F2', borderColor: Colors.accentRed + '30' },
-  settingsRow: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, minHeight: 56, paddingVertical: 12,
+  roleTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+    marginTop: 4,
+    alignSelf: 'flex-start',
   },
-  settingsRowLeft:   { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  iconContainer:     { width: 34, height: 34, borderRadius: 10, backgroundColor: '#EFF6FF', alignItems: 'center', justifyContent: 'center' },
-  dangerIconContainer: { backgroundColor: '#FEE2E2' },
-  settingsRowLabel:  { fontSize: 15, color: Colors.textPrimary, fontWeight: '500' },
-  settingsRowRight:  { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  settingsRowValue:  { fontSize: 13, color: Colors.accent, fontWeight: '600' },
-  divider:           { height: 1, backgroundColor: Colors.borderLight, marginLeft: 62 },
-  dangerText:        { color: Colors.accentRed, fontWeight: '700' },
-  version:           { fontSize: 12, color: Colors.textMuted, textAlign: 'center', marginBottom: 8 },
+  roleTagText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  card: {
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    gap: 12,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  cardTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  cardSubtitle: {
+    fontSize: 12,
+    marginTop: 1,
+  },
+  manageBtn: {
+    backgroundColor: '#16A34A',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
+  },
+  manageBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  verificationList: {
+    gap: 10,
+    marginTop: 4,
+  },
+  vItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  vItemContent: {
+    flex: 1,
+  },
+  vItemTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  vItemSub: {
+    fontSize: 12,
+  },
+  vDivider: {
+    height: 1,
+  },
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    marginBottom: 4,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    gap: 12,
+  },
+  iconContainer: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rowLabel: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  rowValue: {
+    fontSize: 13,
+  },
 });

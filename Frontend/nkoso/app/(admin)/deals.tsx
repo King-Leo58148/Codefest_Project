@@ -13,14 +13,47 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Colors } from '@/constants/Colors';
+import { useTheme } from '@/store/themeStore';
 import { approveMfiDeal, getAdminDeals, rejectMfiDeal } from '@/services/api';
 import type { Deal } from '@/types';
 
 const REVIEW_STATUSES = ['PENDING_MFI', 'PAYMENT_PENDING', 'ACTIVE'] as const;
 
+function showError(error: unknown, fallbackMessage: string) {
+  const message = error instanceof Error ? error.message : fallbackMessage;
+  Alert.alert('Action Failed', message);
+}
+
+function State({
+  icon,
+  title,
+  action,
+  onPress,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  title: string;
+  action?: string;
+  onPress?: () => void;
+}) {
+  const { colors } = useTheme();
+
+  return (
+    <View style={styles.state}>
+      <Ionicons name={icon} size={42} color={colors.textMuted} />
+      <Text style={[styles.stateText, { color: colors.textPrimary }]}>{title}</Text>
+      {action && onPress ? (
+        <TouchableOpacity style={styles.actionBtn} onPress={onPress}>
+          <Text style={styles.actionBtnText}>{action}</Text>
+        </TouchableOpacity>
+      ) : null}
+    </View>
+  );
+}
+
 export default function AdminDealsScreen() {
+  const { isDark, colors } = useTheme();
   const queryClient = useQueryClient();
+
   const {
     data: deals = [],
     isLoading,
@@ -48,360 +81,235 @@ export default function AdminDealsScreen() {
   const busyDealId = approveMutation.variables ?? rejectMutation.variables;
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>MFI Workflow</Text>
-        <Text style={styles.subtitle}>Review signed deals before investor payment</Text>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+      <View style={[styles.header, { borderBottomColor: colors.border }]}>
+        <Text style={[styles.title, { color: colors.textPrimary }]}>MFI Workflow</Text>
+        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Review signed deals before investor payment</Text>
       </View>
 
       {isLoading ? (
         <State icon="hourglass-outline" title="Loading deals" />
       ) : isError ? (
         <State icon="alert-circle-outline" title="Could not load deals" action="Retry" onPress={() => refetch()} />
+      ) : visibleDeals.length === 0 ? (
+        <State icon="checkmark-circle-outline" title="No deals awaiting MFI review" />
       ) : (
         <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => refetch()} />}
+          contentContainerStyle={styles.content}
+          refreshControl={
+            <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={isDark ? '#38BDF8' : '#0D1B3E'} />
+          }
         >
-          {visibleDeals.length === 0 ? (
-            <State
-              icon="shield-checkmark-outline"
-              title="No MFI work pending"
-              detail="Deals appear here after both parties sign."
-            />
-          ) : (
-            visibleDeals.map((deal) => (
-              <DealCard
-                key={deal.id}
-                deal={deal}
-                busy={busyDealId === deal.id}
-                onApprove={() => approveMutation.mutate(deal.id)}
-                onReject={() => rejectMutation.mutate(deal.id)}
-              />
-            ))
-          )}
+          {visibleDeals.map((deal: Deal) => {
+            const isPendingMfi = deal.status === 'PENDING_MFI';
+            const busy = busyDealId === deal.id;
+
+            return (
+              <View key={deal.id} style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <View style={styles.cardHeader}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.businessName, { color: colors.textPrimary }]} numberOfLines={1}>
+                      {deal.businessName || 'Business Deal'}
+                    </Text>
+                    <Text style={[styles.contractId, { color: colors.textSecondary }]}>Contract #{deal.id.slice(0, 8)}</Text>
+                  </View>
+
+                  <View style={[styles.statusBadge, { backgroundColor: isPendingMfi ? (isDark ? '#451A03' : '#FEF3C7') : (isDark ? '#052E16' : '#DCFCE7') }]}>
+                    <Text style={[styles.statusBadgeText, { color: isPendingMfi ? (isDark ? '#FBBF24' : '#B45309') : (isDark ? '#4ADE80' : '#15803D') }]}>
+                      {deal.status.replace(/_/g, ' ')}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={[styles.metrics, { backgroundColor: colors.surfaceSubtle }]}>
+                  <View style={styles.metricItem}>
+                    <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>Amount</Text>
+                    <Text style={[styles.metricValue, { color: colors.textPrimary }]}>GH₵{deal.amount?.toLocaleString()}</Text>
+                  </View>
+                  <View style={[styles.metricDivider, { backgroundColor: colors.border }]} />
+                  <View style={styles.metricItem}>
+                    <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>Return Terms</Text>
+                    <Text style={[styles.metricValue, { color: colors.textPrimary }]}>{deal.returnType} ({deal.returnValue}%)</Text>
+                  </View>
+                </View>
+
+                {isPendingMfi ? (
+                  <View style={styles.actions}>
+                    <TouchableOpacity
+                      style={[styles.btn, styles.rejectBtn, busy && styles.disabled]}
+                      onPress={() => rejectMutation.mutate(deal.id)}
+                      disabled={busy}
+                    >
+                      <Text style={styles.rejectText}>Reject</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[styles.btn, styles.approveBtn, busy && styles.disabled]}
+                      onPress={() => approveMutation.mutate(deal.id)}
+                      disabled={busy}
+                    >
+                      {busy ? (
+                        <ActivityIndicator size="small" color="#FFFFFF" />
+                      ) : (
+                        <Text style={styles.approveText}>Approve MFI</Text>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    style={[styles.viewBtn, { borderColor: colors.border }]}
+                    onPress={() => router.push(`/deal/${deal.id}`)}
+                  >
+                    <Text style={[styles.viewBtnText, { color: colors.textPrimary }]}>Open Deal Room</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            );
+          })}
         </ScrollView>
       )}
     </SafeAreaView>
   );
 }
 
-function DealCard({
-  deal,
-  busy,
-  onApprove,
-  onReject,
-}: {
-  deal: Deal;
-  busy: boolean;
-  onApprove: () => void;
-  onReject: () => void;
-}) {
-  const canReview = deal.status === 'PENDING_MFI';
-
-  return (
-    <View style={styles.card}>
-      <View style={styles.cardHeader}>
-        <View style={styles.titleBlock}>
-          <Text style={styles.businessName}>{deal.businessName || 'Business deal'}</Text>
-          <Text style={styles.dealId}>Deal #{deal.id}</Text>
-        </View>
-        <StatusBadge status={deal.status} />
-      </View>
-
-      <View style={styles.infoBox}>
-        <Text style={styles.infoTitle}>Required checks</Text>
-        <CheckRow done={deal.ownerSigned} label="Business owner signed" />
-        <CheckRow done={deal.investorSigned} label="Investor signed" />
-        <CheckRow done={deal.amount > 0} label={`Investment amount: GH₵ ${formatCurrency(deal.amount)}`} />
-        <CheckRow done={deal.timelineMonths > 0} label={`Timeline: ${deal.timelineMonths} months`} />
-      </View>
-
-      <View style={styles.cardBody}>
-        <Row label="Return" value={`${deal.returnValue}% ${deal.returnType.replace('_', ' ')}`} />
-        <Row label="Platform fee" value={`GH₵ ${formatCurrency(deal.platformFee ?? deal.amount * 0.01)}`} />
-        <Row label="Owner receives" value={`GH₵ ${formatCurrency(deal.netDisbursementAmount ?? deal.amount)}`} />
-      </View>
-
-      <View style={styles.cardFooter}>
-        <TouchableOpacity
-          style={styles.buttonOutline}
-          onPress={() => router.push(`/deal/${deal.id}`)}
-        >
-          <Text style={styles.buttonTextOutline}>View Details</Text>
-        </TouchableOpacity>
-        {canReview && (
-          <>
-            <TouchableOpacity style={styles.buttonReject} onPress={onReject} disabled={busy}>
-              <Text style={styles.buttonTextReject}>Reject</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.buttonApprove} onPress={onApprove} disabled={busy}>
-              {busy ? <ActivityIndicator size="small" color="#fff" /> : null}
-              <Text style={styles.buttonTextApprove}>Approve MFI</Text>
-            </TouchableOpacity>
-          </>
-        )}
-      </View>
-    </View>
-  );
-}
-
-function StatusBadge({ status }: { status: Deal['status'] }) {
-  const active = status === 'ACTIVE';
-  return (
-    <View style={active ? styles.badgeSuccess : styles.badgeWarning}>
-      <Text style={active ? styles.badgeTextSuccess : styles.badgeTextWarning}>
-        {status.replace('_', ' ')}
-      </Text>
-    </View>
-  );
-}
-
-function CheckRow({ done, label }: { done: boolean; label: string }) {
-  return (
-    <View style={styles.checkRow}>
-      <Ionicons
-        name={done ? 'checkmark-circle' : 'ellipse-outline'}
-        size={16}
-        color={done ? Colors.accent : Colors.textMuted}
-      />
-      <Text style={styles.checkText}>{label}</Text>
-    </View>
-  );
-}
-
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.row}>
-      <Text style={styles.label}>{label}</Text>
-      <Text style={styles.value}>{value}</Text>
-    </View>
-  );
-}
-
-function State({
-  icon,
-  title,
-  detail,
-  action,
-  onPress,
-}: {
-  icon: keyof typeof Ionicons.glyphMap;
-  title: string;
-  detail?: string;
-  action?: string;
-  onPress?: () => void;
-}) {
-  return (
-    <View style={styles.state}>
-      <Ionicons name={icon} size={42} color={Colors.textMuted} />
-      <Text style={styles.stateTitle}>{title}</Text>
-      {detail ? <Text style={styles.stateDetail}>{detail}</Text> : null}
-      {action ? (
-        <TouchableOpacity style={styles.retryButton} onPress={onPress}>
-          <Text style={styles.retryText}>{action}</Text>
-        </TouchableOpacity>
-      ) : null}
-    </View>
-  );
-}
-
-function showError(error: unknown, fallback: string) {
-  Alert.alert('MFI action failed', error instanceof Error ? error.message : fallback);
-}
-
-function formatCurrency(value: number | string | null | undefined) {
-  const next = typeof value === 'number' ? value : Number(value ?? 0);
-  return Number.isFinite(next) ? next.toLocaleString(undefined, { maximumFractionDigits: 2 }) : '0';
-}
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
   },
   header: {
-    padding: 20,
-    backgroundColor: Colors.surface,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
   },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: Colors.textPrimary,
+    fontSize: 22,
+    fontWeight: '800',
   },
   subtitle: {
-    fontSize: 14,
-    color: Colors.textSecondary,
-    marginTop: 4,
+    fontSize: 12,
+    marginTop: 2,
   },
-  scrollContent: {
+  content: {
     padding: 20,
     paddingBottom: 100,
+    gap: 16,
   },
   state: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 28,
-    gap: 10,
+    gap: 8,
+    padding: 24,
   },
-  stateTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: Colors.textPrimary,
-    textAlign: 'center',
-  },
-  stateDetail: {
+  stateText: {
     fontSize: 14,
-    color: Colors.textSecondary,
-    textAlign: 'center',
+    fontWeight: '600',
   },
-  retryButton: {
-    backgroundColor: Colors.primary,
-    borderRadius: 8,
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    marginTop: 6,
+  actionBtn: {
+    backgroundColor: '#16A34A',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 10,
+    marginTop: 4,
   },
-  retryText: {
-    color: '#fff',
+  actionBtnText: {
+    color: '#FFFFFF',
     fontWeight: '700',
+    fontSize: 12,
   },
   card: {
-    backgroundColor: Colors.surface,
-    borderRadius: 8,
+    borderRadius: 18,
     padding: 16,
-    marginBottom: 16,
     borderWidth: 1,
-    borderColor: Colors.border,
+    gap: 12,
   },
   cardHeader: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: 12,
-    marginBottom: 14,
-  },
-  titleBlock: {
-    flex: 1,
   },
   businessName: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: Colors.textPrimary,
+    fontSize: 16,
+    fontWeight: '800',
   },
-  dealId: {
-    fontSize: 12,
-    color: Colors.textSecondary,
+  contractId: {
+    fontSize: 11,
+    marginTop: 1,
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 10,
+  },
+  statusBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  metrics: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    padding: 10,
+    borderRadius: 12,
+  },
+  metricItem: {
+    alignItems: 'center',
+  },
+  metricLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  metricValue: {
+    fontSize: 14,
+    fontWeight: '800',
     marginTop: 2,
   },
-  badgeWarning: {
-    backgroundColor: '#fff3e0',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
+  metricDivider: {
+    width: 1,
+    height: 20,
   },
-  badgeTextWarning: {
-    color: '#e65100',
-    fontSize: 10,
-    fontWeight: 'bold',
-  },
-  badgeSuccess: {
-    backgroundColor: '#e8f5e9',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-  },
-  badgeTextSuccess: {
-    color: '#2e7d32',
-    fontSize: 10,
-    fontWeight: 'bold',
-  },
-  infoBox: {
-    backgroundColor: Colors.borderLight,
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 14,
-    gap: 8,
-  },
-  infoTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: Colors.textPrimary,
-  },
-  checkRow: {
+  actions: {
     flexDirection: 'row',
+    gap: 10,
+    marginTop: 4,
+  },
+  btn: {
+    flex: 1,
+    height: 40,
+    borderRadius: 10,
     alignItems: 'center',
-    gap: 8,
+    justifyContent: 'center',
   },
-  checkText: {
-    flex: 1,
-    fontSize: 13,
-    color: Colors.textSecondary,
+  approveBtn: {
+    backgroundColor: '#16A34A',
   },
-  cardBody: {
-    marginBottom: 16,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-    gap: 8,
+  approveText: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 12,
   },
-  row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 12,
+  rejectBtn: {
+    backgroundColor: '#FEE2E2',
   },
-  label: {
-    fontSize: 14,
-    color: Colors.textSecondary,
+  rejectText: {
+    color: '#DC2626',
+    fontWeight: '800',
+    fontSize: 12,
   },
-  value: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.textPrimary,
-    textAlign: 'right',
-  },
-  cardFooter: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 8,
-    flexWrap: 'wrap',
-  },
-  buttonOutline: {
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 8,
+  viewBtn: {
+    height: 40,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  buttonTextOutline: {
-    color: Colors.textPrimary,
-    fontWeight: '600',
-  },
-  buttonReject: {
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 8,
-    backgroundColor: '#ffebee',
-  },
-  buttonTextReject: {
-    color: '#d32f2f',
-    fontWeight: '700',
-  },
-  buttonApprove: {
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 8,
-    backgroundColor: Colors.primary,
+    justifyContent: 'center',
+    marginTop: 4,
   },
-  buttonTextApprove: {
-    color: '#fff',
+  viewBtnText: {
+    fontSize: 13,
     fontWeight: '700',
+  },
+  disabled: {
+    opacity: 0.6,
   },
 });

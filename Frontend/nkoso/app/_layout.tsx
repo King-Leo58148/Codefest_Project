@@ -4,6 +4,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useAuthStore } from '@/store/authStore';
+import { useThemeStore } from '@/store/themeStore';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -17,6 +18,7 @@ const queryClient = new QueryClient({
 
 function RootLayoutNav() {
   const { user, loadStoredAuth } = useAuthStore();
+  const { themeMode } = useThemeStore();
   const [authChecked, setAuthChecked] = useState(false);
 
   useEffect(() => {
@@ -40,15 +42,16 @@ function RootLayoutNav() {
     const inAuthGroup = segments[0] === '(auth)';
     const isIndex = segments.length === 0 || segments[0] === 'index';
 
-    // If user is logged out, and we aren't in the auth screens or splash screen, redirect to login
     if (!user && !inAuthGroup && !isIndex) {
       router.replace('/(auth)/welcome');
     }
   }, [user, authChecked, segments]);
 
+  const isDark = themeMode === 'dark';
+
   return (
     <>
-      <StatusBar style="auto" />
+      <StatusBar style={isDark ? 'light' : 'dark'} />
       <Stack screenOptions={{ 
         headerShown: false,
         animation: 'slide_from_right',
@@ -64,6 +67,7 @@ function RootLayoutNav() {
         <Stack.Screen name="invest/[id]" />
         <Stack.Screen name="deal/[id]" />
         <Stack.Screen name="bid/[id]" />
+        <Stack.Screen name="repayments/[id]" />
         <Stack.Screen name="profile/personal-info" />
         <Stack.Screen name="profile/bank-account" />
         <Stack.Screen name="profile/verification" />

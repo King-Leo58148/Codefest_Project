@@ -12,7 +12,7 @@ import {
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Colors } from '@/constants/Colors';
+import { useTheme } from '@/store/themeStore';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as WebBrowser from 'expo-web-browser';
 import {
@@ -28,6 +28,7 @@ import { ScreenState } from '@/components/ui/ScreenState';
 export default function RepaymentScheduleScreen() {
   const { pitchId } = useLocalSearchParams<{ pitchId: string }>();
   const { user } = useAuthStore();
+  const { isDark, colors } = useTheme();
   const queryClient = useQueryClient();
 
   const [showCustomPayback, setShowCustomPayback] = useState(false);
@@ -58,111 +59,99 @@ export default function RepaymentScheduleScreen() {
     enabled: !!deal?.id,
   });
 
-  // Dynamic fallback schedule for active/funded deals if backend schedule isn't pre-generated yet
-  const repaymentSchedule = useMemo(() => {
-    if (rawRepaymentSchedule && rawRepaymentSchedule.length > 0) {
-      return rawRepaymentSchedule;
-    }
-    if (!deal) return [];
-    
-    const months = deal.timelineMonths || 12;
-    const totalTarget =
-      deal.returnType === 'FIXED'
-        ? deal.amount + (deal.returnValue || 0)
-        : Math.round(deal.amount * (1 + (deal.returnValue || 10) / 100));
-    
-    const perMonthAmount = Math.round(totalTarget / months);
-    const startDate = new Date();
+  const initiatePaymentMutation = useMutation({
+    mutationFn: (repaymentId: string) => initiateRepaymentPayment(repaymentId),
+  });
 
-    const generated: any[] = [];
-    for (let i = 1; i <= months; i++) {
-      const dDate = new Date(startDate);
-      dDate.setMonth(dDate.getMonth() + i);
-      generated.push({
-        id: `gen-${deal.id}-${i}`,
-        dueDate: dDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
-        amount: perMonthAmount,
-        status: i === 1 ? 'PENDING' : 'UPCOMING',
-        collectedAt: null,
-      });
-    }
-    return generated;
-  }, [rawRepaymentSchedule, deal]);
-
-  const payMutation = useMutation({
-    mutationFn: async ({ repaymentId, amount }: { repaymentId?: string; amount?: number }) => {
-      if (!deal) throw new Error('No deal found.');
-
-      const response = await initiateRepaymentPayment(deal.id, repaymentId, amount);
-      if (!response?.authorization_url) {
-        throw new Error('Could not start Paystack MoMo checkout.');
-      }
-
-      await WebBrowser.openBrowserAsync(response.authorization_url);
-
-      let lastError: unknown = null;
-      for (let attempt = 0; attempt < 4; attempt++) {
-        try {
-          return await verifyRepaymentPayment(deal.id, repaymentId || '1', response.reference);
-        } catch (error) {
-          lastError = error;
-          await new Promise((resolve) => setTimeout(resolve, 2000 * (attempt + 1)));
-        }
-      }
-
-      throw lastError instanceof Error ? lastError : new Error('Repayment could not be confirmed.');
-    },
+  const verifyPaymentMutation = useMutation({
+    mutationFn: (reference: string) => verifyRepaymentPayment(reference),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['dealRepayments', deal?.id] });
       queryClient.invalidateQueries({ queryKey: ['myDeals'] });
-      setShowCustomPayback(false);
-      setCustomAmount('');
-      Alert.alert(
-        'Repayment Successful!',
-        'Your payment has been processed via Paystack and sent to the investor\'s MoMo account.'
-      );
-    },
-    onError: (error) => {
-      Alert.alert(
-        'Repayment Pending',
-        error instanceof Error ? error.message : 'If MoMo checkout completed, pull to refresh in a moment.'
-      );
     },
   });
 
-  const handleCustomPaybackSubmit = () => {
-    const val = parseFloat(customAmount);
-    if (isNaN(val) || val <= 0) {
-      Alert.alert('Invalid amount', 'Please enter a valid repayment amount in GH₵.');
-      return;
-    }
+  const handlePayInstallment = async (repayment: any) => {
+    try {
+      const response = await initiatePaymentMutation.mutateAsync(repayment.id);
+      const authorizationUrl = response.authorization_url || response.authorizationUrl;
+      const reference = response.reference;
 
-    const pendingItem = repaymentSchedule.find((r) => r.status === 'PENDING') || repaymentSchedule[0];
-    payMutation.mutate({ repaymentId: pendingItem?.id, amount: val });
+      if (!authorizationUrl) {
+        Alert.alert('Payment Error', 'Failed to retrieve Paystack checkout URL.');
+        return;
+      }
+
+      const result = await WebBrowser.openAuthSessionAsync(authorizationUrl, 'nkoso://');
+
+      if (result.type === 'success' || result.type === 'dismiss') {
+        if (reference) {
+          Alert.alert('Verifying Payment', 'Please wait while we confirm your transaction...');
+          await verifyPaymentMutation.mutateAsync(reference);
+          Alert.alert('Success 🎉', 'Payment verified successfully!');
+        } else {
+          refetchRepayments();
+        }
+      }
+    } catch (err: any) {
+      Alert.alert('Payment Error', err?.message || 'Could not complete MoMo payment.');
+    }
+  };
+
+  const handleDirectMoMoPay = async (amount: number, note: string) => {
+    try {
+      const targetRepayment = rawRepaymentSchedule.find((r: any) => r.status === 'PENDING') || rawRepaymentSchedule[0];
+      if (!targetRepayment) {
+        Alert.alert('Repayment', 'No pending repayment schedule found.');
+        return;
+      }
+
+      const response = await initiatePaymentMutation.mutateAsync(targetRepayment.id);
+      const authorizationUrl = response.authorization_url || response.authorizationUrl;
+      const reference = response.reference;
+
+      if (!authorizationUrl) {
+        Alert.alert('Payment Error', 'Failed to generate direct Paystack checkout.');
+        return;
+      }
+
+      const result = await WebBrowser.openAuthSessionAsync(authorizationUrl, 'nkoso://');
+
+      if (result.type === 'success' || result.type === 'dismiss') {
+        if (reference) {
+          await verifyPaymentMutation.mutateAsync(reference);
+          Alert.alert('Success 🎉', `Direct payback of GH₵${amount.toLocaleString()} processed!`);
+        } else {
+          refetchRepayments();
+        }
+      }
+    } catch (err: any) {
+      Alert.alert('Payment Error', err?.message || 'Could not process Paystack payment.');
+    }
   };
 
   if (isLoading || loadingRepayments) {
     return (
-      <SafeAreaView style={styles.safe} edges={['top']}>
-        <ScreenState loading title="Loading Repayment Schedule" />
+      <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top']}>
+        <ScreenState loading title="Loading Repayment Schedule..." />
       </SafeAreaView>
     );
   }
 
   if (!deal) {
     return (
-      <SafeAreaView style={styles.safe} edges={['top']}>
+      <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top']}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} activeOpacity={0.75}>
-            <Ionicons name="arrow-back" size={22} color="#0F172A" />
+          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+            <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Repayments</Text>
-          <View style={{ width: 40 }} />
+          <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Repayments</Text>
+          <View style={{ width: 24 }} />
         </View>
         <ScreenState
-          icon="document-text-outline"
-          title="No Active Deal Found"
-          detail="Repayment schedule will appear once deal signatures are completed."
+          icon="alert-circle-outline"
+          title="Deal Not Found"
+          detail="Could not retrieve the agreement for this pitch."
           action="Go Back"
           onPress={() => router.back()}
         />
@@ -170,284 +159,270 @@ export default function RepaymentScheduleScreen() {
     );
   }
 
-  const getReturnTypeMeta = (returnType: string, returnValue: number) => {
-    switch (returnType) {
-      case 'REVENUE_SHARE':
-        return {
-          title: 'Revenue Share Agreement',
-          description: `${returnValue}% Monthly Revenue Share`,
-          badgeColor: '#D97706',
-          badgeBg: '#FFFBEB',
-          icon: 'pie-chart-outline' as const,
-        };
-      case 'EQUITY':
-        return {
-          title: 'Equity Dividend Stake',
-          description: `${returnValue}% Equity Dividend Distribution`,
-          badgeColor: '#16A34A',
-          badgeBg: '#DCFCE7',
-          icon: 'trending-up-outline' as const,
-        };
-      case 'FIXED':
-      default:
-        return {
-          title: 'Fixed Return Repayment',
-          description: `Fixed Monthly Return of GH₵${returnValue}`,
-          badgeColor: '#2563EB',
-          badgeBg: '#EFF6FF',
-          icon: 'cash-outline' as const,
-        };
-    }
-  };
+  const returnType = deal.returnType || 'FIXED';
+  const returnValue = deal.returnValue || 0;
+  const dealAmount = deal.amount || 0;
 
-  const returnMeta = getReturnTypeMeta(deal.returnType, deal.returnValue);
+  let computedTargetReturn = dealAmount;
+  if (returnType === 'FIXED') {
+    computedTargetReturn = dealAmount + (dealAmount * (returnValue / 100));
+  } else if (returnType === 'EQUITY') {
+    computedTargetReturn = dealAmount;
+  } else {
+    computedTargetReturn = dealAmount * (1 + (returnValue / 100));
+  }
 
-  const totalCollected = repaymentSchedule
-    .filter((r) => r.status === 'COLLECTED' || r.status === 'PAID')
-    .reduce((sum, r) => sum + (r.amount || 0), 0);
+  const totalPaid = rawRepaymentSchedule
+    .filter((r: any) => r.status === 'PAID')
+    .reduce((sum: number, r: any) => sum + (r.amount || 0), 0);
 
-  const pendingAmount = repaymentSchedule
-    .filter((r) => r.status === 'PENDING' || r.status === 'UPCOMING')
-    .reduce((sum, r) => sum + (r.amount || 0), 0);
-
-  const getStatusStyle = (status: string) => {
-    switch (status) {
-      case 'COLLECTED':
-      case 'PAID':
-        return { label: 'Paid', color: '#16A34A', bg: '#DCFCE7', icon: 'checkmark-circle' as const };
-      case 'PENDING':
-        return { label: 'Due Now', color: '#D97706', bg: '#FEF3C7', icon: 'time-outline' as const };
-      case 'UPCOMING':
-        return { label: 'Upcoming', color: '#2563EB', bg: '#EFF6FF', icon: 'calendar-outline' as const };
-      case 'MISSED':
-      case 'OVERDUE':
-        return { label: 'Overdue', color: '#DC2626', bg: '#FEE2E2', icon: 'alert-circle' as const };
-      default:
-        return { label: status, color: '#64748B', bg: '#F1F5F9', icon: 'ellipse-outline' as const };
-    }
-  };
+  const remainingBalance = Math.max(0, computedTargetReturn - totalPaid);
+  const progressPct = computedTargetReturn > 0 ? Math.min(100, (totalPaid / computedTargetReturn) * 100) : 0;
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top']}>
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} activeOpacity={0.75}>
-          <Ionicons name="arrow-back" size={22} color="#0F172A" />
+      <View style={[styles.header, { borderBottomColor: colors.border }]}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Repayment Schedule</Text>
-        <View style={{ width: 40 }} />
+        <View style={styles.headerTitleGroup}>
+          <Text style={[styles.headerTitle, { color: colors.textPrimary }]} numberOfLines={1}>
+            {deal.pitchTitle || deal.businessName || 'Repayment Schedule'}
+          </Text>
+          <Text style={[styles.headerSubTitle, { color: colors.textSecondary }]}>
+            {returnType.replace(/_/g, ' ')} ({returnValue}%)
+          </Text>
+        </View>
+        <TouchableOpacity style={styles.refreshBtn} onPress={() => refetchRepayments()}>
+          <Ionicons name="refresh" size={20} color="#16A34A" />
+        </TouchableOpacity>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
-        {/* Deal Summary & Return Type Hero Card */}
-        <View style={styles.heroCard}>
-          <View style={styles.heroHeader}>
-            <View style={styles.heroTitleWrap}>
-              <Text style={styles.businessName}>{deal.businessName}</Text>
-              <Text style={styles.investmentMeta}>
-                Principal Capital: GH₵{deal.amount.toLocaleString()} · {deal.timelineMonths} Months
-              </Text>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* Overview Progress Hero Card */}
+        <View style={[styles.heroCard, { backgroundColor: isDark ? '#0F1A34' : '#0D1B3E' }]}>
+          <View style={styles.heroHeaderRow}>
+            <View style={styles.returnBadge}>
+              <Ionicons
+                name={returnType === 'EQUITY' ? 'pie-chart' : returnType === 'REVENUE_SHARE' ? 'trending-up' : 'calendar'}
+                size={14}
+                color="#10B981"
+              />
+              <Text style={styles.returnBadgeText}>{returnType.replace(/_/g, ' ')}</Text>
             </View>
 
-            <View style={[styles.typeBadge, { backgroundColor: returnMeta.badgeBg }]}>
-              <Ionicons name={returnMeta.icon} size={14} color={returnMeta.badgeColor} />
-              <Text style={[styles.typeBadgeText, { color: returnMeta.badgeColor }]}>
-                {returnMeta.title}
+            <View style={styles.statusPill}>
+              <Text style={styles.statusPillLabel}>
+                {remainingBalance === 0 ? 'FULLY REPAID' : 'ACTIVE PAYBACK'}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.heroAmountGroup}>
+            <Text style={styles.heroAmountLabel}>Total Paid so far</Text>
+            <Text style={styles.heroAmountValue}>GH₵{totalPaid.toLocaleString()}</Text>
+          </View>
+
+          {/* Progress Bar */}
+          <View style={styles.progressBox}>
+            <View style={styles.progressBarBg}>
+              <View style={[styles.progressBarFill, { width: `${progressPct}%` }]} />
+            </View>
+            <View style={styles.progressRow}>
+              <Text style={styles.progressText}>{progressPct.toFixed(0)}% Repaid</Text>
+              <Text style={styles.progressTargetText}>
+                Target: GH₵{computedTargetReturn.toLocaleString()}
               </Text>
             </View>
           </View>
 
           <View style={styles.heroDivider} />
 
-          {/* Repayment Progress Counters */}
-          <View style={styles.statsRow}>
-            <View style={styles.statCol}>
-              <Text style={styles.statLabel}>TOTAL REPAID</Text>
-              <Text style={[styles.statValue, { color: '#16A34A' }]}>
-                GH₵{totalCollected.toLocaleString()}
-              </Text>
+          <View style={styles.heroFooterRow}>
+            <View>
+              <Text style={styles.footerLabel}>Remaining Balance</Text>
+              <Text style={styles.footerValue}>GH₵{remainingBalance.toLocaleString()}</Text>
             </View>
 
-            <View style={styles.statDivider} />
-
-            <View style={styles.statCol}>
-              <Text style={styles.statLabel}>REMAINING</Text>
-              <Text style={[styles.statValue, { color: '#D97706' }]}>
-                GH₵{pendingAmount.toLocaleString()}
-              </Text>
+            <View style={{ alignItems: 'flex-end' }}>
+              <Text style={styles.footerLabel}>Original Principal</Text>
+              <Text style={styles.footerValueSub}>GH₵{dealAmount.toLocaleString()}</Text>
             </View>
           </View>
         </View>
 
-        {/* Flexible Payback Anytime Card for Business Owner */}
-        {isOwner && (
-          <View style={styles.anytimeCard}>
-            <View style={styles.anytimeHeader}>
-              <View style={styles.anytimeTitleRow}>
-                <View style={styles.anytimeIconBg}>
-                  <Ionicons name="flash-outline" size={18} color="#D97706" />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.anytimeTitle}>Flexi-Payback (Pay Anytime)</Text>
-                  <Text style={styles.anytimeSub}>
-                    You can make repayments at any time before due dates.
-                  </Text>
-                </View>
+        {/* Any-Time Custom Payback Banner for Owners */}
+        {isOwner && remainingBalance > 0 && (
+          <View style={[styles.customPayCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <View style={styles.customPayHeader}>
+              <View style={styles.customPayIconBox}>
+                <Ionicons name="flash" size={20} color="#16A34A" />
               </View>
-
-              {!showCustomPayback ? (
-                <TouchableOpacity
-                  style={styles.anytimeToggleBtn}
-                  onPress={() => setShowCustomPayback(true)}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons name="add-circle-outline" size={16} color="#0D1B3E" />
-                  <Text style={styles.anytimeToggleText}>Pay Custom Amount</Text>
-                </TouchableOpacity>
-              ) : null}
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.customPayTitle, { color: colors.textPrimary }]}>Pay Back Anytime</Text>
+                <Text style={[styles.customPaySub, { color: colors.textSecondary }]}>
+                  Make early or partial MoMo repayments whenever you have funds.
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={styles.toggleCustomBtn}
+                onPress={() => setShowCustomPayback(!showCustomPayback)}
+              >
+                <Ionicons name={showCustomPayback ? 'chevron-up' : 'chevron-down'} size={20} color={colors.textPrimary} />
+              </TouchableOpacity>
             </View>
 
             {showCustomPayback && (
-              <View style={styles.customPaybackBox}>
-                <Text style={styles.customInputLabel}>Enter amount to pay back (GH₵)</Text>
-                <View style={styles.customInputRow}>
-                  <Text style={styles.customCurrency}>GH₵</Text>
+              <View style={styles.customPayInputBox}>
+                <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>Enter Custom Amount (GH₵):</Text>
+                <View style={[styles.inputRow, { backgroundColor: colors.surfaceSubtle, borderColor: colors.border }]}>
+                  <Text style={[styles.currencyPrefix, { color: colors.textPrimary }]}>GH₵</Text>
                   <TextInput
-                    style={styles.customInput}
-                    placeholder="e.g. 500"
-                    placeholderTextColor="#94A3B8"
+                    style={[styles.textInput, { color: colors.textPrimary }]}
                     keyboardType="numeric"
+                    placeholder="e.g. 500"
+                    placeholderTextColor={colors.textMuted}
                     value={customAmount}
                     onChangeText={setCustomAmount}
                   />
                 </View>
 
-                <View style={styles.customActionRow}>
-                  <TouchableOpacity
-                    style={styles.cancelCustomBtn}
-                    onPress={() => {
-                      setShowCustomPayback(false);
-                      setCustomAmount('');
-                    }}
-                  >
-                    <Text style={styles.cancelCustomText}>Cancel</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.submitCustomBtn}
-                    onPress={handleCustomPaybackSubmit}
-                    disabled={payMutation.isPending}
-                  >
-                    {payMutation.isPending ? (
-                      <ActivityIndicator size="small" color="#FFFFFF" />
-                    ) : (
-                      <>
-                        <Ionicons name="card-outline" size={16} color="#FFFFFF" />
-                        <Text style={styles.submitCustomText}>Pay MoMo via Paystack</Text>
-                      </>
-                    )}
-                  </TouchableOpacity>
+                {/* Quick Selection Chips */}
+                <View style={styles.quickChipsRow}>
+                  {[100, 250, 500, 1000].map((amt) => (
+                    <TouchableOpacity
+                      key={amt}
+                      style={[styles.quickChip, { backgroundColor: colors.surfaceSubtle, borderColor: colors.border }]}
+                      onPress={() => setCustomAmount(amt.toString())}
+                    >
+                      <Text style={[styles.quickChipText, { color: colors.textPrimary }]}>+GH₵{amt}</Text>
+                    </TouchableOpacity>
+                  ))}
                 </View>
+
+                <TouchableOpacity
+                  style={styles.directPayBtn}
+                  onPress={() => {
+                    const val = parseFloat(customAmount);
+                    if (isNaN(val) || val <= 0) {
+                      Alert.alert('Invalid Amount', 'Please enter a valid amount to pay back.');
+                      return;
+                    }
+                    handleDirectMoMoPay(val, 'Custom Any-Time Payback');
+                  }}
+                  activeOpacity={0.85}
+                >
+                  <Ionicons name="card-outline" size={18} color="#FFFFFF" />
+                  <Text style={styles.directPayBtnText}>
+                    Pay GH₵{customAmount || '0'} via Paystack / MoMo
+                  </Text>
+                </TouchableOpacity>
               </View>
             )}
           </View>
         )}
 
-        {/* Paystack MoMo Gateway Channel Banner */}
-        <View style={styles.momoBanner}>
-          <View style={styles.momoIconBg}>
-            <Ionicons name="shield-checkmark" size={20} color="#0D1B3E" />
-          </View>
-          <View style={styles.momoMeta}>
-            <Text style={styles.momoTitle}>Paystack MoMo Disbursement</Text>
-            <Text style={styles.momoSub}>
+        {/* Repayment Schedule Section Header */}
+        <View style={styles.scheduleHeaderRow}>
+          <Text style={[styles.scheduleTitle, { color: colors.textPrimary }]}>Repayment Installments</Text>
+          <Text style={[styles.installmentCount, { color: colors.textSecondary }]}>
+            {rawRepaymentSchedule.length} Payments
+          </Text>
+        </View>
+
+        {rawRepaymentSchedule.length === 0 ? (
+          <View style={[styles.emptyBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Ionicons name="calendar-outline" size={32} color={colors.textMuted} />
+            <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>No Schedule Created</Text>
+            <Text style={[styles.emptySub, { color: colors.textSecondary }]}>
               {isOwner
-                ? 'Repayments are debited via MTN MoMo / Paystack and transferred directly to the investor.'
-                : 'Repayments from the business owner land directly into your registered MoMo account.'}
+                ? 'Use the "Pay Back Anytime" option above to send repayments via MoMo anytime.'
+                : 'The business owner can make flexible repayments anytime.'}
             </Text>
           </View>
-        </View>
+        ) : (
+          <View style={styles.installmentsStack}>
+            {rawRepaymentSchedule.map((item: any, idx: number) => {
+              const isPaid = item.status === 'PAID';
+              const isPending = item.status === 'PENDING';
 
-        {/* Timeline Header */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Repayment Schedule</Text>
-          <Text style={styles.sectionSub}>{repaymentSchedule.length} Installments</Text>
-        </View>
-
-        {/* Timeline List */}
-        <View style={styles.timelineList}>
-          {repaymentSchedule.map((repayment, index) => {
-            const isLast = index === repaymentSchedule.length - 1;
-            const statusStyle = getStatusStyle(repayment.status);
-
-            return (
-              <View key={repayment.id} style={styles.timelineRow}>
-                {/* Left Timeline Node */}
-                <View style={styles.timelineCol}>
-                  <View style={[styles.nodeCircle, { backgroundColor: statusStyle.bg }]}>
-                    <Ionicons name={statusStyle.icon} size={16} color={statusStyle.color} />
-                  </View>
-                  {!isLast && <View style={[styles.nodeLine, { backgroundColor: statusStyle.bg }]} />}
-                </View>
-
-                {/* Right Card Content */}
-                <View style={styles.timelineContent}>
-                  <View style={styles.installmentCard}>
-                    <View style={styles.cardTop}>
+              return (
+                <View
+                  key={item.id || idx}
+                  style={[
+                    styles.installmentCard,
+                    { backgroundColor: colors.surface, borderColor: colors.border },
+                    isPaid && { backgroundColor: isDark ? '#052E16' : '#F0FDF4', borderColor: isDark ? '#065F46' : '#BBF7D0' },
+                  ]}
+                >
+                  <View style={styles.cardTopRow}>
+                    <View style={styles.installmentBadgeGroup}>
+                      <View style={[styles.stepCircle, isPaid && { backgroundColor: '#16A34A' }]}>
+                        <Text style={styles.stepCircleText}>{idx + 1}</Text>
+                      </View>
                       <View>
-                        <Text style={styles.dueDateLabel}>DUE DATE</Text>
-                        <Text style={styles.dueDateValue}>{repayment.dueDate}</Text>
-                      </View>
-
-                      <View style={[styles.statusPill, { backgroundColor: statusStyle.bg }]}>
-                        <Text style={[styles.statusPillText, { color: statusStyle.color }]}>
-                          {statusStyle.label}
+                        <Text style={[styles.installmentName, { color: colors.textPrimary }]}>
+                          Installment #{idx + 1}
+                        </Text>
+                        <Text style={[styles.dueDateText, { color: colors.textSecondary }]}>
+                          Due: {item.dueDate ? new Date(item.dueDate).toLocaleDateString() : 'Flexible / Any time'}
                         </Text>
                       </View>
                     </View>
 
-                    <View style={styles.amountRow}>
-                      <Text style={styles.installmentAmount}>
-                        GH₵{repayment.amount ? repayment.amount.toLocaleString() : '0'}
+                    <View style={[styles.statusPillSmall, isPaid ? styles.paidPill : styles.pendingPill]}>
+                      <Text style={[styles.statusPillText, isPaid ? styles.paidText : styles.pendingText]}>
+                        {isPaid ? 'PAID' : 'PENDING'}
                       </Text>
-                      <Text style={styles.returnTypeNote}>{returnMeta.description}</Text>
                     </View>
-
-                    {repayment.collectedAt && (
-                      <View style={styles.paidInfo}>
-                        <Ionicons name="checkmark-done" size={13} color="#16A34A" />
-                        <Text style={styles.paidInfoText}>
-                          Confirmed on {repayment.collectedAt}
-                        </Text>
-                      </View>
-                    )}
-
-                    {/* Pay Button for Business Owner */}
-                    {isOwner && (repayment.status === 'PENDING' || repayment.status === 'UPCOMING') && (
-                      <TouchableOpacity
-                        style={styles.payBtn}
-                        onPress={() => payMutation.mutate({ repaymentId: repayment.id, amount: repayment.amount })}
-                        disabled={payMutation.isPending}
-                        activeOpacity={0.85}
-                      >
-                        {payMutation.isPending ? (
-                          <ActivityIndicator size="small" color="#FFFFFF" />
-                        ) : (
-                          <>
-                            <Ionicons name="card-outline" size={16} color="#FFFFFF" />
-                            <Text style={styles.payBtnText}>
-                              Pay GH₵{repayment.amount.toLocaleString()} with Paystack MoMo
-                            </Text>
-                          </>
-                        )}
-                      </TouchableOpacity>
-                    )}
                   </View>
+
+                  <View style={styles.amountRow}>
+                    <Text style={[styles.installmentAmount, { color: colors.textPrimary }]}>
+                      GH₵{(item.amount || 0).toLocaleString()}
+                    </Text>
+                    <Text style={[styles.returnTypeNote, { color: colors.textSecondary }]}>
+                      {returnType === 'FIXED' ? 'Scheduled Fixed Return' : 'Return commitment'}
+                    </Text>
+                  </View>
+
+                  {isPaid ? (
+                    <View style={styles.paidInfo}>
+                      <Ionicons name="checkmark-circle" size={16} color="#16A34A" />
+                      <Text style={styles.paidInfoText}>
+                        Paid on {item.paidAt ? new Date(item.paidAt).toLocaleDateString() : 'Confirmed'}
+                      </Text>
+                    </View>
+                  ) : isOwner ? (
+                    <TouchableOpacity
+                      style={styles.payBtn}
+                      onPress={() => handlePayInstallment(item)}
+                      disabled={initiatePaymentMutation.isPending}
+                      activeOpacity={0.85}
+                    >
+                      {initiatePaymentMutation.isPending ? (
+                        <ActivityIndicator color="#FFFFFF" size="small" />
+                      ) : (
+                        <>
+                          <Ionicons name="logo-paystack" size={16} color="#FFFFFF" />
+                          <Text style={styles.payBtnText}>Pay GH₵{(item.amount || 0).toLocaleString()} via MoMo</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  ) : (
+                    <View style={styles.paidInfo}>
+                      <Ionicons name="time-outline" size={16} color="#D97706" />
+                      <Text style={[styles.paidInfoText, { color: '#D97706' }]}>Awaiting Owner Payment</Text>
+                    </View>
+                  )}
                 </View>
-              </View>
-            );
-          })}
-        </View>
+              );
+            })}
+          </View>
+        )}
+
+        <View style={{ height: 40 }} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -456,346 +431,324 @@ export default function RepaymentScheduleScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
   },
   header: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 14,
-    paddingBottom: 12,
-    backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
   },
   backBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    padding: 4,
+  },
+  headerTitleGroup: {
+    flex: 1,
     alignItems: 'center',
-    justifyContent: 'center',
+    marginHorizontal: 8,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '800',
-    color: '#0F172A',
   },
-  content: {
-    padding: 20,
-    paddingBottom: 40,
+  headerSubTitle: {
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 1,
+  },
+  refreshBtn: {
+    padding: 4,
+  },
+  scrollContent: {
+    padding: 16,
     gap: 16,
   },
 
-  /* Hero Summary Card */
+  /* Hero Overview Card */
   heroCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-    gap: 12,
+    borderRadius: 24,
+    padding: 20,
+    gap: 14,
+    shadowColor: '#0D1B3E',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    elevation: 4,
   },
-  heroHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-  },
-  heroTitleWrap: {
-    flex: 1,
-    marginRight: 10,
-  },
-  businessName: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#0F172A',
-  },
-  investmentMeta: {
-    fontSize: 12,
-    color: '#64748B',
-    marginTop: 3,
-    fontWeight: '500',
-  },
-  typeBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 14,
-  },
-  typeBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  heroDivider: {
-    height: 1,
-    backgroundColor: '#F1F5F9',
-  },
-  statsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-around',
-  },
-  statCol: {
-    alignItems: 'center',
-    gap: 2,
-  },
-  statLabel: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#64748B',
-    letterSpacing: 0.5,
-  },
-  statValue: {
-    fontSize: 18,
-    fontWeight: '800',
-  },
-  statDivider: {
-    width: 1,
-    height: 28,
-    backgroundColor: '#E2E8F0',
-  },
-
-  /* Flexible Payback Card */
-  anytimeCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#FDE68A',
-    gap: 12,
-  },
-  anytimeHeader: {
-    gap: 10,
-  },
-  anytimeTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  anytimeIconBg: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: '#FEF3C7',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  anytimeTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#0F172A',
-  },
-  anytimeSub: {
-    fontSize: 12,
-    color: '#64748B',
-    marginTop: 1,
-  },
-  anytimeToggleBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    backgroundColor: '#FFFBEB',
-    borderWidth: 1,
-    borderColor: '#FCD34D',
-    paddingVertical: 9,
-    borderRadius: 10,
-  },
-  anytimeToggleText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#0D1B3E',
-  },
-
-  /* Custom Payback Box */
-  customPaybackBox: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 12,
-    padding: 12,
-    gap: 10,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  customInputLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#64748B',
-  },
-  customInputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
-    paddingHorizontal: 12,
-    height: 46,
-    gap: 6,
-  },
-  customCurrency: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#0F172A',
-  },
-  customInput: {
-    flex: 1,
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#0F172A',
-  },
-  customActionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  cancelCustomBtn: {
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 10,
-    backgroundColor: '#E2E8F0',
-  },
-  cancelCustomText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#475569',
-  },
-  submitCustomBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    backgroundColor: '#16A34A',
-    paddingVertical: 10,
-    borderRadius: 10,
-  },
-  submitCustomText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-
-  /* Paystack MoMo Gateway Banner */
-  momoBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  momoIconBg: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#EFF6FF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  momoMeta: {
-    flex: 1,
-  },
-  momoTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#0F172A',
-  },
-  momoSub: {
-    fontSize: 12,
-    color: '#64748B',
-    marginTop: 2,
-    lineHeight: 17,
-  },
-
-  /* Timeline Header */
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 4,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#0F172A',
-  },
-  sectionSub: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#64748B',
-  },
-
-  /* Timeline List & Cards */
-  timelineList: {
-    marginTop: 4,
-  },
-  timelineRow: {
-    flexDirection: 'row',
-  },
-  timelineCol: {
-    alignItems: 'center',
-    width: 36,
-  },
-  nodeCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  nodeLine: {
-    width: 2,
-    flex: 1,
-    marginVertical: 4,
-  },
-  timelineContent: {
-    flex: 1,
-    paddingBottom: 18,
-    paddingLeft: 8,
-  },
-  installmentCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 2,
-    gap: 10,
-  },
-  cardTop: {
+  heroHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  dueDateLabel: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#94A3B8',
-    letterSpacing: 0.5,
-  },
-  dueDateValue: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#0F172A',
-    marginTop: 1,
-  },
-  statusPill: {
+  returnBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
+  },
+  returnBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  statusPill: {
+    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 10,
+  },
+  statusPillLabel: {
+    color: '#10B981',
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  heroAmountGroup: {
+    marginTop: 4,
+  },
+  heroAmountLabel: {
+    color: '#94A3B8',
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  heroAmountValue: {
+    color: '#FFFFFF',
+    fontSize: 30,
+    fontWeight: '800',
+    marginTop: 2,
+  },
+  progressBox: {
+    gap: 6,
+  },
+  progressBarBg: {
+    height: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    backgroundColor: '#10B981',
+    borderRadius: 4,
+  },
+  progressRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  progressText: {
+    color: '#10B981',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  progressTargetText: {
+    color: '#94A3B8',
+    fontSize: 11,
+  },
+  heroDivider: {
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  heroFooterRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  footerLabel: {
+    color: '#94A3B8',
+    fontSize: 11,
+  },
+  footerValue: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '800',
+    marginTop: 2,
+  },
+  footerValueSub: {
+    color: '#E2E8F0',
+    fontSize: 15,
+    fontWeight: '700',
+    marginTop: 2,
+  },
+
+  /* Custom Payback Card */
+  customPayCard: {
+    borderRadius: 20,
+    padding: 16,
+    borderWidth: 1,
+    gap: 12,
+  },
+  customPayHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  customPayIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#DCFCE7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  customPayTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  customPaySub: {
+    fontSize: 11,
+    marginTop: 1,
+  },
+  toggleCustomBtn: {
+    padding: 4,
+  },
+  customPayInputBox: {
+    gap: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  inputLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    height: 46,
+    gap: 8,
+  },
+  currencyPrefix: {
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  textInput: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  quickChipsRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  quickChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  quickChipText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  directPayBtn: {
+    backgroundColor: '#16A34A',
+    borderRadius: 12,
+    height: 46,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 4,
+  },
+  directPayBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+
+  /* Installment Cards Stack */
+  scheduleHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 6,
+  },
+  scheduleTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  installmentCount: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  emptyBox: {
+    borderRadius: 20,
+    padding: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    gap: 8,
+  },
+  emptyTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  emptySub: {
+    fontSize: 12,
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  installmentsStack: {
+    gap: 12,
+  },
+  installmentCard: {
+    borderRadius: 20,
+    padding: 16,
+    borderWidth: 1,
+    gap: 12,
+  },
+  cardTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  installmentBadgeGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  stepCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#0D1B3E',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepCircleText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  installmentName: {
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  dueDateText: {
+    fontSize: 11,
+    marginTop: 1,
+  },
+  statusPillSmall: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  paidPill: {
+    backgroundColor: '#DCFCE7',
+  },
+  pendingPill: {
+    backgroundColor: '#FEF3C7',
+  },
+  paidText: {
+    color: '#15803D',
+  },
+  pendingText: {
+    color: '#B45309',
   },
   statusPillText: {
     fontSize: 11,
@@ -807,12 +760,10 @@ const styles = StyleSheet.create({
   installmentAmount: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#0F172A',
     letterSpacing: -0.5,
   },
   returnTypeNote: {
     fontSize: 12,
-    color: '#64748B',
     fontWeight: '500',
   },
   paidInfo: {
@@ -830,8 +781,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#16A34A',
   },
-
-  /* Paystack Button */
   payBtn: {
     backgroundColor: '#0D1B3E',
     borderRadius: 12,
@@ -842,11 +791,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     marginTop: 4,
-    shadowColor: '#0D1B3E',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
   },
   payBtnText: {
     color: '#FFFFFF',

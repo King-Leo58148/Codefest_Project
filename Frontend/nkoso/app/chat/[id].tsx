@@ -18,7 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Colors } from '@/constants/Colors';
+import { useTheme } from '@/store/themeStore';
 import { getDealMessages, sendDealMessage, getDeal } from '@/services/api';
 import { BASE_URL } from '@/services/backendClient';
 import { useAuthStore } from '@/store/authStore';
@@ -51,6 +51,7 @@ function formatDateHeader(dateString: string | undefined): string {
 export default function FullPageChatScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const dealId = Array.isArray(id) ? id[0] : id;
+  const { isDark, colors } = useTheme();
 
   const [deal, setDeal] = useState<Deal | null>(null);
   const [messages, setMessages] = useState<any[]>([]);
@@ -58,193 +59,145 @@ export default function FullPageChatScreen() {
   const [connected, setConnected] = useState(false);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
-  const [loadError, setLoadError] = useState('');
-
-  const stompClient = useRef<any>(null);
   const flatListRef = useRef<FlatList>(null);
+  const stompClientRef = useRef<Client | null>(null);
+
   const { user } = useAuthStore();
+  const currentUserId = user?.id || '';
+
+  const isOwner = user?.role === 'OWNER';
+  const otherPartyName = isOwner 
+    ? (deal?.investorName || 'Investor Partner') 
+    : (deal?.businessName || 'Business Owner');
 
   useEffect(() => {
     if (!dealId) return;
 
-    // Fetch deal info & initial messages
-    setLoading(true);
-    setLoadError('');
+    let isMounted = true;
 
-    Promise.all([
-      getDeal(dealId).catch(() => null),
-      getDealMessages(dealId).catch(() => []),
-    ])
-      .then(([dealData, msgData]) => {
-        if (dealData) setDeal(dealData);
-        setMessages(msgData || []);
-      })
-      .catch((err) => {
-        console.error('Chat load error:', err);
-        setLoadError('Could not load chat messages.');
-      })
-      .finally(() => setLoading(false));
+    async function initChat() {
+      try {
+        setLoading(true);
+        const dealData = await getDeal(dealId);
+        if (isMounted) setDeal(dealData);
 
-    // Connect WebSocket
-    const connectWS = async () => {
-      const token = await AsyncStorage.getItem('token');
+        const msgs = await getDealMessages(dealId);
+        if (isMounted) setMessages(msgs);
 
-      stompClient.current = new Client({
-        webSocketFactory: () => new SockJS(`${BASE_URL}/ws`),
-        connectHeaders: { Authorization: `Bearer ${token}` },
-        debug: () => {},
-        onConnect: () => {
+        const token = await AsyncStorage.getItem('auth_token');
+        const wsUrl = `${BASE_URL}/ws-chat`;
+
+        const client = new Client({
+          webSocketFactory: () => new SockJS(wsUrl) as any,
+          connectHeaders: token ? { Authorization: `Bearer ${token}` } : {},
+          debug: () => {},
+          reconnectDelay: 5000,
+          heartbeatIncoming: 4000,
+          heartbeatOutgoing: 4000,
+        });
+
+        client.onConnect = () => {
+          if (!isMounted) return;
           setConnected(true);
-          stompClient.current.subscribe(`/topic/deal/${dealId}`, (msg: any) => {
+
+          client.subscribe(`/topic/deal.${dealId}`, (message) => {
+            if (!isMounted) return;
             try {
-              const newMsg = JSON.parse(msg.body);
+              const newMsg = JSON.parse(message.body);
               setMessages((prev) => {
-                // Avoid duplicate messages if already present
-                if (prev.some((m) => m.id === newMsg.id && newMsg.id)) {
-                  return prev;
-                }
+                if (prev.some((m) => m.id === newMsg.id)) return prev;
                 return [...prev, newMsg];
               });
-              scrollToBottom();
             } catch (e) {
               console.error('Error parsing WS message:', e);
             }
           });
-        },
-        onStompError: (frame) => {
-          console.error('STOMP Error:', frame);
-          setConnected(false);
-        },
-        onDisconnect: () => {
-          setConnected(false);
-        },
-      });
+        };
 
-      stompClient.current.activate();
-    };
+        client.onStompError = () => {
+          if (isMounted) setConnected(false);
+        };
 
-    connectWS();
+        client.activate();
+        stompClientRef.current = client;
+      } catch (err: any) {
+        console.error('Chat Init Error:', err);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    }
+
+    initChat();
 
     return () => {
-      if (stompClient.current) {
-        stompClient.current.deactivate();
+      isMounted = false;
+      if (stompClientRef.current) {
+        stompClientRef.current.deactivate();
       }
     };
   }, [dealId]);
 
-  const scrollToBottom = () => {
-    setTimeout(() => {
-      flatListRef.current?.scrollToEnd({ animated: true });
-    }, 120);
-  };
-
   const handleSend = async () => {
-    if (!inputMsg.trim() || sending || !dealId) return;
-    const msgText = inputMsg.trim();
+    const text = inputMsg.trim();
+    if (!text || !dealId) return;
+
     setInputMsg('');
     setSending(true);
 
     try {
-      const newMsg = await sendDealMessage(dealId, msgText);
-      if (newMsg && newMsg.id) {
-        setMessages((prev) => {
-          if (prev.some((m) => m.id === newMsg.id)) return prev;
-          return [...prev, newMsg];
+      if (stompClientRef.current && stompClientRef.current.connected) {
+        stompClientRef.current.publish({
+          destination: `/app/chat.sendMessage/${dealId}`,
+          body: JSON.stringify({ content: text }),
         });
       } else {
-        // Optimistic update if backend didn't return full object immediately
-        const tempMsg = {
-          id: Date.now().toString(),
-          content: msgText,
-          sentAt: new Date().toISOString(),
-          sender: {
-            email: user?.email,
-            fullName: user?.name,
-          },
-        };
-        setMessages((prev) => [...prev, tempMsg]);
+        const sent = await sendDealMessage(dealId, text);
+        setMessages((prev) => {
+          if (prev.some((m) => m.id === sent.id)) return prev;
+          return [...prev, sent];
+        });
       }
-      scrollToBottom();
-    } catch (err) {
-      console.error('Send error:', err);
-      Alert.alert('Send Failed', 'Could not send message. Please try again.');
-      setInputMsg(msgText);
+    } catch (err: any) {
+      Alert.alert('Message Failed', err?.message || 'Could not send message.');
     } finally {
       setSending(false);
     }
   };
 
-  const businessInitials = deal?.businessName
-    ? deal.businessName
-        .split(' ')
-        .map((w) => w[0])
-        .join('')
-        .toUpperCase()
-        .slice(0, 2)
-    : 'DL';
-
-  const renderMessage = ({ item, index }: { item: any; index: number }) => {
-    const isMe = item.sender?.email === user?.email;
-    const showHeaderDate =
-      index === 0 ||
-      formatDateHeader(item.sentAt) !== formatDateHeader(messages[index - 1]?.sentAt);
+  const renderMessageItem = ({ item, index }: { item: any; index: number }) => {
+    const isMe = item.senderId === currentUserId || item.senderName === user?.name;
+    const showDateHeader = index === 0 || 
+      formatDateHeader(item.createdAt) !== formatDateHeader(messages[index - 1]?.createdAt);
 
     return (
-      <View key={item.id || index}>
-        {showHeaderDate && (
+      <View>
+        {showDateHeader && (
           <View style={styles.dateHeaderContainer}>
-            <View style={styles.dateHeaderPill}>
-              <Text style={styles.dateHeaderText}>{formatDateHeader(item.sentAt)}</Text>
-            </View>
+            <Text style={[styles.dateHeaderText, { color: colors.textMuted }]}>{formatDateHeader(item.createdAt)}</Text>
           </View>
         )}
 
-        <View style={[styles.msgContainer, isMe ? styles.msgMe : styles.msgOther]}>
+        <View style={[styles.msgRow, isMe ? styles.msgRowMe : styles.msgRowOther]}>
           {!isMe && (
-            <Text style={styles.msgSenderName}>
-              {item.sender?.fullName || 'User'}
-            </Text>
+            <View style={styles.avatarCircle}>
+              <Text style={styles.avatarText}>{(item.senderName || 'P')[0].toUpperCase()}</Text>
+            </View>
           )}
 
-          <View style={[styles.msgBubble, isMe ? styles.bubbleMe : styles.bubbleOther]}>
-            <Text style={[styles.msgText, isMe ? styles.textMe : styles.textOther]}>
-              {item.content}
-            </Text>
-            <View style={styles.timeRow}>
-              <Text style={[styles.timeText, isMe ? styles.timeTextMe : styles.timeTextOther]}>
-                {formatMessageTime(item.sentAt || new Date().toISOString())}
+          <View style={[
+            styles.bubble,
+            isMe ? styles.bubbleMe : [styles.bubbleOther, { backgroundColor: colors.surface, borderColor: colors.border }],
+          ]}>
+            {!isMe && <Text style={styles.senderLabel}>{item.senderName || 'Partner'}</Text>}
+            <Text style={[styles.msgContent, isMe ? styles.msgContentMe : { color: colors.textPrimary }]}>{item.content}</Text>
+
+            <View style={styles.msgFooter}>
+              <Text style={[styles.timeText, isMe ? styles.timeTextMe : { color: colors.textMuted }]}>
+                {formatMessageTime(item.createdAt)}
               </Text>
-              {isMe && (() => {
-                const isRead = Boolean(item.isRead || item.read || item.status === 'READ');
-                if (isRead) {
-                  return (
-                    <Ionicons
-                      name="checkmark-done"
-                      size={14}
-                      color="#38BDF8"
-                      style={{ marginLeft: 3 }}
-                    />
-                  );
-                }
-                if (connected) {
-                  return (
-                    <Ionicons
-                      name="checkmark-done"
-                      size={14}
-                      color="rgba(255,255,255,0.65)"
-                      style={{ marginLeft: 3 }}
-                    />
-                  );
-                }
-                return (
-                  <Ionicons
-                    name="checkmark"
-                    size={14}
-                    color="rgba(255,255,255,0.65)"
-                    style={{ marginLeft: 3 }}
-                  />
-                );
-              })()}
+              {isMe && (
+                <Ionicons name="checkmark-done" size={14} color="#A7F3D0" style={{ marginLeft: 3 }} />
+              )}
             </View>
           </View>
         </View>
@@ -253,119 +206,81 @@ export default function FullPageChatScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-      {/* ── WhatsApp Header Bar ── */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backBtn}
-          onPress={() => router.back()}
-          activeOpacity={0.7}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Ionicons name="arrow-back" size={24} color={Colors.textPrimary} />
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top']}>
+      {/* Custom Top Navigation Header */}
+      <View style={[styles.header, { borderBottomColor: colors.border }]}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.headerTitleContainer}
-          onPress={() => dealId && router.push({ pathname: '/deal/[id]', params: { id: dealId } })}
-          activeOpacity={0.8}
-        >
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{businessInitials}</Text>
+        <View style={styles.headerPartnerGroup}>
+          <View style={styles.headerAvatar}>
+            <Text style={styles.headerAvatarText}>{(otherPartyName || 'P')[0].toUpperCase()}</Text>
           </View>
-          <View style={styles.headerTextWrap}>
-            <Text style={styles.headerTitle} numberOfLines={1}>
-              {deal?.businessName || 'Deal Discussion'}
+          <View>
+            <Text style={[styles.headerPartnerName, { color: colors.textPrimary }]} numberOfLines={1}>
+              {otherPartyName}
             </Text>
-            <View style={styles.statusRow}>
-              <View style={[styles.statusDot, connected ? styles.dotConnected : styles.dotConnecting]} />
-              <Text style={styles.statusSubtitle}>
-                {connected ? 'Online · Tap for deal room' : 'Connecting...'}
+            <View style={styles.statusOnlineRow}>
+              <View style={[styles.statusDot, connected ? styles.statusDotOnline : styles.statusDotOffline]} />
+              <Text style={[styles.statusText, { color: colors.textSecondary }]}>
+                {connected ? 'Real-time Encrypted' : 'Reconnecting...'}
               </Text>
             </View>
           </View>
-        </TouchableOpacity>
+        </View>
 
-        <TouchableOpacity
-          style={styles.headerActionBtn}
-          onPress={() => dealId && router.push({ pathname: '/deal/[id]', params: { id: dealId } })}
-          activeOpacity={0.75}
+        <TouchableOpacity 
+          style={styles.dealRoomNavBtn} 
+          onPress={() => router.push(`/deal/${dealId}` as any)}
         >
-          <Ionicons name="information-circle-outline" size={24} color={Colors.primary} />
+          <Ionicons name="document-text-outline" size={20} color="#16A34A" />
         </TouchableOpacity>
       </View>
 
-      {/* ── WhatsApp Chat Wallpaper & Message List ── */}
-      <View style={styles.chatWall}>
+      {/* Main Chat Body */}
+      <KeyboardAvoidingView 
+        style={styles.container} 
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
         {loading ? (
-          <View style={styles.centerContainer}>
-            <ActivityIndicator size="large" color={Colors.primary} />
-            <Text style={styles.loadingText}>Loading messages...</Text>
+          <View style={styles.centeredLoading}>
+            <ActivityIndicator size="large" color={isDark ? colors.accent : colors.primary} />
+            <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading Secure Encrypted Messages...</Text>
           </View>
-        ) : loadError ? (
-          <View style={styles.centerContainer}>
-            <Ionicons name="alert-circle-outline" size={44} color={Colors.accentRed} />
-            <Text style={styles.errorText}>{loadError}</Text>
-            <TouchableOpacity
-              style={styles.retryBtn}
-              onPress={() => {
-                setLoading(true);
-                getDealMessages(dealId)
-                  .then(setMessages)
-                  .finally(() => setLoading(false));
-              }}
-            >
-              <Text style={styles.retryText}>Retry</Text>
-            </TouchableOpacity>
+        ) : messages.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <View style={styles.emptyIconCircle}>
+              <Ionicons name="chatbubbles-outline" size={32} color="#16A34A" />
+            </View>
+            <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>Encrypted Deal Room Chat</Text>
+            <Text style={[styles.emptySub, { color: colors.textSecondary }]}>
+              Send a message to discuss legal terms, milestone verification, or payment arrangements.
+            </Text>
           </View>
         ) : (
           <FlatList
             ref={flatListRef}
             data={messages}
-            keyExtractor={(item, i) => item.id?.toString() || i.toString()}
-            renderItem={renderMessage}
-            contentContainerStyle={styles.listContent}
-            onContentSizeChange={scrollToBottom}
-            showsVerticalScrollIndicator={false}
-            ListHeaderComponent={
-              <View style={styles.encryptionCard}>
-                <Ionicons name="lock-closed" size={13} color="#856404" />
-                <Text style={styles.encryptionText}>
-                  Private Deal Room Chat. Messages are encrypted and shared only between the investor and business owner.
-                </Text>
-              </View>
-            }
-            ListEmptyComponent={
-              <View style={styles.emptyContainer}>
-                <View style={styles.emptyIconBg}>
-                  <Ionicons name="chatbubbles" size={32} color={Colors.primary} />
-                </View>
-                <Text style={styles.emptyTitle}>Start Private Discussion</Text>
-                <Text style={styles.emptyDetail}>
-                  Send a message to discuss payment terms, timeline, or ask questions about {deal?.businessName || 'this deal'}.
-                </Text>
-              </View>
-            }
+            keyExtractor={(item, idx) => item.id || idx.toString()}
+            renderItem={renderMessageItem}
+            contentContainerStyle={styles.messagesList}
+            onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+            onLayout={() => flatListRef.current?.scrollToEnd({ animated: false })}
           />
         )}
-      </View>
 
-      {/* ── WhatsApp Sticky Input Bar ── */}
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <View style={styles.inputArea}>
-          <View style={styles.inputPill}>
-            <Ionicons name="chatbubble-ellipses-outline" size={20} color={Colors.textMuted} style={styles.inputIcon} />
-            <TextInput
-              style={styles.input}
-              placeholder="Type a message..."
-              placeholderTextColor={Colors.textMuted}
-              value={inputMsg}
-              onChangeText={setInputMsg}
-              multiline
-              maxLength={1000}
-            />
-          </View>
-
+        {/* Bottom Input Action Bar */}
+        <View style={[styles.inputBar, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
+          <TextInput
+            style={[styles.inputField, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textPrimary }]}
+            placeholder="Type a message..."
+            placeholderTextColor={colors.textMuted}
+            value={inputMsg}
+            onChangeText={setInputMsg}
+            multiline
+            maxLength={1000}
+          />
           <TouchableOpacity
             style={[
               styles.sendBtn,
@@ -376,9 +291,9 @@ export default function FullPageChatScreen() {
             activeOpacity={0.8}
           >
             {sending ? (
-              <ActivityIndicator size="small" color="#fff" />
+              <ActivityIndicator color="#FFFFFF" size="small" />
             ) : (
-              <Ionicons name="send" size={18} color="#fff" style={{ marginLeft: 2 }} />
+              <Ionicons name="send" size={18} color="#FFFFFF" />
             )}
           </TouchableOpacity>
         </View>
@@ -390,315 +305,217 @@ export default function FullPageChatScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: Colors.surface,
   },
-
-  // ── Header ──
+  container: {
+    flex: 1,
+  },
   header: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    backgroundColor: Colors.surface,
+    justifyContent: 'space-between',
     borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
   },
   backBtn: {
-    padding: 6,
-    marginRight: 4,
+    padding: 4,
   },
-  headerTitleContainer: {
-    flex: 1,
+  headerPartnerGroup: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+    flex: 1,
+    marginHorizontal: 8,
   },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: Colors.primary,
+  headerAvatar: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#0D1B3E',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarText: {
+  headerAvatarText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  headerPartnerName: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#FFFFFF',
   },
-  headerTextWrap: {
-    flex: 1,
-  },
-  headerTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: Colors.textPrimary,
-  },
-  statusRow: {
+  statusOnlineRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    marginTop: 2,
+    gap: 4,
+    marginTop: 1,
   },
   statusDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
-  dotConnected: {
-    backgroundColor: Colors.accent,
+  statusDotOnline: {
+    backgroundColor: '#16A34A',
   },
-  dotConnecting: {
-    backgroundColor: '#D97706',
+  statusDotOffline: {
+    backgroundColor: '#94A3B8',
   },
-  statusSubtitle: {
+  statusText: {
     fontSize: 11,
-    color: Colors.textMuted,
     fontWeight: '500',
   },
-  headerActionBtn: {
-    padding: 6,
-    marginLeft: 4,
+  dealRoomNavBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#DCFCE7',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-
-  // ── Chat Wall ──
-  chatWall: {
-    flex: 1,
-    backgroundColor: '#EFEAE2', // WhatsApp light wallpaper tone
-  },
-  listContent: {
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    paddingBottom: 24,
-    flexGrow: 1,
-  },
-  centerContainer: {
+  centeredLoading: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 24,
+    gap: 12,
   },
   loadingText: {
-    marginTop: 12,
-    fontSize: 14,
-    color: Colors.textMuted,
-  },
-  errorText: {
-    marginTop: 10,
-    fontSize: 14,
-    color: Colors.textSecondary,
-    textAlign: 'center',
-  },
-  retryBtn: {
-    marginTop: 16,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    backgroundColor: Colors.primary,
-    borderRadius: 20,
-  },
-  retryText: {
-    color: '#fff',
-    fontWeight: '700',
-  },
-
-  // ── Encrypted notice ──
-  encryptionCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#FFF3CD',
-    borderColor: '#FFEBAA',
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
-    marginBottom: 16,
-    alignSelf: 'center',
-    maxWidth: '92%',
-  },
-  encryptionText: {
-    flex: 1,
-    fontSize: 11,
-    color: '#856404',
-    lineHeight: 15,
+    fontSize: 13,
     fontWeight: '500',
   },
-
-  // ── Empty State ──
   emptyContainer: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 40,
-    paddingHorizontal: 28,
+    paddingHorizontal: 32,
+    gap: 8,
   },
-  emptyIconBg: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: Colors.surface,
+  emptyIconCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#DCFCE7',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 14,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
+    marginBottom: 4,
   },
   emptyTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: Colors.textPrimary,
-    marginBottom: 6,
+    fontSize: 16,
+    fontWeight: '800',
   },
-  emptyDetail: {
-    fontSize: 13,
-    color: Colors.textSecondary,
+  emptySub: {
+    fontSize: 12,
     textAlign: 'center',
-    lineHeight: 19,
+    lineHeight: 18,
   },
-
-  // ── Date Headers ──
+  messagesList: {
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    gap: 12,
+  },
   dateHeaderContainer: {
     alignItems: 'center',
     marginVertical: 12,
   },
-  dateHeaderPill: {
-    backgroundColor: 'rgba(255, 255, 255, 0.85)',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
   dateHeaderText: {
     fontSize: 11,
     fontWeight: '700',
-    color: Colors.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
+    backgroundColor: 'rgba(148, 163, 184, 0.15)',
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 10,
   },
-
-  // ── Messages ──
-  msgContainer: {
-    marginBottom: 8,
-    maxWidth: '82%',
+  msgRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 8,
+    marginVertical: 2,
   },
-  msgMe: {
-    alignSelf: 'flex-end',
+  msgRowMe: {
+    justifyContent: 'flex-end',
   },
-  msgOther: {
-    alignSelf: 'flex-start',
+  msgRowOther: {
+    justifyContent: 'flex-start',
   },
-  msgSenderName: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: Colors.primary,
-    marginBottom: 2,
-    marginLeft: 4,
+  avatarCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#0D1B3E',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  msgBubble: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 3,
-    elevation: 1,
+  avatarText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  bubble: {
+    maxWidth: '78%',
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderWidth: 1,
+    gap: 3,
   },
   bubbleMe: {
-    backgroundColor: '#005C4B', // WhatsApp signature dark teal/green
-    borderTopRightRadius: 2,
+    backgroundColor: '#0D1B3E',
+    borderColor: '#162544',
+    borderBottomRightRadius: 4,
   },
   bubbleOther: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 2,
+    borderBottomLeftRadius: 4,
   },
-  msgText: {
-    fontSize: 14.5,
+  senderLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#16A34A',
+  },
+  msgContent: {
+    fontSize: 14,
     lineHeight: 20,
   },
-  textMe: {
+  msgContentMe: {
     color: '#FFFFFF',
   },
-  textOther: {
-    color: Colors.textPrimary,
-  },
-  timeRow: {
+  msgFooter: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-end',
-    marginTop: 3,
     alignSelf: 'flex-end',
+    marginTop: 2,
   },
   timeText: {
     fontSize: 10,
-    fontWeight: '500',
   },
   timeTextMe: {
-    color: 'rgba(255, 255, 255, 0.75)',
+    color: '#94A3B8',
   },
-  timeTextOther: {
-    color: Colors.textMuted,
-  },
-
-  // ── Input Area ──
-  inputArea: {
+  inputBar: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    backgroundColor: Colors.surface,
-    borderTopWidth: 1,
-    borderTopColor: Colors.borderLight,
     gap: 8,
+    borderTopWidth: 1,
   },
-  inputPill: {
+  inputField: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.background,
-    borderRadius: 24,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: Colors.border,
-    paddingHorizontal: 14,
-    minHeight: 44,
-    maxHeight: 120,
-  },
-  inputIcon: {
-    marginRight: 8,
-  },
-  input: {
-    flex: 1,
-    fontSize: 14.5,
-    color: Colors.textPrimary,
+    paddingHorizontal: 16,
     paddingVertical: 8,
+    maxHeight: 100,
+    fontSize: 14,
   },
   sendBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: Colors.primary,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#16A34A',
     alignItems: 'center',
     justifyContent: 'center',
-    elevation: 3,
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
   },
   sendBtnDisabled: {
-    backgroundColor: Colors.border,
-    elevation: 0,
-    shadowOpacity: 0,
+    opacity: 0.5,
   },
 });

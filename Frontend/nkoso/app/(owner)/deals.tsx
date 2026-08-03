@@ -10,6 +10,7 @@ import {
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTheme } from '@/store/themeStore';
 import { useQuery } from '@tanstack/react-query';
 import { getMyDeals, getMyPitches } from '@/services/api';
 import { ScreenState } from '@/components/ui/ScreenState';
@@ -23,24 +24,25 @@ const ACTIVE_STATUSES = [
   'PAYMENT_PENDING', 'FUNDED', 'ACTIVE',
 ];
 
-const getStatusBadgeConfig = (status: string) => {
+const getStatusBadgeConfig = (status: string, isDark: boolean) => {
   switch (status) {
     case 'ACTIVE':
     case 'FUNDED':
-      return { label: 'Active Escrow', bg: '#DCFCE7', color: '#15803D', icon: 'shield-checkmark' as const };
+      return { label: 'Active Escrow', bg: isDark ? '#052E16' : '#DCFCE7', color: isDark ? '#4ADE80' : '#15803D', icon: 'shield-checkmark' as const };
     case 'MFI_APPROVED':
-      return { label: 'MFI Approved', bg: '#D1FAE5', color: '#047857', icon: 'checkmark-done-circle' as const };
+      return { label: 'MFI Approved', bg: isDark ? '#064E3B' : '#D1FAE5', color: isDark ? '#34D399' : '#047857', icon: 'checkmark-done-circle' as const };
     case 'PENDING_SIGNATURES':
-      return { label: 'Awaiting Signatures', bg: '#FEF3C7', color: '#B45309', icon: 'create-outline' as const };
+      return { label: 'Awaiting Signatures', bg: isDark ? '#451A03' : '#FEF3C7', color: isDark ? '#FBBF24' : '#B45309', icon: 'create-outline' as const };
     case 'PENDING_MFI':
-      return { label: 'In MFI Audit', bg: '#DBEAFE', color: '#1E40AF', icon: 'document-text-outline' as const };
+      return { label: 'In MFI Audit', bg: isDark ? '#172554' : '#DBEAFE', color: isDark ? '#60A5FA' : '#1E40AF', icon: 'document-text-outline' as const };
     default:
-      return { label: status.replace(/_/g, ' '), bg: '#F1F5F9', color: '#475569', icon: 'ellipsis-horizontal' as const };
+      return { label: status.replace(/_/g, ' '), bg: isDark ? '#1E293B' : '#F1F5F9', color: isDark ? '#94A3B8' : '#475569', icon: 'ellipsis-horizontal' as const };
   }
 };
 
 function OwnerDealCard({ deal }: { deal: Deal }) {
-  const statusCfg = getStatusBadgeConfig(deal.status);
+  const { isDark, colors } = useTheme();
+  const statusCfg = getStatusBadgeConfig(deal.status, isDark);
   const returnTypeFormatted =
     deal.returnType === 'REVENUE_SHARE'
       ? 'Revenue Share'
@@ -50,119 +52,74 @@ function OwnerDealCard({ deal }: { deal: Deal }) {
 
   const returnTypeColor =
     deal.returnType === 'EQUITY'
-      ? '#059669'
+      ? (isDark ? '#34D399' : '#059669')
       : deal.returnType === 'FIXED'
-      ? '#2563EB'
-      : '#D97706';
+      ? (isDark ? '#60A5FA' : '#2563EB')
+      : (isDark ? '#FBBF24' : '#D97706');
 
   const initials = (deal.businessName || 'D')[0].toUpperCase();
 
   return (
     <TouchableOpacity
-      activeOpacity={0.82}
+      style={[styles.dealCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
       onPress={() => router.push(`/deal/${deal.id}`)}
-      style={styles.contractCard}
+      activeOpacity={0.88}
     >
-      {/* 1. Contract Top Header Ribbon */}
-      <View style={styles.contractRibbon}>
-        <View style={styles.ribbonLeft}>
-          <Ionicons name="document-text-outline" size={13} color="#64748B" />
-          <Text style={styles.ribbonCode}>
-            AGREEMENT · NK-{deal.id.slice(0, 6).toUpperCase()}
-          </Text>
+      <View style={styles.dealHeaderRow}>
+        <View style={styles.dealAvatarGroup}>
+          <View style={styles.dealAvatar}>
+            <Text style={styles.dealAvatarText}>{initials}</Text>
+          </View>
+          <View>
+            <Text style={[styles.dealBusinessName, { color: colors.textPrimary }]} numberOfLines={1}>
+              {deal.businessName || 'Investment Contract'}
+            </Text>
+            <Text style={[styles.dealContractId, { color: colors.textSecondary }]}>Contract #{deal.id.slice(0, 8)}</Text>
+          </View>
         </View>
+
         <View style={[styles.statusBadge, { backgroundColor: statusCfg.bg }]}>
-          <Ionicons name={statusCfg.icon} size={12} color={statusCfg.color} />
+          <Ionicons name={statusCfg.icon} size={13} color={statusCfg.color} />
           <Text style={[styles.statusBadgeText, { color: statusCfg.color }]}>
             {statusCfg.label}
           </Text>
         </View>
       </View>
 
-      {/* 2. Main Contract Body */}
-      <View style={styles.contractBody}>
-        {/* Parties Identity */}
-        <View style={styles.partiesRow}>
-          <View style={styles.avatarContainer}>
-            <View style={styles.blueAvatar}>
-              <Text style={styles.avatarText}>{initials}</Text>
-            </View>
-            <View style={styles.badgeCheck}>
-              <Ionicons name="checkmark" size={10} color="#FFFFFF" />
-            </View>
-          </View>
+      <View style={[styles.dealMetricsBox, { backgroundColor: colors.surfaceSubtle }]}>
+        <View style={styles.metricCol}>
+          <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>RAISED CAPITAL</Text>
+          <Text style={[styles.metricValuePrimary, { color: colors.textPrimary }]}>GH₵{deal.amount.toLocaleString()}</Text>
+        </View>
+        <View style={[styles.metricDivider, { backgroundColor: colors.border }]} />
+        <View style={styles.metricCol}>
+          <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>PAYBACK TERMS</Text>
+          <Text style={[styles.metricValueReturn, { color: returnTypeColor }]}>
+            {returnTypeFormatted} ({deal.returnValue}%)
+          </Text>
+        </View>
+      </View>
 
-          <View style={styles.partiesMeta}>
-            <Text style={styles.businessTitle}>{deal.businessName || 'Business Deal'}</Text>
-            <Text style={styles.investorMeta}>
-              Investor: <Text style={styles.metaHighlight}>{deal.investorName || deal.userName || 'Investor'}</Text>
-            </Text>
-          </View>
+      <View style={styles.dealFooterRow}>
+        <View style={styles.dateGroup}>
+          <Ionicons name="calendar-outline" size={14} color={colors.textMuted} />
+          <Text style={[styles.dateText, { color: colors.textSecondary }]}>
+            {deal.createdAt ? new Date(deal.createdAt).toLocaleDateString() : 'Active Agreement'}
+          </Text>
         </View>
 
-        {/* Financial Escrow Callout Box */}
-        <View style={styles.escrowBox}>
-          <View style={styles.capitalCol}>
-            <Text style={styles.escrowLabel}>TOTAL CAPITAL</Text>
-            <Text style={styles.capitalValue}>
-              GH₵{deal.amount ? deal.amount.toLocaleString() : '0'}
-            </Text>
-          </View>
-
-          <View style={styles.termsCol}>
-            <View style={styles.termTag}>
-              <Text style={[styles.termTagText, { color: returnTypeColor }]}>
-                {returnTypeFormatted} ({deal.returnType === 'FIXED' ? `GH₵${deal.returnValue}` : `${deal.returnValue}%`})
-              </Text>
-            </View>
-            <Text style={styles.timelineText}>{deal.timelineMonths} Months Duration</Text>
-          </View>
-        </View>
-
-        {/* 3. Signature & Escrow Progress Bar */}
-        <View style={styles.signaturesRow}>
-          <View style={[styles.sigChip, deal.ownerSigned ? styles.sigDone : styles.sigPending]}>
-            <Ionicons
-              name={deal.ownerSigned ? 'checkmark-circle' : 'time-outline'}
-              size={13}
-              color={deal.ownerSigned ? '#16A34A' : '#D97706'}
-            />
-            <Text style={[styles.sigText, deal.ownerSigned ? styles.sigTextDone : styles.sigTextPending]}>
-              {deal.ownerSigned ? 'Owner Signed' : 'Owner Signature Needed'}
-            </Text>
-          </View>
-
-          <View style={[styles.sigChip, deal.investorSigned ? styles.sigDone : styles.sigPending]}>
-            <Ionicons
-              name={deal.investorSigned ? 'checkmark-circle' : 'time-outline'}
-              size={13}
-              color={deal.investorSigned ? '#16A34A' : '#D97706'}
-            />
-            <Text style={[styles.sigText, deal.investorSigned ? styles.sigTextDone : styles.sigTextPending]}>
-              {deal.investorSigned ? 'Investor Signed' : 'Investor Signature Needed'}
-            </Text>
-          </View>
-        </View>
-
-        {/* 4. Action Footer Bar (Distinct Dark Solid Deal Room Button) */}
-        <View style={styles.actionFooter}>
+        <View style={styles.actionGroupRow}>
           <TouchableOpacity
-            style={styles.chatPillBtn}
-            onPress={() => router.push({ pathname: '/chat/[id]', params: { id: deal.id } })}
-            activeOpacity={0.8}
+            style={styles.repayScheduleLink}
+            onPress={() => router.push(`/repayments/${deal.pitchId || deal.id}` as any)}
           >
-            <Ionicons name="chatbubbles" size={14} color="#1D4ED8" />
-            <Text style={styles.chatPillText}>Chat</Text>
+            <Ionicons name="card" size={14} color="#16A34A" />
+            <Text style={styles.repayScheduleLinkText}>MoMo Payback</Text>
           </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.dealRoomBtn}
-            onPress={() => router.push(`/deal/${deal.id}`)}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.dealRoomBtnText}>Enter Deal Room</Text>
-            <Ionicons name="arrow-forward" size={14} color="#FFFFFF" />
-          </TouchableOpacity>
+          <View style={styles.actionBtn}>
+            <Text style={styles.actionBtnText}>Manage Contract</Text>
+            <Ionicons name="chevron-forward" size={14} color="#16A34A" />
+          </View>
         </View>
       </View>
     </TouchableOpacity>
@@ -170,183 +127,172 @@ function OwnerDealCard({ deal }: { deal: Deal }) {
 }
 
 export default function OwnerDealsScreen() {
-  const [filter, setFilter] = useState<DealFilter>('All');
+  const { isDark, colors } = useTheme();
+  const [selectedFilter, setSelectedFilter] = useState<DealFilter>('All');
 
-  const dealsQuery = useQuery({ queryKey: ['ownerDeals'], queryFn: getMyDeals });
-  const pitchesQuery = useQuery({ queryKey: ['myPitches'], queryFn: getMyPitches });
+  const {
+    data: deals = [],
+    isLoading: loadingDeals,
+    isError: isErrorDeals,
+    error: errorDeals,
+    refetch: refetchDeals,
+    isRefetching: isRefetchingDeals,
+  } = useQuery({
+    queryKey: ['myDeals'],
+    queryFn: () => getMyDeals(),
+  });
 
-  const isLoading = dealsQuery.isLoading || pitchesQuery.isLoading;
-  const isError   = dealsQuery.isError;
+  const { data: myPitches = [] } = useQuery({
+    queryKey: ['myPitches'],
+    queryFn: () => getMyPitches(),
+  });
 
-  const allDeals    = dealsQuery.data ?? [];
-  const activeDeals = useMemo(
-    () => allDeals.filter(d => ACTIVE_STATUSES.includes(d.status)),
-    [allDeals]
-  );
+  const activeDealsList = useMemo(() => {
+    return deals.filter((d) => ACTIVE_STATUSES.includes(d.status));
+  }, [deals]);
 
   const filteredDeals = useMemo(() => {
-    if (filter === 'All') return activeDeals;
-    return activeDeals.filter(d => d.status === filter);
-  }, [activeDeals, filter]);
+    if (selectedFilter === 'All') return activeDealsList;
+    return activeDealsList.filter((d) => d.status === selectedFilter);
+  }, [activeDealsList, selectedFilter]);
 
-  const totalCapital = useMemo(
-    () => activeDeals.reduce((s, d) => s + d.amount, 0),
-    [activeDeals]
-  );
+  const totalCapitalRaised = useMemo(() => {
+    return activeDealsList.reduce((sum, d) => sum + d.amount, 0);
+  }, [activeDealsList]);
 
-  const pendingSigsCount = useMemo(
-    () => activeDeals.filter(d => d.status === 'PENDING_SIGNATURES').length,
-    [activeDeals]
-  );
-
-  const fundedCount = useMemo(
-    () => activeDeals.filter(d => d.status === 'FUNDED' || d.status === 'ACTIVE').length,
-    [activeDeals]
-  );
-
-  const onRefresh = async () => {
-    await Promise.all([dealsQuery.refetch(), pitchesQuery.refetch()]);
-  };
-
-  if (isLoading) {
+  if (loadingDeals) {
     return (
-      <SafeAreaView style={styles.safe} edges={['top']}>
-        <ScreenState loading title="Loading deal agreements" />
+      <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top']}>
+        <ScreenState loading title="Loading deals & contracts..." />
       </SafeAreaView>
     );
   }
 
-  if (isError) {
+  if (isErrorDeals) {
     return (
-      <SafeAreaView style={styles.safe} edges={['top']}>
+      <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top']}>
         <ScreenState
           icon="alert-circle-outline"
           title="Could not load deals"
-          action="Retry"
-          onPress={() => dealsQuery.refetch()}
+          detail={(errorDeals as Error)?.message || 'Check connection'}
+          action="Try Again"
+          onPress={() => refetchDeals()}
         />
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
-      {/* 1. Header Section */}
-      <View style={styles.header}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top']}>
+      {/* 1. Header Navigation */}
+      <View style={[styles.headerNav, { borderBottomColor: colors.border }]}>
         <View>
-          <Text style={styles.title}>Deals & Escrow</Text>
-          <Text style={styles.subtitle}>Legally binding agreements & active portfolio.</Text>
+          <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Deals & Agreements</Text>
+          <Text style={[styles.headerSub, { color: colors.textSecondary }]}>Legal terms and escrow contracts</Text>
         </View>
-        <View style={styles.escrowBadge}>
-          <Ionicons name="shield-checkmark" size={16} color="#10B981" />
-          <Text style={styles.escrowBadgeText}>Protected</Text>
-        </View>
+        <TouchableOpacity style={styles.refreshIconBtn} onPress={() => refetchDeals()}>
+          <Ionicons name="refresh" size={18} color="#16A34A" />
+        </TouchableOpacity>
       </View>
 
-      {/* 2. Distinct Deep Navy Hero Capital Banner */}
-      <View style={styles.heroBannerContainer}>
-        <View style={styles.heroBanner}>
-          <View style={styles.heroBannerTop}>
-            <View>
-              <Text style={styles.heroLabel}>TOTAL ESCROW CAPITAL</Text>
-              <Text style={styles.heroValue}>GH₵{totalCapital.toLocaleString()}</Text>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl refreshing={isRefetchingDeals} onRefresh={refetchDeals} tintColor={isDark ? '#38BDF8' : '#0D1B3E'} />
+        }
+      >
+        {/* 2. Hero Portfolio Stat Card */}
+        <View style={[styles.heroStatCard, { backgroundColor: isDark ? '#0F1A34' : '#0D1B3E' }]}>
+          <View style={styles.heroHeaderRow}>
+            <View style={styles.heroChip}>
+              <View style={styles.heroPulseDot} />
+              <Text style={styles.heroChipText}>CONTRACTED CAPITAL RAISED</Text>
             </View>
-            <View style={styles.heroIconCircle}>
-              <Ionicons name="briefcase" size={24} color="#10B981" />
-            </View>
+            <Text style={styles.heroActiveCountText}>
+              {activeDealsList.length} Active Contracts
+            </Text>
           </View>
 
-          <View style={styles.heroDivider} />
+          <Text style={styles.heroCapitalVal}>GH₵{totalCapitalRaised.toLocaleString()}</Text>
+          <Text style={styles.heroCapitalSub}>Total value of active investor commitments</Text>
 
           <View style={styles.heroStatsRow}>
             <View style={styles.heroStatItem}>
-              <Text style={styles.heroStatValue}>{activeDeals.length}</Text>
-              <Text style={styles.heroStatLabel}>Active Deals</Text>
+              <Text style={styles.heroStatVal}>{myPitches.length}</Text>
+              <Text style={styles.heroStatLabel}>Live Pitches</Text>
             </View>
-
+            <View style={styles.heroStatDivider} />
             <View style={styles.heroStatItem}>
-              <Text style={[styles.heroStatValue, { color: '#F59E0B' }]}>{pendingSigsCount}</Text>
-              <Text style={styles.heroStatLabel}>Pending Sigs</Text>
+              <Text style={styles.heroStatVal}>
+                {activeDealsList.filter((d) => d.status === 'PENDING_SIGNATURES').length}
+              </Text>
+              <Text style={styles.heroStatLabel}>Signatures Due</Text>
             </View>
-
+            <View style={styles.heroStatDivider} />
             <View style={styles.heroStatItem}>
-              <Text style={[styles.heroStatValue, { color: '#10B981' }]}>{fundedCount}</Text>
-              <Text style={styles.heroStatLabel}>Funded</Text>
+              <Text style={styles.heroStatVal}>
+                {activeDealsList.filter((d) => d.status === 'ACTIVE' || d.status === 'FUNDED').length}
+              </Text>
+              <Text style={styles.heroStatLabel}>Funded Escrows</Text>
             </View>
           </View>
         </View>
-      </View>
 
-      {/* 3. Filter Bar (Emerald & Slate Theme - distinct from Bids) */}
-      <View style={styles.filterBarContainer}>
+        {/* 3. Filter Bar */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filterScrollContent}
+          contentContainerStyle={styles.filterScroll}
         >
-          {DEAL_FILTERS.map((item) => {
-            const isSelected = filter === item;
-            const displayLabel =
-              item === 'All'
-                ? 'All Deals'
-                : item === 'ACTIVE'
-                ? 'Active'
-                : item === 'PENDING_SIGNATURES'
-                ? 'Pending Sigs'
-                : item === 'PENDING_MFI'
-                ? 'In MFI Review'
-                : 'MFI Approved';
-
+          {DEAL_FILTERS.map((filter) => {
+            const active = selectedFilter === filter;
+            const label = filter === 'All' ? 'All Agreements' : filter.replace(/_/g, ' ');
             return (
               <TouchableOpacity
-                key={item}
-                onPress={() => setFilter(item)}
+                key={filter}
                 style={[
                   styles.filterPill,
-                  isSelected ? styles.filterPillActive : styles.filterPillInactive,
+                  { backgroundColor: colors.surfaceSubtle, borderColor: colors.border },
+                  active && { backgroundColor: isDark ? colors.accent : colors.primary, borderColor: isDark ? colors.accent : colors.primary },
                 ]}
-                activeOpacity={0.75}
+                onPress={() => setSelectedFilter(filter)}
+                activeOpacity={0.82}
               >
-                <Text
-                  style={[
-                    styles.filterPillText,
-                    isSelected ? styles.filterPillTextActive : styles.filterPillTextInactive,
-                  ]}
-                >
-                  {displayLabel}
+                <Text style={[styles.filterPillText, { color: colors.textSecondary }, active && { color: '#FFFFFF', fontWeight: '800' }]}>
+                  {label}
                 </Text>
               </TouchableOpacity>
             );
           })}
         </ScrollView>
-      </View>
 
-      {/* 4. Contracts / Deals List */}
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.list}
-        refreshControl={
-          <RefreshControl
-            refreshing={dealsQuery.isRefetching || pitchesQuery.isRefetching}
-            onRefresh={onRefresh}
-            tintColor="#0D1B3E"
-          />
-        }
-      >
+        {/* 4. Deals Stack */}
         {filteredDeals.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <View style={styles.emptyIconCircle}>
-              <Ionicons name="document-text-outline" size={32} color="#0D1B3E" />
-            </View>
-            <Text style={styles.emptyTitle}>No deals in this filter</Text>
-            <Text style={styles.emptySubtitle}>
-              Accepted investment bids will form legal agreements here.
+          <View style={[styles.emptyContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Ionicons name="document-text-outline" size={32} color={colors.textMuted} />
+            <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>No Agreements Found</Text>
+            <Text style={[styles.emptySub, { color: colors.textSecondary }]}>
+              {selectedFilter === 'All'
+                ? 'Agreements formed after accepting investor bids will show up here.'
+                : `No active contracts under ${selectedFilter.replace(/_/g, ' ')}.`}
             </Text>
+            <TouchableOpacity
+              style={styles.reviewBidsBtn}
+              onPress={() => router.push('/(owner)/bids')}
+            >
+              <Text style={styles.reviewBidsBtnText}>Review Received Bids</Text>
+            </TouchableOpacity>
           </View>
         ) : (
-          filteredDeals.map((deal) => <OwnerDealCard key={deal.id} deal={deal} />)
+          <View style={styles.dealsStack}>
+            {filteredDeals.map((deal) => (
+              <OwnerDealCard key={deal.id} deal={deal} />
+            ))}
+          </View>
         )}
-        <View style={{ height: 32 }} />
+
+        <View style={{ height: 36 }} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -355,210 +301,158 @@ export default function OwnerDealsScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: '#F1F5F9', // Crisp Slate Gray background
   },
-  header: {
+  headerNav: {
     paddingHorizontal: 20,
-    paddingTop: 14,
-    paddingBottom: 10,
+    paddingTop: 12,
+    paddingBottom: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    borderBottomWidth: 1,
   },
-  title: {
-    fontSize: 28,
+  headerTitle: {
+    fontSize: 20,
     fontWeight: '800',
-    color: '#0F172A',
-    letterSpacing: -0.5,
+    letterSpacing: -0.4,
   },
-  subtitle: {
-    fontSize: 13,
-    color: '#64748B',
-    marginTop: 2,
-    fontWeight: '500',
+  headerSub: {
+    fontSize: 12,
+    marginTop: 1,
   },
-  escrowBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#ECFDF5',
-    borderWidth: 1,
-    borderColor: '#A7F3D0',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 20,
-  },
-  escrowBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#047857',
-  },
-
-  /* Hero Capital Banner */
-  heroBannerContainer: {
-    paddingHorizontal: 20,
-    marginVertical: 6,
-  },
-  heroBanner: {
-    backgroundColor: '#0D1B3E', // Navy Banner
-    borderRadius: 20,
-    padding: 18,
-    elevation: 3,
-    shadowColor: '#0D1B3E',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.18,
-    shadowRadius: 10,
-  },
-  heroBannerTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  heroLabel: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#94A3B8',
-    letterSpacing: 0.8,
-  },
-  heroValue: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    marginTop: 2,
-    letterSpacing: -0.5,
-  },
-  heroIconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+  refreshIconBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#DCFCE7',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  heroDivider: {
-    height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
-    marginVertical: 14,
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 40,
+    gap: 16,
+  },
+  heroStatCard: {
+    borderRadius: 24,
+    padding: 20,
+    marginTop: 16,
+    shadowColor: '#0D1B3E',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  heroHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  heroChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  heroPulseDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#10B981',
+  },
+  heroChipText: {
+    color: '#94A3B8',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+  },
+  heroActiveCountText: {
+    color: '#10B981',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  heroCapitalVal: {
+    fontSize: 30,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    marginTop: 12,
+    letterSpacing: -0.8,
+  },
+  heroCapitalSub: {
+    fontSize: 12,
+    color: '#94A3B8',
+    marginTop: 2,
   },
   heroStatsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
+    marginTop: 16,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.12)',
   },
   heroStatItem: {
     alignItems: 'center',
   },
-  heroStatValue: {
-    fontSize: 16,
+  heroStatVal: {
+    fontSize: 15,
     fontWeight: '800',
     color: '#FFFFFF',
   },
   heroStatLabel: {
-    fontSize: 11,
+    fontSize: 10,
     color: '#94A3B8',
     marginTop: 2,
-    fontWeight: '500',
   },
-
-  /* Filter Bar */
-  filterBarContainer: {
-    paddingVertical: 10,
+  heroStatDivider: {
+    width: 1,
+    height: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
   },
-  filterScrollContent: {
-    paddingHorizontal: 20,
+  filterScroll: {
     gap: 8,
+    paddingVertical: 4,
   },
   filterPill: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  filterPillActive: {
-    backgroundColor: '#0F172A',
-  },
-  filterPillInactive: {
-    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
   },
   filterPillText: {
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '600',
   },
-  filterPillTextActive: {
-    color: '#FFFFFF',
+  dealsStack: {
+    gap: 14,
   },
-  filterPillTextInactive: {
-    color: '#475569',
-  },
-
-  /* List & Contract Cards */
-  list: {
-    paddingHorizontal: 20,
-    paddingBottom: 30,
-    gap: 16,
-  },
-  contractCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
+  dealCard: {
+    borderRadius: 20,
+    padding: 16,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    overflow: 'hidden',
+    gap: 12,
     shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.04,
     shadowRadius: 8,
     elevation: 2,
   },
-  contractRibbon: {
+  dealHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#F8FAFC',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
   },
-  ribbonLeft: {
+  dealAvatarGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 10,
+    flex: 1,
   },
-  ribbonCode: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#64748B',
-    letterSpacing: 0.4,
-  },
-  statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  statusBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-
-  contractBody: {
-    padding: 16,
-    gap: 14,
-  },
-  partiesRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  avatarContainer: {
-    position: 'relative',
-    marginRight: 10,
-  },
-  blueAvatar: {
+  dealAvatar: {
     width: 40,
     height: 40,
     borderRadius: 20,
@@ -566,192 +460,128 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarText: {
+  dealAvatarText: {
     color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  dealBusinessName: {
     fontSize: 15,
     fontWeight: '800',
   },
-  badgeCheck: {
-    position: 'absolute',
-    bottom: -1,
-    right: -1,
-    width: 15,
-    height: 15,
-    borderRadius: 7.5,
-    backgroundColor: '#16A34A',
-    borderWidth: 1.5,
-    borderColor: '#FFFFFF',
+  dealContractId: {
+    fontSize: 11,
+    marginTop: 1,
+  },
+  statusBadge: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 10,
   },
-  partiesMeta: {
-    flex: 1,
-  },
-  businessTitle: {
-    fontSize: 16,
+  statusBadgeText: {
+    fontSize: 10,
     fontWeight: '800',
-    color: '#0F172A',
   },
-  investorMeta: {
-    fontSize: 12,
-    color: '#64748B',
+  dealMetricsBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    borderRadius: 14,
+    padding: 12,
+  },
+  metricCol: {
+    alignItems: 'center',
+  },
+  metricLabel: {
+    fontSize: 9,
+    fontWeight: '800',
+  },
+  metricValuePrimary: {
+    fontSize: 15,
+    fontWeight: '800',
     marginTop: 2,
   },
-  metaHighlight: {
-    fontWeight: '700',
-    color: '#0F172A',
+  metricValueReturn: {
+    fontSize: 14,
+    fontWeight: '800',
+    marginTop: 2,
   },
-
-  /* Escrow Box */
-  escrowBox: {
+  metricDivider: {
+    width: 1,
+    height: 24,
+  },
+  dealFooterRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#F8FAFC',
-    borderRadius: 14,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
   },
-  capitalCol: {
-    gap: 2,
-  },
-  escrowLabel: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#64748B',
-    letterSpacing: 0.5,
-  },
-  capitalValue: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#0F172A',
-    letterSpacing: -0.5,
-  },
-  termsCol: {
-    alignItems: 'flex-end',
+  dateGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 4,
   },
-  termTag: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
+  dateText: {
+    fontSize: 11,
   },
-  termTagText: {
+  actionGroupRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  repayScheduleLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#DCFCE7',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  repayScheduleLinkText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#15803D',
+  },
+  actionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  actionBtnText: {
     fontSize: 12,
     fontWeight: '700',
-  },
-  timelineText: {
-    fontSize: 11,
-    color: '#64748B',
-    fontWeight: '500',
-  },
-
-  /* Signatures Row */
-  signaturesRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  sigChip: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 5,
-    paddingVertical: 8,
-    paddingHorizontal: 8,
-    borderRadius: 10,
-    borderWidth: 1,
-  },
-  sigDone: {
-    backgroundColor: '#F0FDF4',
-    borderColor: '#DCFCE7',
-  },
-  sigPending: {
-    backgroundColor: '#FFFBEB',
-    borderColor: '#FDE68A',
-  },
-  sigText: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  sigTextDone: {
     color: '#16A34A',
   },
-  sigTextPending: {
-    color: '#B45309',
-  },
-
-  /* Action Footer */
-  actionFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingTop: 4,
-  },
-  chatPillBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#EFF6FF',
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 12,
-  },
-  chatPillText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#1D4ED8',
-  },
-  dealRoomBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    backgroundColor: '#0D1B3E',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-  },
-  dealRoomBtnText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-
-  /* Empty State */
   emptyContainer: {
+    borderRadius: 20,
+    padding: 24,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 48,
-    paddingHorizontal: 24,
-    gap: 10,
-  },
-  emptyIconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: '#F1F5F9',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 6,
+    borderWidth: 1,
+    gap: 6,
+    marginTop: 10,
   },
   emptyTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#0F172A',
+    fontSize: 15,
+    fontWeight: '800',
   },
-  emptySubtitle: {
-    fontSize: 13,
-    color: '#64748B',
+  emptySub: {
+    fontSize: 12,
     textAlign: 'center',
-    lineHeight: 19,
+  },
+  reviewBidsBtn: {
+    marginTop: 8,
+    backgroundColor: '#16A34A',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 12,
+  },
+  reviewBidsBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
   },
 });

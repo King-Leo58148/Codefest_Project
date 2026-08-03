@@ -1,33 +1,37 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, SafeAreaView, TouchableOpacity } from 'react-native';
-import { Colors } from '@/constants/Colors';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '@/store/themeStore';
 
 export default function AdminUsersScreen() {
+  const { isDark, colors } = useTheme();
   const users: any[] = [];
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>User Management</Text>
-        <Text style={styles.subtitle}>Review user accounts and verifications</Text>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+      <View style={[styles.header, { borderBottomColor: colors.border }]}>
+        <Text style={[styles.title, { color: colors.textPrimary }]}>User Management</Text>
+        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Review user accounts and verifications</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {users.length === 0 ? (
-          <Text style={{ textAlign: 'center', marginTop: 40, color: Colors.textLight }}>
-            No users found.
-          </Text>
+          <View style={[styles.emptyBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Ionicons name="people-outline" size={36} color={colors.textMuted} />
+            <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>No Users Registered</Text>
+            <Text style={[styles.emptySub, { color: colors.textSecondary }]}>User accounts and identity verifications will appear here.</Text>
+          </View>
         ) : (
           users.map((user) => (
-            <View key={user.id} style={styles.card}>
+            <View key={user.id} style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <View style={styles.userInfo}>
                 <View style={styles.avatar}>
                   <Text style={styles.avatarText}>{user.name.charAt(0)}</Text>
                 </View>
                 <View style={styles.userDetails}>
-                  <Text style={styles.name}>{user.name}</Text>
-                  <Text style={styles.role}>{user.role.replace('_', ' ')}</Text>
+                  <Text style={[styles.name, { color: colors.textPrimary }]}>{user.name}</Text>
+                  <Text style={[styles.role, { color: colors.textSecondary }]}>{user.role.replace('_', ' ')}</Text>
                 </View>
               </View>
               
@@ -39,8 +43,8 @@ export default function AdminUsersScreen() {
                 </View>
                 
                 <TouchableOpacity style={styles.actionButton}>
-                  <Text style={styles.actionButtonText}>View Profile</Text>
-                  <Ionicons name="chevron-forward" size={16} color={Colors.textLight} />
+                  <Text style={[styles.actionButtonText, { color: colors.textSecondary }]}>View Profile</Text>
+                  <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
                 </TouchableOpacity>
               </View>
             </View>
@@ -54,106 +58,115 @@ export default function AdminUsersScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
   },
   header: {
-    padding: 20,
-    backgroundColor: '#fff',
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
   },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: Colors.text,
+    fontSize: 22,
+    fontWeight: '800',
   },
   subtitle: {
-    fontSize: 14,
-    color: Colors.textLight,
-    marginTop: 4,
+    fontSize: 12,
+    marginTop: 2,
   },
   scrollContent: {
     padding: 20,
     paddingBottom: 100,
   },
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
+  emptyBox: {
+    borderRadius: 20,
+    padding: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 1,
-    borderColor: Colors.border,
+    gap: 6,
+    marginTop: 20,
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  emptySub: {
+    fontSize: 12,
+    textAlign: 'center',
+  },
+  card: {
+    borderRadius: 18,
+    padding: 16,
+    borderWidth: 1,
+    marginBottom: 12,
+    gap: 12,
   },
   userInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+    gap: 12,
   },
   avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#f0f0f0',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#0D1B3E',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 16,
   },
   avatarText: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: Colors.text,
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '800',
   },
   userDetails: {
     flex: 1,
   },
   name: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.text,
+    fontSize: 15,
+    fontWeight: '800',
   },
   role: {
     fontSize: 12,
-    color: Colors.textLight,
     marginTop: 2,
   },
   statusRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-  },
-  badgeWarning: {
-    backgroundColor: '#fff3e0',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-  },
-  badgeTextWarning: {
-    color: '#e65100',
-    fontSize: 10,
-    fontWeight: 'bold',
+    justifyContent: 'space-between',
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0, 0, 0, 0.05)',
   },
   badgeSuccess: {
-    backgroundColor: '#e8f5e9',
+    backgroundColor: '#DCFCE7',
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 4,
+    borderRadius: 8,
   },
   badgeTextSuccess: {
-    color: '#2e7d32',
-    fontSize: 10,
-    fontWeight: 'bold',
+    color: '#15803D',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  badgeWarning: {
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  badgeTextWarning: {
+    color: '#B45309',
+    fontSize: 11,
+    fontWeight: '800',
   },
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 4,
   },
   actionButtonText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: Colors.text,
-    marginRight: 4,
+    fontSize: 12,
+    fontWeight: '600',
   },
 });

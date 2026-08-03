@@ -21,12 +21,12 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Colors } from '@/constants/Colors';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getMyPitches, createPitch, deletePitch } from '@/services/api';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { useTheme } from '@/store/themeStore';
 
 const INDUSTRIES = [
   'FOOD_AND_BEVERAGE', 'RETAIL', 'AGRICULTURE', 'TRANSPORT', 'FASHION',
@@ -50,7 +50,20 @@ function formatOfferType(offerType: string | undefined) {
   return 'equity';
 }
 
+function formatDate(dateStr: string | undefined) {
+  if (!dateStr) return 'TBD';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return 'TBD';
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+}
+
+function formatCurrency(val: number | undefined) {
+  if (val === undefined || val === null) return '0';
+  return val.toLocaleString();
+}
+
 export default function PitchesScreen() {
+  const { isDark, colors } = useTheme();
   const [showCreate, setShowCreate] = useState(false);
   const [playingVideo, setPlayingVideo] = useState<string | null>(null);
   const [menuPitchId, setMenuPitchId] = useState<string | null>(null);
@@ -98,77 +111,87 @@ export default function PitchesScreen() {
       if (msg.includes('verification') || msg.includes('Please complete verification process')) {
         Alert.alert('Verification required', 'Please complete verification process.');
       } else {
-        Alert.alert('Error', error.message || 'Failed to submit pitch');
+        Alert.alert('Error', msg || 'Could not create pitch. Please check inputs.');
       }
-    }
+    },
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => deletePitch(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['myPitches'] });
+      Alert.alert('Deleted', 'Pitch has been removed.');
     },
     onError: (error: any) => {
-      Alert.alert('Error', error.message || 'Failed to delete pitch');
-    }
+      Alert.alert('Error', error?.message || 'Could not delete pitch.');
+    },
   });
 
-  const confirmDelete = (pitchId: string) => {
+  const confirmDelete = (id: string) => {
     setMenuPitchId(null);
     Alert.alert(
       'Delete Pitch',
       'Are you sure you want to delete this pitch? This action cannot be undone.',
       [
         { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Delete', 
-          style: 'destructive', 
-          onPress: () => deleteMutation.mutate(pitchId) 
-        }
+        { text: 'Delete', style: 'destructive', onPress: () => deleteMutation.mutate(id) },
       ]
     );
   };
 
   const handlePickVideo = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['videos'],
-      allowsEditing: true,
-      quality: 1,
-    });
-
-    if (!result.canceled) {
-      const uri = result.assets[0].uri;
-      setVideoUri(uri);
-
-      try {
-        const { uri: thumbUri } = await VideoThumbnails.getThumbnailAsync(uri, {
-          time: 1000,
-        });
-        setThumbnailUri(thumbUri);
-      } catch (err) {
-        console.warn('Failed to generate thumbnail', err);
-        setThumbnailUri(null);
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Permission needed', 'Please allow access to your media library to upload pitch video.');
+        return;
       }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['videos'],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const pickedVideo = result.assets[0];
+        setVideoUri(pickedVideo.uri);
+        try {
+          const { uri } = await VideoThumbnails.getThumbnailAsync(pickedVideo.uri, { time: 1000 });
+          setThumbnailUri(uri);
+        } catch {
+          // Thumbnail generation failed, will rely on default image
+        }
+      }
+    } catch {
+      Alert.alert('Error', 'Could not select video.');
     }
   };
 
-  const handleCreate = async () => {
-    if (!businessName || !description || !monthlyIncome || !amountNeeded || !videoUri || !industry || !offerType) {
-      Alert.alert('Missing fields', 'Please fill in all required fields, choose an industry, offer type, and a pitch video.');
-      return;
-    }
+  const handleCreate = () => {
+    if (!businessName.trim()) return Alert.alert('Missing info', 'Please enter your business name.');
+    if (!description.trim()) return Alert.alert('Missing info', 'Please enter a business description.');
+    if (!monthlyIncome.trim() || isNaN(Number(monthlyIncome)))
+      return Alert.alert('Missing info', 'Please enter a valid monthly income amount.');
+    if (!amountNeeded.trim() || isNaN(Number(amountNeeded)))
+      return Alert.alert('Missing info', 'Please enter a valid target amount needed.');
+    if (!offerType) return Alert.alert('Missing info', 'Please select an offer type.');
+    if (!offerValue.trim() || isNaN(Number(offerValue)))
+      return Alert.alert('Missing info', 'Please enter your offer value.');
+    if (!industry) return Alert.alert('Missing info', 'Please select an industry.');
+
     createMutation.mutate({
-      data: {
-        businessName,
-        description,
-        monthlyIncome: Number(monthlyIncome),
-        amountNeeded: Number(amountNeeded),
+      pitch: {
+        businessName: businessName.trim(),
+        description: description.trim(),
+        summary: description.trim().slice(0, 120),
+        monthlyIncome: parseFloat(monthlyIncome),
+        amountNeeded: parseFloat(amountNeeded),
+        minInvestment: Math.min(parseFloat(amountNeeded) * 0.05, 500),
         offerType,
-        offerValue: Number(offerValue) || 0,
-        location,
+        offerValue: parseFloat(offerValue),
         industry,
+        location: location.trim() || 'Accra, Ghana',
       },
-      video: { uri: videoUri, fileName: 'pitch-video.mp4', mimeType: 'video/mp4' },
+      video: videoUri ? { uri: videoUri, fileName: 'pitch-video.mp4', mimeType: 'video/mp4' } : undefined,
       image: thumbnailUri
         ? { uri: thumbnailUri, fileName: 'pitch-cover.jpg', mimeType: 'image/jpeg' }
         : undefined,
@@ -176,9 +199,9 @@ export default function PitchesScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
-      <View style={styles.header}>
-        <Text style={styles.title}>My Pitches</Text>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top']}>
+      <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+        <Text style={[styles.title, { color: colors.textPrimary }]}>My Pitches</Text>
         <TouchableOpacity
           style={styles.addBtn}
           onPress={() => setShowCreate(true)}
@@ -189,14 +212,13 @@ export default function PitchesScreen() {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
-        {/* Pitches */}
         {loadingPitches ? (
-          <ActivityIndicator size="large" color={Colors.primary} style={{ marginTop: 20 }} />
+          <ActivityIndicator size="large" color={isDark ? colors.accent : colors.primary} style={{ marginTop: 20 }} />
         ) : isError ? (
-          <View style={styles.emptyCard}>
-            <Ionicons name="alert-circle-outline" size={32} color={Colors.accentRed} />
-            <Text style={styles.emptyText}>Could not load your pitches</Text>
-            <Text style={styles.emptyDesc}>{error instanceof Error ? error.message : 'Please try again.'}</Text>
+          <View style={[styles.emptyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Ionicons name="alert-circle-outline" size={32} color="#DC2626" />
+            <Text style={[styles.emptyText, { color: colors.textPrimary }]}>Could not load your pitches</Text>
+            <Text style={[styles.emptyDesc, { color: colors.textSecondary }]}>{error instanceof Error ? error.message : 'Please try again.'}</Text>
             <TouchableOpacity style={styles.createBtn} onPress={() => refetch()} activeOpacity={0.8}>
               <Text style={styles.createBtnText}>Retry</Text>
             </TouchableOpacity>
@@ -206,7 +228,7 @@ export default function PitchesScreen() {
             return (
               <Pressable
                 key={pitch.id}
-                style={styles.pitchCard}
+                style={[styles.pitchCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
                 onLongPress={() => setMenuPitchId(pitch.id)}
                 delayLongPress={400}
               >
@@ -223,7 +245,7 @@ export default function PitchesScreen() {
                     />
                   ) : (
                     <View style={[styles.media, styles.mediaPlaceholder]}>
-                      <Ionicons name="videocam" size={32} color={Colors.primary} />
+                      <Ionicons name="videocam" size={32} color={isDark ? colors.accent : colors.primary} />
                       <Text style={styles.mediaPlaceholderText}>
                         {pitch.videoUrl ? 'Tap to watch pitch video' : 'No preview available'}
                       </Text>
@@ -247,39 +269,39 @@ export default function PitchesScreen() {
                   onPress={() => setMenuPitchId(pitch.id)}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
-                  <Ionicons name="ellipsis-vertical" size={20} color={Colors.textSecondary} />
+                  <Ionicons name="ellipsis-vertical" size={20} color={colors.textSecondary} />
                 </TouchableOpacity>
 
                 <View style={styles.pitchCardBody}>
                   <View style={styles.pitchInfo}>
-                    <Badge label={pitch.industry} industry={pitch.industry} />
-                    <Text style={styles.pitchName}>{pitch.businessName}</Text>
+                    <Badge label={pitch.industry} industry={pitch.industry as any} />
+                    <Text style={[styles.pitchName, { color: colors.textPrimary }]}>{pitch.businessName}</Text>
                   </View>
 
-                  <Text style={styles.pitchDesc} numberOfLines={3}>
+                  <Text style={[styles.pitchDesc, { color: colors.textSecondary }]} numberOfLines={3}>
                     {pitch.description}
                   </Text>
 
                   <View style={styles.pitchMeta}>
                     <View style={styles.metaItem}>
-                      <Ionicons name="location-outline" size={14} color={Colors.textMuted} />
-                      <Text style={styles.metaText}>{pitch.location}</Text>
+                      <Ionicons name="location-outline" size={14} color={colors.textMuted} />
+                      <Text style={[styles.metaText, { color: colors.textSecondary }]}>{pitch.location}</Text>
                     </View>
                     <View style={styles.metaItem}>
-                      <Ionicons name="calendar-outline" size={14} color={Colors.textMuted} />
-                      <Text style={styles.metaText}>Ends {formatDate(pitch.campaignEndDate)}</Text>
+                      <Ionicons name="calendar-outline" size={14} color={colors.textMuted} />
+                      <Text style={[styles.metaText, { color: colors.textSecondary }]}>Ends {formatDate(pitch.campaignEndDate)}</Text>
                     </View>
                   </View>
 
-                  <View style={styles.divider} />
+                  <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
                   <View style={styles.statsRow}>
                     <View>
-                      <Text style={styles.statValue}>GH₵{formatCurrency(pitch.amountNeeded)}</Text>
-                      <Text style={styles.statLabel}>asking</Text>
+                      <Text style={[styles.statValue, { color: colors.textPrimary }]}>GH₵{formatCurrency(pitch.amountNeeded)}</Text>
+                      <Text style={[styles.statLabel, { color: colors.textSecondary }]}>asking</Text>
                     </View>
-                    <View style={styles.offerPill}>
-                      <Text style={styles.offerPillText}>
+                    <View style={[styles.offerPill, { backgroundColor: colors.surfaceSubtle }]}>
+                      <Text style={[styles.offerPillText, { color: isDark ? colors.accent : colors.primary }]}>
                         {pitch.offerType === 'FIXED' ? `GH₵${pitch.offerValue}` : `${pitch.offerValue}%`} {formatOfferType(pitch.offerType)}
                       </Text>
                     </View>
@@ -289,28 +311,30 @@ export default function PitchesScreen() {
             );
           })
         ) : (
-          <View style={styles.emptyCard}>
-            <Ionicons name="megaphone-outline" size={32} color={Colors.textMuted} />
-            <Text style={styles.emptyText}>No pitches yet</Text>
-            <Text style={styles.emptyDesc}>Create your first pitch to start raising capital.</Text>
+          <View style={[styles.emptyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Ionicons name="megaphone-outline" size={32} color={colors.textMuted} />
+            <Text style={[styles.emptyText, { color: colors.textPrimary }]}>No pitches yet</Text>
+            <Text style={[styles.emptyDesc, { color: colors.textSecondary }]}>Create your first pitch to start raising capital.</Text>
           </View>
         )}
 
-        {/* No more pitches message */}
-        {pitches.length > 0 && !isError ? <View style={styles.emptyCard}>
-          <Ionicons name="add-circle-outline" size={32} color={Colors.textMuted} />
-          <Text style={styles.emptyText}>Create another pitch</Text>
-          <Text style={styles.emptyDesc}>
-            You can have multiple active pitches at the same time.
-          </Text>
-          <TouchableOpacity
-            style={styles.createBtn}
-            onPress={() => setShowCreate(true)}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.createBtnText}>+ New Pitch</Text>
-          </TouchableOpacity>
-        </View> : null}
+        {/* Create another pitch card */}
+        {pitches.length > 0 && !isError ? (
+          <View style={[styles.emptyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Ionicons name="add-circle-outline" size={32} color={colors.textMuted} />
+            <Text style={[styles.emptyText, { color: colors.textPrimary }]}>Create another pitch</Text>
+            <Text style={[styles.emptyDesc, { color: colors.textSecondary }]}>
+              You can have multiple active pitches at the same time.
+            </Text>
+            <TouchableOpacity
+              style={styles.createBtn}
+              onPress={() => setShowCreate(true)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.createBtnText}>+ New Pitch</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
       </ScrollView>
 
       {/* Create Pitch Modal */}
@@ -320,145 +344,160 @@ export default function PitchesScreen() {
         presentationStyle="pageSheet"
         onRequestClose={() => setShowCreate(false)}
       >
-        <KeyboardAvoidingView
-          style={styles.modalFlex}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        >
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>New Pitch</Text>
-            <TouchableOpacity onPress={() => setShowCreate(false)} activeOpacity={0.7}>
-              <Ionicons name="close" size={24} color={Colors.textPrimary} />
-            </TouchableOpacity>
-          </View>
-          <ScrollV
-            contentContainerStyle={styles.modalContent}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
+        <SafeAreaView style={[styles.modalFlex, { backgroundColor: colors.background }]}>
+          <KeyboardAvoidingView
+            style={styles.modalFlex}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           >
-            <Text style={styles.modalSubtitle}>
-              Tell investors about your business. Be honest and specific.
-            </Text>
-            <Input
-              label="Business name *"
-              placeholder="e.g. Accra Fresh Foods"
-              value={businessName}
-              onChangeText={setBusinessName}
-            />
-            <View style={styles.textAreaWrapper}>
-              <Text style={styles.textAreaLabel}>Business description *</Text>
-              <TextInput
-                style={styles.textArea}
-                placeholder="Describe what your business does, how you make money, and what the funds will be used for..."
-                placeholderTextColor={Colors.textMuted}
-                value={description}
-                onChangeText={setDescription}
-                multiline
-                numberOfLines={5}
-                textAlignVertical="top"
+            <View style={[styles.modalHeader, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>New Pitch</Text>
+              <TouchableOpacity onPress={() => setShowCreate(false)} activeOpacity={0.7}>
+                <Ionicons name="close" size={24} color={colors.textPrimary} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollV
+              contentContainerStyle={styles.modalContent}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
+              <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>
+                Tell investors about your business. Be honest and specific.
+              </Text>
+              
+              <Input
+                label="Business name *"
+                placeholder="e.g. Accra Fresh Foods"
+                value={businessName}
+                onChangeText={setBusinessName}
               />
-            </View>
-            <Input
-              label="Monthly income (GH₵) *"
-              placeholder="e.g. 5000"
-              value={monthlyIncome}
-              onChangeText={setMonthlyIncome}
-              keyboardType="numeric"
-            />
-            <Input
-              label="Amount needed (GH₵) *"
-              placeholder="e.g. 20000"
-              value={amountNeeded}
-              onChangeText={setAmountNeeded}
-              keyboardType="numeric"
-            />
 
-            <View style={styles.textAreaWrapper}>
-              <Text style={styles.textAreaLabel}>Offer type *</Text>
-              <View style={styles.chipWrap}>
-                {OFFER_TYPES.map((item) => (
-                  <TouchableOpacity
-                    key={item}
-                    style={[styles.chip, offerType === item && styles.chipSelected]}
-                    onPress={() => setOfferType(item)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={[styles.chipText, offerType === item && styles.chipTextSelected]}>
-                      {formatLabel(item)}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+              <View style={styles.textAreaWrapper}>
+                <Text style={[styles.textAreaLabel, { color: colors.textPrimary }]}>Business description *</Text>
+                <TextInput
+                  style={[styles.textArea, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textPrimary }]}
+                  placeholder="Describe what your business does, how you make money, and what the funds will be used for..."
+                  placeholderTextColor={colors.textMuted}
+                  value={description}
+                  onChangeText={setDescription}
+                  multiline
+                  numberOfLines={5}
+                  textAlignVertical="top"
+                />
               </View>
-            </View>
 
-            <Input
-              label={
-                offerType === 'FIXED'
-                  ? 'Fixed repayment amount (GH₵)'
-                  : offerType === 'REVENUE_SHARE'
-                  ? 'Revenue share offered (%)'
-                  : 'Equity offered (%)'
-              }
-              placeholder={offerType === 'FIXED' ? 'e.g. 25000' : 'e.g. 7.5'}
-              value={offerValue}
-              onChangeText={setOfferValue}
-              keyboardType="numeric"
-            />
+              <Input
+                label="Monthly income (GH₵) *"
+                placeholder="e.g. 5000"
+                value={monthlyIncome}
+                onChangeText={setMonthlyIncome}
+                keyboardType="numeric"
+              />
 
-            <Input
-              label="Location"
-              placeholder="e.g. Accra, Greater Accra"
-              value={location}
-              onChangeText={setLocation}
-            />
+              <Input
+                label="Amount needed (GH₵) *"
+                placeholder="e.g. 20000"
+                value={amountNeeded}
+                onChangeText={setAmountNeeded}
+                keyboardType="numeric"
+              />
 
-            <View style={styles.textAreaWrapper}>
-              <Text style={styles.textAreaLabel}>Industry *</Text>
-              <View style={styles.chipWrap}>
-                {INDUSTRIES.map((item) => (
-                  <TouchableOpacity
-                    key={item}
-                    style={[styles.chip, industry === item && styles.chipSelected]}
-                    onPress={() => setIndustry(item)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={[styles.chipText, industry === item && styles.chipTextSelected]}>
-                      {formatLabel(item)}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-
-            <View style={styles.uploadSection}>
-              <Text style={styles.textAreaLabel}>Pitch Video</Text>
-              {videoUri ? (
-                <View style={styles.videoAttached}>
-                  {thumbnailUri ? (
-                    <Image source={{ uri: thumbnailUri }} style={styles.thumbnailPreview} />
-                  ) : (
-                    <Ionicons name="checkmark-circle" size={20} color={Colors.accent} />
-                  )}
-                  <Text style={styles.videoAttachedText}>Video attached successfully.</Text>
-                  <TouchableOpacity onPress={() => { setVideoUri(null); setThumbnailUri(null); }}>
-                    <Text style={styles.removeVideoText}>Remove</Text>
-                  </TouchableOpacity>
+              <View style={styles.textAreaWrapper}>
+                <Text style={[styles.textAreaLabel, { color: colors.textPrimary }]}>Offer type *</Text>
+                <View style={styles.chipWrap}>
+                  {OFFER_TYPES.map((item) => (
+                    <TouchableOpacity
+                      key={item}
+                      style={[
+                        styles.chip,
+                        { backgroundColor: colors.inputBg, borderColor: colors.border },
+                        offerType === item && { backgroundColor: isDark ? colors.accent : colors.primary, borderColor: isDark ? colors.accent : colors.primary },
+                      ]}
+                      onPress={() => setOfferType(item)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.chipText, { color: colors.textSecondary }, offerType === item && styles.chipTextSelected]}>
+                        {formatLabel(item)}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
                 </View>
-              ) : (
-                <TouchableOpacity style={styles.uploadBtn} onPress={handlePickVideo} activeOpacity={0.7}>
-                  <Ionicons name="cloud-upload-outline" size={24} color={Colors.primary} />
-                  <Text style={styles.uploadBtnText}>Select a video</Text>
-                </TouchableOpacity>
-              )}
-            </View>
+              </View>
 
-            <Button
-              title="Submit Pitch for Review"
-              onPress={handleCreate}
-              loading={createMutation.isPending}
-            />
-            <View style={{ height: 20 }} />
-          </ScrollV>
-        </KeyboardAvoidingView>
+              <Input
+                label={
+                  offerType === 'FIXED'
+                    ? 'Fixed repayment amount (GH₵)'
+                    : offerType === 'REVENUE_SHARE'
+                    ? 'Revenue share offered (%)'
+                    : 'Equity offered (%)'
+                }
+                placeholder={offerType === 'FIXED' ? 'e.g. 25000' : 'e.g. 7.5'}
+                value={offerValue}
+                onChangeText={setOfferValue}
+                keyboardType="numeric"
+              />
+
+              <Input
+                label="Location"
+                placeholder="e.g. Accra, Greater Accra"
+                value={location}
+                onChangeText={setLocation}
+              />
+
+              <View style={styles.textAreaWrapper}>
+                <Text style={[styles.textAreaLabel, { color: colors.textPrimary }]}>Industry *</Text>
+                <View style={styles.chipWrap}>
+                  {INDUSTRIES.map((item) => (
+                    <TouchableOpacity
+                      key={item}
+                      style={[
+                        styles.chip,
+                        { backgroundColor: colors.inputBg, borderColor: colors.border },
+                        industry === item && { backgroundColor: isDark ? colors.accent : colors.primary, borderColor: isDark ? colors.accent : colors.primary },
+                      ]}
+                      onPress={() => setIndustry(item)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.chipText, { color: colors.textSecondary }, industry === item && styles.chipTextSelected]}>
+                        {formatLabel(item)}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              <View style={styles.uploadSection}>
+                <Text style={[styles.textAreaLabel, { color: colors.textPrimary }]}>Pitch Video</Text>
+                {videoUri ? (
+                  <View style={[styles.videoAttached, { backgroundColor: colors.surfaceSubtle, borderColor: colors.border }]}>
+                    {thumbnailUri ? (
+                      <Image source={{ uri: thumbnailUri }} style={styles.thumbnailPreview} />
+                    ) : (
+                      <Ionicons name="checkmark-circle" size={20} color="#16A34A" />
+                    )}
+                    <Text style={[styles.videoAttachedText, { color: colors.textPrimary }]}>Video attached successfully.</Text>
+                    <TouchableOpacity onPress={() => { setVideoUri(null); setThumbnailUri(null); }}>
+                      <Text style={styles.removeVideoText}>Remove</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <TouchableOpacity style={[styles.uploadBtn, { backgroundColor: colors.inputBg, borderColor: colors.border }]} onPress={handlePickVideo} activeOpacity={0.7}>
+                    <Ionicons name="cloud-upload-outline" size={24} color={isDark ? colors.accent : colors.primary} />
+                    <Text style={[styles.uploadBtnText, { color: colors.textPrimary }]}>Select a video</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              <Button
+                title="Submit Pitch for Review"
+                onPress={handleCreate}
+                loading={createMutation.isPending}
+              />
+              <View style={{ height: 20 }} />
+            </ScrollV>
+          </KeyboardAvoidingView>
+        </SafeAreaView>
       </Modal>
 
       {/* 3-dot Context Menu Modal */}
@@ -473,7 +512,7 @@ export default function PitchesScreen() {
           activeOpacity={1}
           onPress={() => setMenuPitchId(null)}
         >
-          <View style={styles.menuCard}>
+          <View style={[styles.menuCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <TouchableOpacity
               style={styles.menuItem}
               activeOpacity={0.6}
@@ -487,23 +526,23 @@ export default function PitchesScreen() {
                 }
               }}
             >
-              <Ionicons name="share-social-outline" size={20} color={Colors.primary} />
-              <Text style={styles.menuItemText}>Share</Text>
+              <Ionicons name="share-social-outline" size={20} color={isDark ? colors.accent : colors.primary} />
+              <Text style={[styles.menuItemText, { color: colors.textPrimary }]}>Share</Text>
             </TouchableOpacity>
-            <View style={styles.menuDivider} />
+            <View style={[styles.menuDivider, { backgroundColor: colors.border }]} />
             <TouchableOpacity
               style={styles.menuItem}
               activeOpacity={0.6}
               onPress={() => menuPitchId && confirmDelete(menuPitchId)}
             >
-              <Ionicons name="trash-outline" size={20} color={Colors.accentRed} />
-              <Text style={[styles.menuItemText, { color: Colors.accentRed }]}>Delete</Text>
+              <Ionicons name="trash-outline" size={20} color="#DC2626" />
+              <Text style={[styles.menuItemText, { color: '#DC2626' }]}>Delete</Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
       </Modal>
 
-      {/* Video Player Modal */}
+      {/* Fullscreen Video Player Modal */}
       <Modal
         visible={!!playingVideo}
         animationType="fade"
@@ -514,10 +553,11 @@ export default function PitchesScreen() {
           <TouchableOpacity
             style={styles.videoCloseBtn}
             onPress={() => setPlayingVideo(null)}
-            activeOpacity={0.8}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           >
-            <Ionicons name="close" size={28} color="#fff" />
+            <Ionicons name="close" size={26} color="#fff" />
           </TouchableOpacity>
+
           {playingVideo ? (
             <Video
               source={{ uri: playingVideo }}
@@ -533,105 +573,107 @@ export default function PitchesScreen() {
   );
 }
 
-function formatCurrency(value: number | string | null | undefined) {
-  const numericValue = typeof value === 'number' ? value : Number(value ?? 0);
-  if (!Number.isFinite(numericValue)) {
-    return '0';
-  }
-  return numericValue.toLocaleString();
-}
-
-function formatDate(value: string | null | undefined) {
-  if (!value) return 'TBD';
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? 'TBD' : date.toLocaleDateString();
-}
-
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.background },
+  safe: {
+    flex: 1,
+  },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     paddingHorizontal: 20,
     paddingTop: 12,
     paddingBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderBottomWidth: 1,
   },
   title: {
-    fontSize: 26,
+    fontSize: 22,
     fontWeight: '800',
-    color: Colors.textPrimary,
+    letterSpacing: -0.4,
   },
   addBtn: {
     width: 38,
     height: 38,
-    borderRadius: 10,
-    backgroundColor: Colors.primary,
+    borderRadius: 19,
+    backgroundColor: '#16A34A',
     alignItems: 'center',
     justifyContent: 'center',
   },
   content: {
-    paddingHorizontal: 20,
-    paddingBottom: 32,
+    padding: 20,
+    paddingBottom: 40,
+    gap: 16,
+  },
+  emptyCard: {
+    borderRadius: 20,
+    padding: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    gap: 6,
+  },
+  emptyText: {
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  emptyDesc: {
+    fontSize: 13,
+    textAlign: 'center',
+  },
+  createBtn: {
+    marginTop: 8,
+    backgroundColor: '#16A34A',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 12,
+  },
+  createBtnText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '700',
   },
   pitchCard: {
-    backgroundColor: Colors.surface,
-    borderRadius: 16,
+    borderRadius: 20,
+    borderWidth: 1,
     overflow: 'hidden',
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3,
+    position: 'relative',
   },
   mediaWrap: {
+    height: 160,
+    width: '100%',
     position: 'relative',
+    backgroundColor: '#0F172A',
   },
   media: {
     width: '100%',
-    height: 200,
-    resizeMode: 'cover',
-    backgroundColor: Colors.borderLight,
+    height: '100%',
   },
   mediaPlaceholder: {
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#EFF6FF',
-    gap: 8,
-  },
-  mediaPlaceholderText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: Colors.primary,
-  },
-  playOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(0,0,0,0.15)',
-  },
-  pitchCardBody: {
-    padding: 18,
-    gap: 10,
-  },
-  pitchInfo: {
     gap: 6,
   },
-  pitchName: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: Colors.textPrimary,
+  mediaPlaceholderText: {
+    color: '#94A3B8',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  playOverlay: {
+    position: 'absolute',
+    inset: 0,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   liveBadge: {
     position: 'absolute',
     top: 12,
-    right: 12,
+    left: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    backgroundColor: '#ffffffee',
-    paddingHorizontal: 10,
+    gap: 4,
+    backgroundColor: 'rgba(22, 163, 74, 0.9)',
+    paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 10,
   },
@@ -639,59 +681,12 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: Colors.accent,
+    backgroundColor: '#fff',
   },
   liveText: {
-    fontSize: 11,
-    color: Colors.accent,
-    fontWeight: '700',
-  },
-  pitchDesc: {
-    fontSize: 13,
-    color: Colors.textSecondary,
-    lineHeight: 20,
-  },
-  pitchMeta: {
-    gap: 6,
-  },
-  metaItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  metaText: {
-    fontSize: 12,
-    color: Colors.textMuted,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: Colors.borderLight,
-    marginVertical: 2,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  statValue: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: Colors.textPrimary,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: Colors.textMuted,
-  },
-  offerPill: {
-    backgroundColor: Colors.primary,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 24,
-  },
-  offerPillText: {
     color: '#fff',
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: 10,
+    fontWeight: '800',
   },
   menuDots: {
     position: 'absolute',
@@ -701,185 +696,138 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#ffffffee',
+    backgroundColor: 'rgba(255, 255, 255, 0.85)',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.15,
-    shadowRadius: 3,
-    elevation: 3,
   },
-  menuOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'center',
-    alignItems: 'center',
+  pitchCardBody: {
+    padding: 16,
+    gap: 10,
   },
-  menuCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    width: 240,
-    paddingVertical: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  menuItem: {
+  pitchInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-  },
-  menuItemText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: Colors.textPrimary,
-  },
-  menuDivider: {
-    height: 1,
-    backgroundColor: Colors.borderLight,
-    marginHorizontal: 16,
-  },
-  emptyCard: {
-    backgroundColor: Colors.surface,
-    borderRadius: 16,
-    padding: 24,
-    alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: Colors.border,
-    borderStyle: 'dashed',
     gap: 8,
   },
-  emptyText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: Colors.textPrimary,
+  pitchName: {
+    fontSize: 17,
+    fontWeight: '800',
+    flex: 1,
   },
-  emptyDesc: {
+  pitchDesc: {
     fontSize: 13,
-    color: Colors.textSecondary,
-    textAlign: 'center',
     lineHeight: 18,
   },
-  createBtn: {
-    marginTop: 4,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    backgroundColor: Colors.primary,
+  pitchMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  metaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  metaText: {
+    fontSize: 12,
+  },
+  divider: {
+    height: 1,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  statValue: {
+    fontSize: 17,
+    fontWeight: '800',
+  },
+  statLabel: {
+    fontSize: 11,
+  },
+  offerPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
     borderRadius: 10,
   },
-  createBtnText: {
-    fontSize: 14,
-    color: '#fff',
-    fontWeight: '600',
+  offerPillText: {
+    fontSize: 12,
+    fontWeight: '800',
   },
-  // Modal
-  modalFlex: { flex: 1, backgroundColor: '#fff' },
+  modalFlex: {
+    flex: 1,
+  },
   modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    height: 56,
     paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '800',
-    color: Colors.textPrimary,
   },
   modalContent: {
     padding: 20,
+    gap: 14,
   },
   modalSubtitle: {
-    fontSize: 14,
-    color: Colors.textSecondary,
-    marginBottom: 20,
-    lineHeight: 20,
+    fontSize: 13,
+    marginBottom: 4,
   },
   textAreaWrapper: {
-    marginBottom: 16,
+    gap: 6,
   },
   textAreaLabel: {
     fontSize: 13,
-    fontWeight: '500',
-    color: Colors.textSecondary,
-    marginBottom: 6,
+    fontWeight: '700',
   },
   textArea: {
-    backgroundColor: Colors.inputBg,
-    borderRadius: 10,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: Colors.border,
-    padding: 14,
-    fontSize: 14,
-    color: Colors.textPrimary,
-    minHeight: 120,
-  },
-  videoNote: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    backgroundColor: '#EFF6FF',
-    borderRadius: 10,
     padding: 12,
-    marginBottom: 20,
-  },
-  videoNoteText: {
-    flex: 1,
-    fontSize: 13,
-    color: Colors.primary,
-    lineHeight: 18,
+    fontSize: 14,
+    minHeight: 100,
   },
   uploadSection: {
-    marginBottom: 20,
+    gap: 6,
   },
   uploadBtn: {
-    backgroundColor: Colors.borderLight,
+    height: 80,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: Colors.border,
-    borderStyle: 'dashed',
-    borderRadius: 10,
-    padding: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 6,
   },
   uploadBtnText: {
-    fontSize: 14,
-    color: Colors.primary,
+    fontSize: 13,
     fontWeight: '600',
   },
   videoAttached: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F0FDF4',
-    borderWidth: 1,
-    borderColor: '#bbf7d0',
-    borderRadius: 10,
-    padding: 14,
     gap: 10,
+    padding: 12,
+    borderRadius: 14,
+    borderWidth: 1,
   },
   thumbnailPreview: {
     width: 40,
     height: 40,
-    borderRadius: 6,
+    borderRadius: 8,
   },
   videoAttachedText: {
     flex: 1,
-    fontSize: 14,
-    color: Colors.textPrimary,
-    fontWeight: '500',
+    fontSize: 13,
+    fontWeight: '600',
   },
   removeVideoText: {
     fontSize: 13,
-    color: Colors.accentRed,
+    color: '#DC2626',
     fontWeight: '600',
   },
   chipWrap: {
@@ -892,20 +840,44 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.inputBg,
   },
   chipSelected: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
+    backgroundColor: '#16A34A',
+    borderColor: '#16A34A',
   },
   chipText: {
     fontSize: 13,
-    color: Colors.textSecondary,
     fontWeight: '600',
   },
   chipTextSelected: {
     color: '#fff',
+  },
+  menuOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  menuCard: {
+    width: 220,
+    borderRadius: 16,
+    borderWidth: 1,
+    overflow: 'hidden',
+    elevation: 5,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    padding: 14,
+  },
+  menuItemText: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  menuDivider: {
+    height: 1,
   },
   videoModalBackdrop: {
     flex: 1,

@@ -1,28 +1,34 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '@/constants/Colors';
 import { BlurView } from 'expo-blur';
 import { StyleSheet, Platform } from 'react-native';
+import { useTheme } from '@/store/themeStore';
 
 export default function AdminTabLayout() {
+  const { isDark, colors } = useTheme();
+  const activeColor = isDark ? '#38BDF8' : '#0D1B3E';
+  const inactiveColor = isDark ? '#64748B' : '#9CA3AF';
+  const tabBarBg = isDark ? '#0F1A34' : '#FFFFFF';
+  const borderColor = isDark ? '#1E2C4F' : '#E2E8F0';
+
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: Colors.primary,
-        tabBarInactiveTintColor: Colors.tabInactive,
+        tabBarActiveTintColor: activeColor,
+        tabBarInactiveTintColor: inactiveColor,
         tabBarStyle: {
           position: 'absolute',
-          borderTopColor: 'rgba(0, 0, 0, 0.1)',
+          borderTopColor: borderColor,
           borderTopWidth: 1,
           height: Platform.OS === 'ios' ? 80 : 60,
           paddingBottom: Platform.OS === 'ios' ? 20 : 8,
           paddingTop: 6,
           elevation: 0,
-          backgroundColor: 'transparent',
+          backgroundColor: tabBarBg,
         },
         tabBarBackground: () => (
-          <BlurView tint="light" intensity={80} style={StyleSheet.absoluteFill} />
+          <BlurView tint={isDark ? 'dark' : 'light'} intensity={80} style={StyleSheet.absoluteFill} />
         ),
         tabBarLabelStyle: {
           fontSize: 11,

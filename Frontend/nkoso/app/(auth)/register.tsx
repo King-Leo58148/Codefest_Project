@@ -7,11 +7,12 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Modal,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Colors } from '@/constants/Colors';
+import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
+import { useTheme } from '@/store/themeStore';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { FadeInView, SlideInView } from '@/components/ui/FadeInView';
@@ -24,11 +25,16 @@ type Role = 'INVESTOR' | 'OWNER';
 
 export default function RegisterScreen() {
   const insets = useSafeAreaInsets();
+  const { colors, isDark } = useTheme();
+  
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [role, setRole] = useState<Role>('INVESTOR');
+  
+  const [agreedTerms, setAgreedTerms] = useState(true);
+  const [showTermsModal, setShowTermsModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const { setUser, setToken } = useAuthStore();
@@ -51,6 +57,10 @@ export default function RegisterScreen() {
       setError('Password must be at least 6 characters.');
       return;
     }
+    if (!agreedTerms) {
+      setError('Please agree to the Terms of Service & Privacy Policy to proceed.');
+      return;
+    }
     setError('');
     setLoading(true);
     try {
@@ -67,8 +77,7 @@ export default function RegisterScreen() {
   };
 
   return (
-    <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <View style={styles.topAccentBar} />
+    <KeyboardAvoidingView style={[styles.flex, { backgroundColor: colors.background }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView
         contentContainerStyle={[
           styles.container,
@@ -78,32 +87,49 @@ export default function RegisterScreen() {
         showsVerticalScrollIndicator={false}
       >
         <TouchableOpacity
-          style={styles.backBtn}
+          style={[styles.backBtn, { backgroundColor: colors.surfaceSubtle }]}
           onPress={() => router.back()}
           activeOpacity={0.72}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <Ionicons name="arrow-back" size={22} color={Colors.textPrimary} />
+          <Ionicons name="arrow-back" size={22} color={isDark ? '#16A34A' : '#15803D'} />
         </TouchableOpacity>
 
         <SlideInView from="left" style={styles.header}>
-          <Text style={styles.title}>Create account</Text>
-          <Text style={styles.subtitle}>Join Nkɔso and start connecting with opportunities</Text>
+          <View style={styles.headerTextContainer}>
+            <Text style={[styles.title, { color: colors.textPrimary }]}>
+              Create your account
+            </Text>
+            <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+              Join Nkɔso and start connecting with <Text style={{ color: isDark ? colors.accent : colors.primary, fontWeight: '700' }}>opportunities.</Text>
+            </Text>
+          </View>
         </SlideInView>
 
         <FadeInView delay={60}>
-          <Text style={styles.roleLabel}>I want to</Text>
+          <Text style={[styles.roleLabel, { color: colors.textPrimary }]}>I want to</Text>
           <View style={styles.roleRow}>
             <PressableScale
               style={{ flex: 1 }}
               onPress={() => setRole('INVESTOR')}
             >
-              <View style={[styles.roleCard, role === 'INVESTOR' && styles.roleCardActive]}>
-                <View style={[styles.roleIconBox, role === 'INVESTOR' && styles.roleIconBoxActive]}>
-                  <Ionicons name="trending-up-outline" size={24} color={role === 'INVESTOR' ? Colors.primary : Colors.textMuted} />
+              <View style={[
+                styles.roleCard, 
+                { backgroundColor: colors.surface, borderColor: colors.border },
+                role === 'INVESTOR' && { borderColor: isDark ? colors.accent : colors.primary, backgroundColor: isDark ? 'rgba(22, 163, 74, 0.1)' : '#F0FDF4' }
+              ]}>
+                <View style={styles.radioTopRight}>
+                  {role === 'INVESTOR' ? (
+                    <Ionicons name="checkmark-circle" size={24} color={isDark ? colors.accent : colors.primary} />
+                  ) : (
+                    <Ionicons name="ellipse-outline" size={24} color={colors.border} />
+                  )}
                 </View>
-                <Text style={[styles.roleTitle, role === 'INVESTOR' && styles.roleTitleActive]}>Invest</Text>
-                <Text style={styles.roleDesc}>Browse and fund businesses</Text>
+                <View style={[styles.roleIconBox, { backgroundColor: isDark ? colors.surfaceSubtle : '#F8FAFC' }]}>
+                  <Ionicons name="trending-up-outline" size={28} color={isDark ? colors.accent : colors.primary} />
+                </View>
+                <Text style={[styles.roleTitle, { color: colors.textPrimary }]}>Invest</Text>
+                <Text style={[styles.roleDesc, { color: colors.textSecondary }]}>Browse and fund businesses</Text>
               </View>
             </PressableScale>
 
@@ -111,12 +137,23 @@ export default function RegisterScreen() {
               style={{ flex: 1 }}
               onPress={() => setRole('OWNER')}
             >
-              <View style={[styles.roleCard, role === 'OWNER' && styles.roleCardActive]}>
-                <View style={[styles.roleIconBox, role === 'OWNER' && styles.roleIconBoxActive]}>
-                  <Ionicons name="business-outline" size={24} color={role === 'OWNER' ? Colors.primary : Colors.textMuted} />
+              <View style={[
+                styles.roleCard, 
+                { backgroundColor: colors.surface, borderColor: colors.border },
+                role === 'OWNER' && { borderColor: isDark ? colors.accent : colors.primary, backgroundColor: isDark ? 'rgba(22, 163, 74, 0.1)' : '#F0FDF4' }
+              ]}>
+                <View style={styles.radioTopRight}>
+                  {role === 'OWNER' ? (
+                    <Ionicons name="checkmark-circle" size={24} color={isDark ? colors.accent : colors.primary} />
+                  ) : (
+                    <Ionicons name="ellipse-outline" size={24} color={colors.border} />
+                  )}
                 </View>
-                <Text style={[styles.roleTitle, role === 'OWNER' && styles.roleTitleActive]}>Raise Capital</Text>
-                <Text style={styles.roleDesc}>Post your business pitch</Text>
+                <View style={[styles.roleIconBox, { backgroundColor: isDark ? colors.surfaceSubtle : '#F8FAFC' }]}>
+                  <Ionicons name="business-outline" size={28} color={isDark ? colors.accent : colors.primary} />
+                </View>
+                <Text style={[styles.roleTitle, { color: colors.textPrimary }]}>Raise Capital</Text>
+                <Text style={[styles.roleDesc, { color: colors.textSecondary }]}>Post your business pitch</Text>
               </View>
             </PressableScale>
           </View>
@@ -130,12 +167,43 @@ export default function RegisterScreen() {
 
           {error ? (
             <FadeInView offset={4}>
-              <View style={styles.errorBox}>
-                <Ionicons name="alert-circle-outline" size={18} color={Colors.accentRed} />
+              <View style={[styles.errorBox, { backgroundColor: isDark ? '#450A0A' : '#FEF2F2', borderColor: isDark ? '#B91C1C' : '#FCA5A5' }]}>
+                <Ionicons name="alert-circle-outline" size={18} color="#DC2626" />
                 <Text style={styles.errorText}>{error}</Text>
               </View>
             </FadeInView>
           ) : null}
+
+          {/* Terms and Conditions Section */}
+          <View style={[styles.termsContainer, { backgroundColor: colors.surfaceSubtle, borderColor: colors.border }]}>
+            <TouchableOpacity
+              style={styles.termsCheckRow}
+              onPress={() => setAgreedTerms(!agreedTerms)}
+              activeOpacity={0.8}
+            >
+              <Ionicons
+                name={agreedTerms ? 'checkmark-circle' : 'ellipse-outline'}
+                size={20}
+                color={agreedTerms ? '#16A34A' : colors.textMuted}
+              />
+              <Text style={[styles.termsText, { color: colors.textSecondary }]}>
+                I agree to the{' '}
+                <Text
+                  style={[styles.termsLink, { color: isDark ? colors.accent : colors.primary }]}
+                  onPress={() => setShowTermsModal(true)}
+                >
+                  Terms of Service
+                </Text>{' '}
+                and{' '}
+                <Text
+                  style={[styles.termsLink, { color: isDark ? colors.accent : colors.primary }]}
+                  onPress={() => setShowTermsModal(true)}
+                >
+                  Privacy Policy
+                </Text>.
+              </Text>
+            </TouchableOpacity>
+          </View>
 
           <Button
             title="Create Account"
@@ -146,82 +214,243 @@ export default function RegisterScreen() {
           />
         </FadeInView>
 
-        <FadeInView delay={160} style={styles.footer}>
-          <Text style={styles.footerText}>Already have an account? </Text>
-          <TouchableOpacity onPress={() => router.push('/(auth)/login')} activeOpacity={0.72}>
-            <Text style={styles.footerLink}>Sign in</Text>
-          </TouchableOpacity>
+        <FadeInView delay={160}>
+           <View style={styles.orDivider}>
+             <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
+             <Text style={[styles.orText, { color: colors.textMuted }]}>or</Text>
+             <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
+           </View>
+
+          <View style={styles.footer}>
+            <Text style={[styles.footerText, { color: colors.textSecondary }]}>Already have an account? </Text>
+            <TouchableOpacity onPress={() => router.push('/(auth)/login')} activeOpacity={0.72}>
+              <Text style={[styles.footerLink, { color: isDark ? colors.accent : colors.primary }]}>Sign in</Text>
+            </TouchableOpacity>
+          </View>
         </FadeInView>
 
-        <Text style={styles.terms}>By continuing, you agree to our Terms of Service and Privacy Policy.</Text>
       </ScrollView>
+
+      {/* Terms & Conditions Modal */}
+      <Modal
+        visible={showTermsModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowTermsModal(false)}
+      >
+        <SafeAreaView style={[styles.modalSafe, { backgroundColor: colors.background }]}>
+          <View style={[styles.modalHeader, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+            <Text style={[styles.modalHeaderTitle, { color: colors.textPrimary }]}>Terms of Service & Regulatory Policy</Text>
+            <TouchableOpacity onPress={() => setShowTermsModal(false)} style={styles.modalCloseBtn}>
+              <Ionicons name="close" size={24} color={colors.textPrimary} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView contentContainerStyle={styles.modalBody} showsVerticalScrollIndicator={false}>
+            <View style={[styles.termsNoticeBox, { backgroundColor: '#DCFCE7', borderColor: '#BBF7D0' }]}>
+              <Ionicons name="shield-checkmark" size={22} color="#15803D" />
+              <Text style={styles.noticeText}>
+                Nkɔso is operated in compliance with the Data Protection Act (Act 843) of Ghana and Bank of Ghana Mobile Money regulations.
+              </Text>
+            </View>
+
+            <Text style={[styles.termsHeading, { color: colors.textPrimary }]}>1. General Platform Usage</Text>
+            <Text style={[styles.termsParagraph, { color: colors.textSecondary }]}>
+              By accessing Nkɔso, you agree that you are at least 18 years old and possess a valid Ghana Card and verified Mobile Money account. Users must provide truthful information when creating pitches or placing investment bids.
+            </Text>
+
+            <Text style={[styles.termsHeading, { color: colors.textPrimary }]}>2. Investment Disclosures & Risk</Text>
+            <Text style={[styles.termsParagraph, { color: colors.textSecondary }]}>
+              Investing in micro-businesses and informal enterprises carries inherent financial risk. Historical returns do not guarantee future performance. Nkɔso provides escrow security via Paystack but does not guarantee business profitability.
+            </Text>
+
+            <Text style={[styles.termsHeading, { color: colors.textPrimary }]}>3. Paystack Escrow & Disbursements</Text>
+            <Text style={[styles.termsParagraph, { color: colors.textSecondary }]}>
+              All capital deposits are held in regulated Paystack escrow accounts. Funds are only disbursed to business owners upon digital execution of legal contracts and completion of MFI due diligence audits.
+            </Text>
+
+            <Text style={[styles.termsHeading, { color: colors.textPrimary }]}>4. User Privacy & Data Protection</Text>
+            <Text style={[styles.termsParagraph, { color: colors.textSecondary }]}>
+              We encrypt sensitive biometric and financial data. Your Ghana Card details and Mobile Money numbers are encrypted and never shared with third parties without explicit authorization.
+            </Text>
+
+            <Button
+              title="I Accept Terms & Conditions"
+              onPress={() => {
+                setAgreedTerms(true);
+                setShowTermsModal(false);
+              }}
+              style={{ marginTop: 20 }}
+            />
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: '#fff' },
-  topAccentBar: {
-    height: 4,
-    backgroundColor: Colors.primary,
-    width: '100%',
-  },
+  flex: { flex: 1 },
   container: { flexGrow: 1, paddingHorizontal: 24 },
   backBtn: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: Colors.borderLight,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 20,
   },
-  header: { marginBottom: 24 },
-  title: { fontSize: 28, lineHeight: 34, fontWeight: '800', color: Colors.textPrimary, marginBottom: 6, letterSpacing: -0.5 },
-  subtitle: { fontSize: 15, color: Colors.textSecondary, lineHeight: 22 },
-  roleLabel: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary, marginBottom: 12, textTransform: 'uppercase', letterSpacing: 0.5 },
-  roleRow: { flexDirection: 'row', gap: 12, marginBottom: 24 },
+  header: { 
+    marginBottom: 28,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+  },
+  headerTextContainer: {
+    flex: 1,
+    paddingRight: 16,
+    paddingTop: 10,
+  },
+  title: { 
+    fontSize: 32, 
+    lineHeight: 38, 
+    fontWeight: '900', 
+    marginBottom: 12, 
+    letterSpacing: -0.5 
+  },
+  subtitle: { 
+    fontSize: 15, 
+    lineHeight: 22 
+  },
+
+  roleLabel: { 
+    fontSize: 16, 
+    fontWeight: '800', 
+    marginBottom: 16, 
+  },
+  roleRow: { flexDirection: 'row', gap: 16, marginBottom: 28 },
   roleCard: {
-    backgroundColor: Colors.borderLight,
     borderRadius: 16,
     padding: 16,
-    minHeight: 128,
-    alignItems: 'center',
-    gap: 6,
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  roleCardActive: { backgroundColor: '#EFF6FF', borderColor: Colors.primary },
-  roleIconBox: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#ffffff',
+    minHeight: 140,
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 8,
+    borderWidth: 1.5,
+    position: 'relative',
   },
-  roleIconBoxActive: {
-    backgroundColor: '#DBEAFE',
+  radioTopRight: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
   },
-  roleTitle: { fontSize: 14, fontWeight: '700', color: Colors.textMuted },
-  roleTitleActive: { color: Colors.primary },
-  roleDesc: { fontSize: 11, lineHeight: 15, color: Colors.textMuted, textAlign: 'center' },
-  form: {},
-  errorText: { flex: 1, color: Colors.accentRed, fontSize: 13, lineHeight: 18, fontWeight: '500' },
+  roleIconBox: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  roleTitle: { fontSize: 16, fontWeight: '800' },
+  roleDesc: { fontSize: 13, lineHeight: 18, textAlign: 'center' },
+  form: {
+    gap: 12,
+  },
+  errorText: { flex: 1, color: '#DC2626', fontSize: 13, lineHeight: 18, fontWeight: '600' },
   errorBox: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#FEF2F2',
     borderWidth: 1,
-    borderColor: Colors.accentRed + '40',
     borderRadius: 12,
     padding: 12,
-    marginBottom: 12,
+    marginTop: 4,
   },
-  btn: { marginTop: 8 },
-  footer: { flexDirection: 'row', justifyContent: 'center', marginTop: 24 },
-  footerText: { fontSize: 14, color: Colors.textSecondary },
-  footerLink: { fontSize: 14, color: Colors.primary, fontWeight: '700' },
-  terms: { fontSize: 11, color: Colors.textMuted, textAlign: 'center', marginTop: 16, lineHeight: 16 },
+  btn: { marginTop: 16, paddingVertical: 16, borderRadius: 16 },
+  orDivider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 32,
+    marginBottom: 16,
+    gap: 12,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+  },
+  orText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  footer: { flexDirection: 'row', justifyContent: 'center' },
+  footerText: { fontSize: 14 },
+  footerLink: { fontSize: 14, fontWeight: '800' },
+  termsContainer: {
+    borderRadius: 16,
+    padding: 12,
+    borderWidth: 1,
+    marginTop: 8,
+  },
+  termsCheckRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+  termsText: {
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  termsLink: {
+    fontWeight: '800',
+    textDecorationLine: 'underline',
+  },
+  modalSafe: {
+    flex: 1,
+  },
+  modalHeader: {
+    height: 60,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderBottomWidth: 1,
+  },
+  modalHeaderTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  modalCloseBtn: {
+    padding: 4,
+  },
+  modalBody: {
+    padding: 20,
+    gap: 14,
+  },
+  termsNoticeBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    gap: 10,
+  },
+  noticeText: {
+    flex: 1,
+    color: '#15803D',
+    fontSize: 12,
+    fontWeight: '700',
+    lineHeight: 18,
+  },
+  termsHeading: {
+    fontSize: 15,
+    fontWeight: '800',
+    marginTop: 6,
+  },
+  termsParagraph: {
+    fontSize: 13,
+    lineHeight: 20,
+  },
 });

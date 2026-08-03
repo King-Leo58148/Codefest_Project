@@ -8,7 +8,7 @@ import {
   TextInputProps,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '@/constants/Colors';
+import { useTheme } from '@/store/themeStore';
 
 interface InputProps extends TextInputProps {
   label?: string;
@@ -31,15 +31,17 @@ export function Input({
 }: InputProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [focused, setFocused] = useState(false);
+  const { colors, isDark } = useTheme();
   const isPassword = secure;
 
   return (
     <View style={styles.container}>
-      {label && <Text style={styles.label}>{label}</Text>}
+      {label && <Text style={[styles.label, { color: colors.textPrimary }]}>{label}</Text>}
       <View
         style={[
           styles.inputWrapper,
-          focused && styles.inputFocused,
+          { backgroundColor: colors.inputBg, borderColor: colors.border },
+          focused && { borderColor: isDark ? colors.accent : colors.primary },
           error ? styles.inputError : null,
         ]}
       >
@@ -47,14 +49,14 @@ export function Input({
           <Ionicons
             name={leftIcon}
             size={18}
-            color={Colors.textMuted}
+            color={colors.textMuted}
             style={styles.leftIcon}
           />
         )}
         <TextInput
-          style={[styles.input, style]}
+          style={[styles.input, { color: colors.textPrimary }, style]}
           secureTextEntry={isPassword && !showPassword}
-          placeholderTextColor={Colors.textMuted}
+          placeholderTextColor={colors.textMuted}
           {...props}
           onFocus={(event) => {
             setFocused(true);
@@ -68,75 +70,65 @@ export function Input({
         {isPassword && (
           <TouchableOpacity
             onPress={() => setShowPassword((s) => !s)}
-            style={styles.rightIcon}
-            activeOpacity={0.7}
+            style={styles.rightIconBtn}
           >
             <Ionicons
               name={showPassword ? 'eye-off-outline' : 'eye-outline'}
               size={18}
-              color={Colors.textMuted}
+              color={colors.textMuted}
             />
           </TouchableOpacity>
         )}
         {rightIcon && !isPassword && (
-          <TouchableOpacity onPress={onRightIconPress} style={styles.rightIcon} activeOpacity={0.7}>
-            <Ionicons name={rightIcon} size={18} color={Colors.textMuted} />
+          <TouchableOpacity
+            onPress={onRightIconPress}
+            disabled={!onRightIconPress}
+            style={styles.rightIconBtn}
+          >
+            <Ionicons name={rightIcon} size={18} color={colors.textMuted} />
           </TouchableOpacity>
         )}
       </View>
-      {error && <Text style={styles.error}>{error}</Text>}
+      {error && <Text style={styles.errorText}>{error}</Text>}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 14,
+    marginVertical: 4,
   },
   label: {
     fontSize: 13,
-    lineHeight: 18,
-    fontWeight: '500',
-    color: Colors.textSecondary,
-    marginBottom: 7,
+    fontWeight: '700',
+    marginBottom: 6,
   },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.inputBg,
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: Colors.border,
     paddingHorizontal: 14,
-    minHeight: 52,
-  },
-  inputFocused: {
-    borderColor: Colors.primary,
+    height: 48,
   },
   inputError: {
-    borderColor: Colors.accentRed,
+    borderColor: '#DC2626',
   },
   leftIcon: {
-    marginRight: 10,
+    marginRight: 8,
   },
-  rightIcon: {
-    marginLeft: 10,
-    minWidth: 32,
-    minHeight: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
+  rightIconBtn: {
+    padding: 4,
+    marginLeft: 4,
   },
   input: {
     flex: 1,
     fontSize: 15,
-    lineHeight: 20,
-    color: Colors.textPrimary,
-    height: '100%',
+    fontWeight: '500',
   },
-  error: {
+  errorText: {
     fontSize: 12,
-    lineHeight: 16,
-    color: Colors.accentRed,
-    marginTop: 5,
+    color: '#DC2626',
+    marginTop: 4,
   },
 });

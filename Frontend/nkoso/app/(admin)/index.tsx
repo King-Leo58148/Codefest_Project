@@ -1,43 +1,60 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, SafeAreaView } from 'react-native';
-import { Colors } from '@/constants/Colors';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '@/store/themeStore';
 
 export default function AdminDashboardScreen() {
+  const { isDark, colors, toggleTheme } = useTheme();
+
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
-          <Text style={styles.title}>Admin Portal</Text>
-          <Text style={styles.subtitle}>Overview of platform activity</Text>
+          <View style={styles.headerTitleRow}>
+            <View>
+              <Text style={[styles.title, { color: colors.textPrimary }]}>Admin Portal</Text>
+              <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Overview of platform activity</Text>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.themeBtn, { backgroundColor: colors.surfaceSubtle, borderColor: colors.border }]}
+              onPress={toggleTheme}
+            >
+              <Ionicons name={isDark ? 'sunny' : 'moon'} size={18} color={isDark ? '#F59E0B' : '#0F172A'} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         <View style={styles.statsContainer}>
-          <View style={styles.statCard}>
-            <Ionicons name="document-text" size={24} color={Colors.primary} />
-            <Text style={styles.statValue}>0</Text>
-            <Text style={styles.statLabel}>Pending Pitches</Text>
+          <View style={[styles.statCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Ionicons name="document-text" size={24} color={isDark ? colors.accent : colors.primary} />
+            <Text style={[styles.statValue, { color: colors.textPrimary }]}>0</Text>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Pending Pitches</Text>
           </View>
-          <View style={styles.statCard}>
-            <Ionicons name="people" size={24} color={Colors.primary} />
-            <Text style={styles.statValue}>0</Text>
-            <Text style={styles.statLabel}>Pending Verifications</Text>
+
+          <View style={[styles.statCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Ionicons name="people" size={24} color={isDark ? colors.accent : colors.primary} />
+            <Text style={[styles.statValue, { color: colors.textPrimary }]}>0</Text>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Pending Verifications</Text>
           </View>
-          <View style={styles.statCard}>
-            <Ionicons name="briefcase" size={24} color={Colors.primary} />
-            <Text style={styles.statValue}>0</Text>
-            <Text style={styles.statLabel}>Active Deals</Text>
+
+          <View style={[styles.statCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Ionicons name="briefcase" size={24} color={isDark ? colors.accent : colors.primary} />
+            <Text style={[styles.statValue, { color: colors.textPrimary }]}>0</Text>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Active Deals</Text>
           </View>
-          <View style={styles.statCard}>
-            <Ionicons name="cash" size={24} color={Colors.primary} />
-              <Text style={styles.statValue}>---</Text>
-            <Text style={styles.statLabel}>Platform Volume</Text>
+
+          <View style={[styles.statCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Ionicons name="cash" size={24} color={isDark ? colors.accent : colors.primary} />
+            <Text style={[styles.statValue, { color: colors.textPrimary }]}>---</Text>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Platform Volume</Text>
           </View>
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Recent Activity</Text>
-          <Text style={{ color: Colors.textLight }}>No recent activity to show.</Text>
+        <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Recent Activity</Text>
+          <Text style={{ color: colors.textMuted }}>No recent activity to show.</Text>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -47,89 +64,64 @@ export default function AdminDashboardScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
   },
   scrollContent: {
     padding: 20,
     paddingBottom: 100,
+    gap: 20,
   },
   header: {
-    marginBottom: 24,
+    marginBottom: 4,
+  },
+  headerTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  themeBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   title: {
     fontSize: 28,
-    fontWeight: 'bold',
-    color: Colors.text,
+    fontWeight: '800',
+    letterSpacing: -0.5,
   },
   subtitle: {
-    fontSize: 16,
-    color: Colors.textLight,
-    marginTop: 4,
+    fontSize: 14,
+    marginTop: 2,
   },
   statsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    marginBottom: 32,
+    gap: 12,
   },
   statCard: {
     width: '48%',
-    backgroundColor: '#fff',
-    borderRadius: 16,
+    borderRadius: 18,
     padding: 16,
-    marginBottom: 16,
     borderWidth: 1,
-    borderColor: Colors.border,
+    gap: 6,
   },
   statValue: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: Colors.text,
-    marginTop: 12,
+    fontSize: 22,
+    fontWeight: '800',
   },
   statLabel: {
     fontSize: 12,
-    color: Colors.textLight,
-    marginTop: 4,
   },
   section: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: 18,
+    padding: 16,
     borderWidth: 1,
-    borderColor: Colors.border,
+    gap: 8,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: Colors.text,
-    marginBottom: 16,
-  },
-  activityItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  activityIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#f8f9fa',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  activityContent: {
-    flex: 1,
-  },
-  activityTitle: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: Colors.text,
-  },
-  activityTime: {
-    fontSize: 12,
-    color: Colors.textLight,
-    marginTop: 2,
+    fontSize: 16,
+    fontWeight: '800',
   },
 });

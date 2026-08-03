@@ -2,11 +2,10 @@ import React, { useEffect, useRef } from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet, Animated } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Pitch } from '@/types';
-import { Colors } from '@/constants/Colors';
+import { Pitch, Industry } from '@/types';
 import { Badge } from '@/components/ui/Badge';
-import { cardStyles } from '@/components/ui/Card';
 import { FadeInView } from '@/components/ui/FadeInView';
+import { useTheme } from '@/store/themeStore';
 
 interface PitchCardProps {
   pitch: Pitch;
@@ -21,9 +20,10 @@ function formatOfferType(offerType: string | undefined) {
 }
 
 function ProgressBar({ value, max }: { value: number; max: number }) {
+  const { colors } = useTheme();
   const pct = max > 0 ? Math.min((value / max) * 100, 100) : 0;
   return (
-    <View style={pbStyles.track}>
+    <View style={[pbStyles.track, { backgroundColor: colors.surfaceSubtle }]}>
       <View style={[pbStyles.fill, { width: `${pct}%` as any }]} />
     </View>
   );
@@ -32,13 +32,12 @@ function ProgressBar({ value, max }: { value: number; max: number }) {
 const pbStyles = StyleSheet.create({
   track: {
     height: 4,
-    backgroundColor: Colors.borderLight,
     borderRadius: 2,
     overflow: 'hidden',
   },
   fill: {
     height: 4,
-    backgroundColor: Colors.accent,
+    backgroundColor: '#16A34A',
     borderRadius: 2,
   },
 });
@@ -67,56 +66,100 @@ function PulsePlayButton() {
   }, [scaleAnim, opacityAnim]);
 
   return (
-    <View style={styles.playOverlay}>
+    <View style={pulseStyles.playContainer}>
       <Animated.View
         style={[
-          styles.playPulseRing,
+          pulseStyles.pulseCircle,
           {
             transform: [{ scale: scaleAnim }],
             opacity: opacityAnim,
           },
         ]}
       />
-      <View style={styles.playCircle}>
-        <Ionicons name="play" size={20} color="#fff" />
+      <View style={pulseStyles.playButton}>
+        <Ionicons name="play" size={16} color="#FFFFFF" style={{ marginLeft: 2 }} />
       </View>
     </View>
   );
 }
 
+const pulseStyles = StyleSheet.create({
+  playContainer: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pulseCircle: {
+    position: 'absolute',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.4)',
+  },
+  playButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(15, 23, 42, 0.75)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});
+
 export function PitchCard({ pitch, compact = false, delay = 0 }: PitchCardProps) {
+  const { colors, isDark } = useTheme();
+  const fundedPercent = pitch.amountNeeded > 0
+    ? Math.min((pitch.amountRaised / pitch.amountNeeded) * 100, 100)
+    : 0;
+
   const handlePress = () => {
     router.push(`/pitch/${pitch.id}`);
   };
 
-  const fundedPct = pitch.amountNeeded > 0
-    ? Math.round((pitch.amountRaised / pitch.amountNeeded) * 100)
-    : 0;
+  const handleBidPress = () => {
+    router.push({ pathname: '/invest/[id]', params: { id: pitch.id } });
+  };
 
   if (compact) {
     return (
       <FadeInView delay={delay}>
-        <TouchableOpacity style={styles.compactCard} onPress={handlePress} activeOpacity={0.75}>
-          <Image
-            source={{ uri: pitch.imageUrl || 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=400&q=70' }}
-            style={styles.compactImage}
-          />
-          {/* Left accent bar */}
-          <View style={styles.compactAccent} />
+        <TouchableOpacity
+          style={[styles.compactCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
+          onPress={handlePress}
+          activeOpacity={0.88}
+        >
+          <View style={styles.imageContainer}>
+            <Image
+              source={{ uri: pitch.imageUrl || 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=800' }}
+              style={styles.compactImage}
+              resizeMode="cover"
+            />
+            {pitch.videoUrl ? (
+              <View style={styles.videoBadge}>
+                <Ionicons name="play-circle" size={16} color="#FFFFFF" />
+              </View>
+            ) : null}
+            <View style={styles.badgeTopLeft}>
+              <Badge label={pitch.industry} industry={pitch.industry as Industry} size="sm" />
+            </View>
+          </View>
+
           <View style={styles.compactContent}>
-            <Badge label={pitch.industry} industry={pitch.industry} size="sm" />
-            <Text style={styles.compactName} numberOfLines={1}>
+            <Text style={[styles.compactTitle, { color: colors.textPrimary }]} numberOfLines={1}>
               {pitch.businessName}
             </Text>
-            <Text style={styles.compactDesc} numberOfLines={2}>
-              {pitch.shortDescription}
+            <Text style={[styles.location, { color: colors.textSecondary }]} numberOfLines={1}>
+              📍 {pitch.location}
             </Text>
-            <View style={styles.compactFooter}>
-              <Text style={styles.raisedText}>
-                GH₵{(pitch.amountNeeded / 1000).toFixed(0)}k · {pitch.offerValue}% {formatOfferType(pitch.offerType)}
-              </Text>
-              <View style={styles.compactArrow}>
-                <Ionicons name="arrow-forward" size={12} color={Colors.primary} />
+
+            <View style={styles.compactProgressSection}>
+              <ProgressBar value={pitch.amountRaised} max={pitch.amountNeeded} />
+              <View style={styles.compactMetricsRow}>
+                <Text style={styles.amountRaised}>
+                  GH₵{pitch.amountRaised.toLocaleString()}
+                </Text>
+                <Text style={styles.percentText}>{fundedPercent.toFixed(0)}%</Text>
               </View>
             </View>
           </View>
@@ -127,67 +170,98 @@ export function PitchCard({ pitch, compact = false, delay = 0 }: PitchCardProps)
 
   return (
     <FadeInView delay={delay}>
-      <TouchableOpacity style={styles.card} onPress={handlePress} activeOpacity={0.75}>
-        {/* Media */}
-        <View style={styles.mediaWrap}>
+      <TouchableOpacity
+        style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}
+        onPress={handlePress}
+        activeOpacity={0.92}
+      >
+        <View style={styles.bannerContainer}>
           <Image
-            source={{ uri: pitch.imageUrl || 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=800&q=80' }}
-            style={styles.media}
+            source={{ uri: pitch.imageUrl || 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=800' }}
+            style={styles.bannerImage}
+            resizeMode="cover"
           />
-          {pitch.videoUrl ? <PulsePlayButton /> : null}
-          {/* Heart / save button */}
-          <TouchableOpacity style={styles.heartBtn} activeOpacity={0.7} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <Ionicons name="heart-outline" size={16} color={Colors.textSecondary} />
-          </TouchableOpacity>
-          {/* Industry badge overlay */}
-          <View style={styles.badgeOverlay}>
-            <Badge label={pitch.industry} industry={pitch.industry} size="sm" />
-          </View>
-        </View>
 
-        {/* Body */}
-        <View style={styles.cardBody}>
-          <View style={styles.titleRow}>
-            <Text style={styles.businessName} numberOfLines={1}>{pitch.businessName}</Text>
-            {pitch.location ? (
-              <View style={styles.locationChip}>
-                <Ionicons name="location-outline" size={11} color={Colors.textMuted} />
-                <Text style={styles.locationText} numberOfLines={1}>{pitch.location}</Text>
+          {pitch.videoUrl ? (
+            <View style={styles.videoOverlay}>
+              <PulsePlayButton />
+              <Text style={styles.videoLabel}>Watch Pitch Video</Text>
+            </View>
+          ) : null}
+
+          <View style={styles.bannerBadgeOverlay}>
+            <Badge label={pitch.industry} industry={pitch.industry as Industry} size="sm" />
+            {pitch.status === 'LIVE' ? (
+              <View style={styles.liveChip}>
+                <View style={styles.liveDot} />
+                <Text style={styles.liveText}>LIVE</Text>
               </View>
             ) : null}
           </View>
+        </View>
 
-          <Text style={styles.shortDesc} numberOfLines={2}>
-            {pitch.shortDescription}
+        <View style={styles.cardBody}>
+          <View style={styles.headerRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.businessName, { color: colors.textPrimary }]} numberOfLines={1}>
+                {pitch.businessName}
+              </Text>
+              <Text style={[styles.location, { color: colors.textSecondary }]}>📍 {pitch.location}</Text>
+            </View>
+
+            <View style={styles.offerBadge}>
+              <Text style={styles.offerValue}>
+                {pitch.offerType === 'FIXED' ? `GH₵${pitch.offerValue}` : `${pitch.offerValue}%`}
+              </Text>
+              <Text style={styles.offerType}>{formatOfferType(pitch.offerType)}</Text>
+            </View>
+          </View>
+
+          <Text style={[styles.summary, { color: colors.textSecondary }]} numberOfLines={2}>
+            {pitch.summary}
           </Text>
 
-          {/* Progress */}
-          {pitch.amountRaised != null && (
-            <View style={styles.progressSection}>
-              <View style={styles.progressHeader}>
-                <Text style={styles.fundedLabel}>{fundedPct}% funded</Text>
-                <Text style={styles.fundedAmount}>
-                  GH₵{pitch.amountRaised?.toLocaleString()} raised
+          <View style={styles.progressContainer}>
+            <ProgressBar value={pitch.amountRaised} max={pitch.amountNeeded} />
+            <View style={styles.metricsRow}>
+              <View>
+                <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>Raised</Text>
+                <Text style={styles.raisedValue}>
+                  GH₵{pitch.amountRaised.toLocaleString()}
                 </Text>
               </View>
-              <ProgressBar value={pitch.amountRaised} max={pitch.amountNeeded} />
-            </View>
-          )}
 
-          <View style={styles.divider} />
+              <View style={{ alignItems: 'center' }}>
+                <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>Goal</Text>
+                <Text style={[styles.metricValue, { color: colors.textPrimary }]}>
+                  GH₵{pitch.amountNeeded.toLocaleString()}
+                </Text>
+              </View>
 
-          <View style={styles.statsRow}>
-            <View>
-              <Text style={styles.statValue}>GH₵{pitch.amountNeeded.toLocaleString()}</Text>
-              <Text style={styles.statLabel}>asking</Text>
+              <View style={{ alignItems: 'flex-end' }}>
+                <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>Progress</Text>
+                <Text style={styles.percentValue}>{fundedPercent.toFixed(0)}%</Text>
+              </View>
             </View>
-            <TouchableOpacity style={styles.viewBtn} onPress={handlePress} activeOpacity={0.82}>
-              <Text style={styles.viewBtnText}>
-                {pitch.offerValue}% {formatOfferType(pitch.offerType)}
-              </Text>
-              <Ionicons name="arrow-forward" size={13} color="#fff" />
-            </TouchableOpacity>
           </View>
+        </View>
+
+        <View style={[styles.cardFooter, { backgroundColor: colors.surfaceSubtle, borderTopColor: colors.border }]}>
+          <View style={styles.ownerInfo}>
+            <View style={styles.avatarCircle}>
+              <Text style={styles.avatarText}>
+                {(pitch.ownerName || pitch.businessName)[0].toUpperCase()}
+              </Text>
+            </View>
+            <Text style={[styles.ownerName, { color: colors.textPrimary }]} numberOfLines={1}>
+              {pitch.ownerName || 'Business Owner'}
+            </Text>
+          </View>
+
+          <TouchableOpacity style={styles.bidButton} onPress={handleBidPress} activeOpacity={0.8}>
+            <Text style={styles.bidButtonText}>Place Bid</Text>
+            <Ionicons name="arrow-forward" size={14} color="#FFFFFF" />
+          </TouchableOpacity>
         </View>
       </TouchableOpacity>
     </FadeInView>
@@ -196,215 +270,238 @@ export function PitchCard({ pitch, compact = false, delay = 0 }: PitchCardProps)
 
 const styles = StyleSheet.create({
   card: {
-    ...cardStyles.surfaceMed,
-    borderRadius: 18,
+    borderRadius: 20,
+    borderWidth: 1,
     overflow: 'hidden',
-    marginBottom: 18,
-  },
-  mediaWrap: {
-    position: 'relative',
-  },
-  media: {
-    width: '100%',
-    height: 200,
-    resizeMode: 'cover',
-    backgroundColor: Colors.borderLight,
-  },
-  playOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(0,0,0,0.25)',
-  },
-  playPulseRing: {
-    position: 'absolute',
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: 'rgba(255, 255, 255, 0.4)',
-  },
-  playCircle: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: 'rgba(13, 27, 62, 0.85)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingLeft: 3,
-    borderWidth: 1.5,
-    borderColor: '#fff',
-  },
-  heartBtn: {
-    position: 'absolute',
-    top: 12,
-    right: 12,
-    backgroundColor: '#ffffffd9',
-    borderRadius: 22,
-    width: 38,
-    height: 38,
-    alignItems: 'center',
-    justifyContent: 'center',
+    marginBottom: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 3,
   },
-  badgeOverlay: {
+  bannerContainer: {
+    height: 180,
+    width: '100%',
+    position: 'relative',
+    backgroundColor: '#0F172A',
+  },
+  bannerImage: {
+    width: '100%',
+    height: '100%',
+  },
+  videoOverlay: {
+    position: 'absolute',
+    inset: 0,
+    backgroundColor: 'rgba(15, 23, 42, 0.4)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  videoLabel: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+  },
+  bannerBadgeOverlay: {
     position: 'absolute',
     top: 12,
     left: 12,
+    right: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  liveChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(22, 163, 74, 0.9)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  liveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#FFFFFF',
+  },
+  liveText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
   cardBody: {
     padding: 16,
-    gap: 8,
+    gap: 12,
   },
-  titleRow: {
+  headerRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
-    gap: 8,
+    gap: 12,
   },
   businessName: {
-    flex: 1,
     fontSize: 18,
-    lineHeight: 24,
-    fontWeight: '700',
-    color: Colors.textPrimary,
-  },
-  locationChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    backgroundColor: Colors.borderLight,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
-    flexShrink: 0,
-  },
-  locationText: {
-    fontSize: 11,
-    color: Colors.textMuted,
-    fontWeight: '500',
-    maxWidth: 80,
-  },
-  shortDesc: {
-    fontSize: 14,
-    color: Colors.textSecondary,
-    lineHeight: 20,
-  },
-  progressSection: {
-    gap: 5,
-  },
-  progressHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  fundedLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: Colors.accent,
-  },
-  fundedAmount: {
-    fontSize: 11,
-    color: Colors.textMuted,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: Colors.borderLight,
-    marginVertical: 2,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  statValue: {
-    fontSize: 20,
     fontWeight: '800',
-    color: Colors.textPrimary,
+    letterSpacing: -0.3,
   },
-  statLabel: {
+  location: {
     fontSize: 12,
-    color: Colors.textMuted,
-    marginTop: 1,
+    marginTop: 2,
   },
-  viewBtn: {
-    backgroundColor: Colors.primary,
+  offerBadge: {
+    backgroundColor: '#F0FDF4',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
+    alignItems: 'flex-end',
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+  },
+  offerValue: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#16A34A',
+  },
+  offerType: {
+    fontSize: 10,
+    color: '#15803D',
+    fontWeight: '600',
+  },
+  summary: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  progressContainer: {
+    gap: 8,
+    marginTop: 4,
+  },
+  metricsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  metricLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  raisedValue: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#16A34A',
+  },
+  metricValue: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  percentValue: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#16A34A',
+  },
+  cardFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 10,
-    borderRadius: 24,
-    minHeight: 42,
+    borderTopWidth: 1,
+  },
+  ownerInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
+    flex: 1,
   },
-  viewBtnText: {
-    color: '#fff',
+  avatarCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#0D1B3E',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  ownerName: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  bidButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#0D1B3E',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
+  },
+  bidButtonText: {
+    color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '700',
-    letterSpacing: 0.1,
   },
 
-  // Compact card
+  /* Compact Mode */
   compactCard: {
-    ...cardStyles.surface,
-    borderRadius: 14,
     flexDirection: 'row',
+    borderRadius: 16,
+    borderWidth: 1,
     overflow: 'hidden',
     marginBottom: 12,
-    position: 'relative',
+    height: 100,
   },
-  compactAccent: {
-    position: 'absolute',
-    left: 78,
-    top: 0,
-    bottom: 0,
-    width: 2,
-    backgroundColor: Colors.accent,
-    opacity: 0.6,
+  imageContainer: {
+    width: 100,
+    height: '100%',
+    position: 'relative',
+    backgroundColor: '#0F172A',
   },
   compactImage: {
-    width: 80,
-    height: 90,
-    resizeMode: 'cover',
-    backgroundColor: Colors.borderLight,
+    width: '100%',
+    height: '100%',
+  },
+  videoBadge: {
+    position: 'absolute',
+    bottom: 6,
+    right: 6,
+  },
+  badgeTopLeft: {
+    position: 'absolute',
+    top: 6,
+    left: 6,
   },
   compactContent: {
     flex: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    padding: 10,
+    justifyContent: 'space-between',
+  },
+  compactTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  compactProgressSection: {
     gap: 4,
   },
-  compactName: {
-    fontSize: 15,
-    lineHeight: 20,
-    fontWeight: '700',
-    color: Colors.textPrimary,
-  },
-  compactDesc: {
-    fontSize: 12,
-    color: Colors.textSecondary,
-    lineHeight: 17,
-    flex: 1,
-  },
-  compactFooter: {
+  compactMetricsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 4,
   },
-  raisedText: {
-    fontSize: 11,
-    color: Colors.textMuted,
-    fontWeight: '600',
-    flex: 1,
+  amountRaised: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#16A34A',
   },
-  compactArrow: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: Colors.borderLight,
-    alignItems: 'center',
-    justifyContent: 'center',
+  percentText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#16A34A',
   },
 });

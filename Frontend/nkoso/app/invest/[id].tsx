@@ -11,11 +11,10 @@ import {
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Colors } from '@/constants/Colors';
+import { useTheme } from '@/store/themeStore';
 import { Button } from '@/components/ui/Button';
 import { ScreenState } from '@/components/ui/ScreenState';
 import { FadeInView } from '@/components/ui/FadeInView';
-import { cardStyles } from '@/components/ui/Card';
 import { placeBid, getPitch } from '@/services/api';
 import { useQuery, useMutation } from '@tanstack/react-query';
 
@@ -24,7 +23,8 @@ const RETURN_TYPES = ['EQUITY', 'REVENUE_SHARE', 'FIXED'] as const;
 
 export default function InvestScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  
+  const { isDark, colors } = useTheme();
+
   const { data: pitch, isLoading: loadingPitch } = useQuery({
     queryKey: ['pitch', id],
     queryFn: () => getPitch(id as string),
@@ -62,738 +62,488 @@ export default function InvestScreen() {
   };
 
   const handleReturnValueChange = (v: string) => {
+    setReturnValue(v);
+    const num = parseFloat(v);
     if (returnType === 'EQUITY') {
-      const num = parseFloat(v);
-      if (!isNaN(num) && num > 100) {
-        setReturnValue('100');
-        setEquityError('Equity cannot exceed 100%');
-        return;
-      } else if (v !== '' && !isNaN(num) && num < 1) {
-        setEquityError('Minimum equity is 1%');
-      } else {
-        setEquityError('');
-      }
-    } else if (returnType === 'REVENUE_SHARE') {
-      const num = parseFloat(v);
-      if (!isNaN(num) && num > 100) {
-        setReturnValue('100');
-        setEquityError('Revenue share cannot exceed 100%');
-        return;
-      } else if (v !== '' && !isNaN(num) && num < 1) {
-        setEquityError('Minimum revenue share is 1%');
-      } else {
-        setEquityError('');
-      }
-    } else if (returnType === 'FIXED') {
-      const num = parseFloat(v);
-      if (v !== '' && (isNaN(num) || num < 100)) {
-        setEquityError('Minimum fixed return is GH₵ 100');
+      if (v !== '' && (isNaN(num) || num <= 0 || num > 100)) {
+        setEquityError('Equity stake must be between 0.1% and 100%');
       } else {
         setEquityError('');
       }
     } else {
       setEquityError('');
     }
-    setReturnValue(v);
   };
 
-  const handleReturnValueBlur = () => {
-    const num = parseFloat(returnValue);
-    if (returnType === 'EQUITY') {
-      if (isNaN(num) || num < 1 || returnValue === '') {
-        setReturnValue('1');
-        setEquityError('Minimum equity is 1%');
-      } else if (num > 100) {
-        setReturnValue('100');
-        setEquityError('Equity cannot exceed 100%');
-      } else {
-        setEquityError('');
-      }
-    } else if (returnType === 'REVENUE_SHARE') {
-      if (isNaN(num) || num < 1 || returnValue === '') {
-        setReturnValue('1');
-        setEquityError('Minimum revenue share is 1%');
-      } else if (num > 100) {
-        setReturnValue('100');
-        setEquityError('Revenue share cannot exceed 100%');
-      } else {
-        setEquityError('');
-      }
-    } else if (returnType === 'FIXED') {
-      if (isNaN(num) || num < 100 || returnValue === '') {
-        setReturnValue('100');
-        setEquityError('Minimum fixed return is GH₵ 100');
-      } else {
-        setEquityError('');
-      }
-    }
+  const placeBidMutation = useMutation({
+    mutationFn: placeBid,
+    onSuccess: () => {
+      Alert.alert(
+        'Bid Offer Placed! 🎉',
+        `Your offer of GH₵ ${finalAmount.toLocaleString()} has been submitted to ${pitch?.businessName || 'the business'}.`,
+        [{ text: 'View Portfolio', onPress: () => router.replace('/(investor)/active-deals') }]
+      );
+    },
+    onError: (err: any) => {
+      Alert.alert('Bid Failed', err?.message || 'Could not submit bid offer.');
+    },
+  });
+
+  const handleSubmit = () => {
+    if (!pitch) return;
+    placeBidMutation.mutate({
+      pitchId: pitch.id,
+      amount: finalAmount,
+      returnType,
+      returnValue: parseFloat(returnValue) || 0,
+      timelineMonths: parseInt(timelineMonths, 10) || 12,
+      note,
+    });
   };
 
   if (loadingPitch) {
     return (
-      <SafeAreaView style={styles.safe} edges={['top']}>
-        <ScreenState loading title="Loading investment details" />
+      <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top']}>
+        <ScreenState loading title="Loading Pitch Details..." />
       </SafeAreaView>
     );
   }
 
   if (!pitch) {
     return (
-      <SafeAreaView style={styles.safe} edges={['top']}>
+      <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top']}>
+        <View style={[styles.header, { borderBottomColor: colors.border }]}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+            <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
+          </TouchableOpacity>
+          <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Place Bid Offer</Text>
+          <View style={{ width: 24 }} />
+        </View>
         <ScreenState
-          icon="megaphone-outline"
-          title="Pitch not found"
-          detail="This opportunity may no longer be available."
-          action="Go back"
+          icon="alert-circle-outline"
+          title="Pitch Not Found"
+          detail="Could not find the requested pitch opportunity."
+          action="Go Back"
           onPress={() => router.back()}
         />
       </SafeAreaView>
     );
   }
 
-  const mutation = useMutation({
-    mutationFn: (data: any) => placeBid(data),
-    onSuccess: () => {
-      Alert.alert(
-        'Bid placed!',
-        `Your bid of GH₵${finalAmount.toLocaleString()} has been sent to ${pitch.businessName}. You'll be notified when they respond.`,
-        [{ text: 'OK', onPress: () => router.replace('/(investor)/active-deals') }]
-      );
-    },
-    onError: (error: any) => {
-      const msg = error?.message || '';
-      if (msg.includes('verification') || msg.includes('Please complete verification process')) {
-        Alert.alert('Verification required', 'Please complete verification process.');
-      } else {
-        Alert.alert('Error', 'Failed to place bid. Please try again.');
-      }
-    }
-  });
-
-  const handleSubmit = () => {
-    if (!returnValue) {
-      Alert.alert('Missing details', 'Please enter your expected return value.');
-      return;
-    }
-    const num = parseFloat(returnValue);
-    if (returnType === 'EQUITY' && (num < 1 || num > 100)) {
-      Alert.alert('Invalid equity', 'Equity must be between 1% and 100%');
-      return;
-    }
-    if (returnType === 'REVENUE_SHARE' && (num < 1 || num > 100)) {
-      Alert.alert('Invalid revenue share', 'Revenue share must be between 1% and 100%');
-      return;
-    }
-    if (returnType === 'FIXED' && num < 100) {
-      Alert.alert('Invalid fixed return', 'Minimum fixed return is GH₵ 100');
-      return;
-    }
-    mutation.mutate({
-      pitchId: pitch.id,
-      amount: finalAmount,
-      returnType,
-      returnValue: num,
-      timelineMonths: parseInt(timelineMonths, 10),
-      note,
-    });
-  };
-
-  const isReturnInvalid = () => {
-    if (!returnValue) return true;
-    const num = parseFloat(returnValue);
-    if (isNaN(num)) return true;
-    if (returnType === 'EQUITY') return num < 1 || num > 100;
-    if (returnType === 'REVENUE_SHARE') return num < 1 || num > 100;
-    if (returnType === 'FIXED') return num < 100;
-    return false;
-  };
-
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
-      {/* Header */}
-      <View style={styles.header}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top']}>
+      {/* Top Navigation */}
+      <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <TouchableOpacity
-          onPress={() => (step === 'amount' ? router.back() : setStep(step === 'review' ? 'terms' : 'amount'))}
+          onPress={() => {
+            if (step === 'review') setStep('terms');
+            else if (step === 'terms') setStep('amount');
+            else router.back();
+          }}
           style={styles.backBtn}
-          activeOpacity={0.72}
         >
-          <Ionicons name="arrow-back" size={22} color={Colors.textPrimary} />
+          <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Invest in {pitch.businessName}</Text>
-        <View style={{ width: 38 }} />
+        <View style={styles.headerTitleBox}>
+          <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Place Bid Offer</Text>
+          <Text style={[styles.headerSub, { color: colors.textSecondary }]}>{pitch.businessName}</Text>
+        </View>
+        <View style={{ width: 24 }} />
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
-        {/* Step indicator */}
-        <FadeInView style={styles.stepRow}>
-          {(['amount', 'terms', 'review'] as const).map((s, i) => (
-            <View key={s} style={styles.stepItem}>
-              <View
-                style={[
-                  styles.stepCircle,
-                  (step === s || ['amount', 'terms', 'review'].indexOf(step) > i) &&
-                    styles.stepCircleActive,
-                ]}
-              >
-                {(['amount', 'terms', 'review'].indexOf(step) > i) ? (
-                  <Ionicons name="checkmark" size={12} color="#fff" />
-                ) : (
-                  <Text style={styles.stepNum}>{i + 1}</Text>
-                )}
-              </View>
-              <Text style={styles.stepLabel}>
-                {s === 'amount' ? 'Amount' : s === 'terms' ? 'Terms' : 'Review'}
-              </Text>
-            </View>
-          ))}
-        </FadeInView>
+      {/* Wizard Step Progress Pills */}
+      <View style={styles.wizardRow}>
+        <View style={[styles.wizardStep, step === 'amount' && styles.wizardStepActive]}>
+          <Text style={[styles.wizardStepText, step === 'amount' && styles.wizardStepTextActive]}>1. Amount</Text>
+        </View>
+        <View style={[styles.wizardStep, step === 'terms' && styles.wizardStepActive]}>
+          <Text style={[styles.wizardStepText, step === 'terms' && styles.wizardStepTextActive]}>2. Return Terms</Text>
+        </View>
+        <View style={[styles.wizardStep, step === 'review' && styles.wizardStepActive]}>
+          <Text style={[styles.wizardStepText, step === 'review' && styles.wizardStepTextActive]}>3. Review</Text>
+        </View>
+      </View>
 
-        {/* Step 1: Amount */}
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {step === 'amount' && (
-          <>
-            <Text style={styles.sectionTitle}>Your investment</Text>
-            <View style={styles.amountDisplay}>
-              <Text style={styles.currency}>GH₵</Text>
-              <Text style={styles.amountValue}>{finalAmount.toLocaleString()}</Text>
-            </View>
+          <FadeInView style={styles.stepContainer}>
+            <Text style={[styles.stepTitle, { color: colors.textPrimary }]}>Choose Capital Amount</Text>
+            <Text style={[styles.stepSub, { color: colors.textSecondary }]}>
+              Select or type the capital amount you wish to invest in {pitch.businessName}.
+            </Text>
 
-            <View style={styles.presetGrid}>
-              {PRESET_AMOUNTS.map((a) => (
+            {/* Quick Presets Grid */}
+            <View style={styles.presetsGrid}>
+              {PRESET_AMOUNTS.map((amt) => (
                 <TouchableOpacity
-                  key={a}
+                  key={amt}
                   style={[
-                    styles.presetBtn,
-                    amount === a && !customAmount && styles.presetBtnActive,
+                    styles.presetChip,
+                    { backgroundColor: colors.surfaceSubtle, borderColor: colors.border },
+                    amount === amt && !customAmount && { backgroundColor: isDark ? colors.accent : colors.primary, borderColor: isDark ? colors.accent : colors.primary },
                   ]}
                   onPress={() => {
-                    setAmount(a);
+                    setAmount(amt);
                     setCustomAmount('');
                     setAmountError('');
                   }}
-                  activeOpacity={0.8}
                 >
                   <Text
                     style={[
-                      styles.presetBtnText,
-                      amount === a && !customAmount && styles.presetBtnTextActive,
+                      styles.presetText,
+                      { color: colors.textPrimary },
+                      amount === amt && !customAmount && { color: '#FFFFFF', fontWeight: '800' },
                     ]}
                   >
-                    {a.toLocaleString()}
+                    GH₵ {amt.toLocaleString()}
                   </Text>
                 </TouchableOpacity>
               ))}
             </View>
 
-            <View style={styles.customInput}>
-              <Text style={styles.customLabel}>Custom amount</Text>
-              <View style={styles.customInputRow}>
-                <Text style={styles.customCurrency}>GH₵</Text>
+            {/* Custom Amount Input */}
+            <View style={styles.inputGroup}>
+              <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>Or Enter Custom Amount (GH₵)</Text>
+              <View style={[styles.inputBox, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
+                <Text style={[styles.prefix, { color: colors.textPrimary }]}>GH₵</Text>
                 <TextInput
-                  style={styles.customInputField}
-                  placeholder="Enter amount"
-                  placeholderTextColor={Colors.textMuted}
+                  style={[styles.textInput, { color: colors.textPrimary }]}
                   keyboardType="numeric"
+                  placeholder="e.g. 1500"
+                  placeholderTextColor={colors.textMuted}
                   value={customAmount}
                   onChangeText={handleCustomAmountChange}
                   onBlur={handleCustomAmountBlur}
                 />
               </View>
-              {amountError ? (
-                <Text style={{ color: Colors.accentRed, fontSize: 12, marginTop: 4 }}>
-                  {amountError}
-                </Text>
-              ) : null}
-            </View>
-
-            <View style={styles.minNote}>
-              <Ionicons name="information-circle-outline" size={14} color={Colors.textMuted} />
-              <Text style={styles.minNoteText}>
-                Minimum investment: GH₵100
-              </Text>
+              {amountError ? <Text style={styles.errorText}>{amountError}</Text> : null}
             </View>
 
             <Button
-              title="Continue"
-              disabled={finalAmount < 100}
-              onPress={() => {
-                if (finalAmount < 100) {
-                  setAmountError('Minimum investment amount is GH₵ 100');
-                  Alert.alert(
-                    'Minimum not met',
-                    'Minimum investment amount is GH₵ 100'
-                  );
-                  return;
-                }
-                setStep('terms');
-              }}
+              title="Next: Return Terms →"
+              onPress={() => setStep('terms')}
+              disabled={!!amountError || finalAmount < 100}
+              style={styles.nextBtn}
             />
-          </>
+          </FadeInView>
         )}
 
-        {/* Step 2: Terms */}
         {step === 'terms' && (
-          <>
-            <Text style={styles.sectionTitle}>Investment terms</Text>
+          <FadeInView style={styles.stepContainer}>
+            <Text style={[styles.stepTitle, { color: colors.textPrimary }]}>Define Return Terms</Text>
+            <Text style={[styles.stepSub, { color: colors.textSecondary }]}>
+              Propose your desired return structure and repayment timeline for this investment.
+            </Text>
 
-            <Text style={styles.fieldLabel}>Return type</Text>
-            <View style={styles.returnTypeRow}>
-              {RETURN_TYPES.map((rt) => (
+            {/* Return Type Segmented Selector */}
+            <View style={styles.segmentContainer}>
+              {RETURN_TYPES.map((t) => (
                 <TouchableOpacity
-                  key={rt}
-                  style={[styles.rtChip, returnType === rt && styles.rtChipActive]}
+                  key={t}
+                  style={[
+                    styles.segmentTab,
+                    { backgroundColor: colors.surfaceSubtle },
+                    returnType === t && { backgroundColor: isDark ? colors.accent : colors.primary },
+                  ]}
                   onPress={() => {
-                    setReturnType(rt);
+                    setReturnType(t);
                     setEquityError('');
-                    if (rt === 'EQUITY' || rt === 'REVENUE_SHARE') {
-                      const num = parseFloat(returnValue);
-                      if (isNaN(num) || num < 1) setReturnValue('1');
-                      else if (num > 100) setReturnValue('100');
-                    } else if (rt === 'FIXED') {
-                      const num = parseFloat(returnValue);
-                      if (isNaN(num) || num < 100) setReturnValue('100');
-                    }
                   }}
-                  activeOpacity={0.8}
                 >
                   <Text
-                    style={[styles.rtChipText, returnType === rt && styles.rtChipTextActive]}
+                    style={[
+                      styles.segmentText,
+                      { color: colors.textSecondary },
+                      returnType === t && { color: '#FFFFFF', fontWeight: '800' },
+                    ]}
                   >
-                    {rt.replace('_', ' ')}
+                    {t === 'REVENUE_SHARE' ? 'Rev Share' : t.charAt(0) + t.slice(1).toLowerCase()}
                   </Text>
                 </TouchableOpacity>
               ))}
             </View>
 
-            <View style={styles.fieldRow}>
-              <Text style={styles.fieldLabel}>
+            {/* Return Value Input */}
+            <View style={styles.inputGroup}>
+              <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>
                 {returnType === 'EQUITY'
-                  ? 'Equity stake (%)'
+                  ? 'Proposed Equity Stake (%)'
                   : returnType === 'REVENUE_SHARE'
-                  ? 'Revenue share (%)'
-                  : 'Fixed return (GH₵)'}
+                  ? 'Proposed Revenue Share (%)'
+                  : 'Proposed Fixed Return Value (GH₵)'}
               </Text>
-              <View style={styles.fieldInput}>
-                {returnType === 'FIXED' && <Text style={[styles.fieldSuffix, {marginRight: 4}]}>GH₵</Text>}
+              <View style={[styles.inputBox, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
                 <TextInput
-                  style={styles.fieldInputText}
-                  placeholder={returnType === 'FIXED' ? 'e.g. 100' : '1-100'}
-                  placeholderTextColor={Colors.textMuted}
-                  keyboardType="decimal-pad"
+                  style={[styles.textInput, { color: colors.textPrimary }]}
+                  keyboardType="numeric"
+                  placeholder={returnType === 'FIXED' ? 'e.g. 600' : 'e.g. 10'}
+                  placeholderTextColor={colors.textMuted}
                   value={returnValue}
                   onChangeText={handleReturnValueChange}
-                  onBlur={handleReturnValueBlur}
                 />
-                {returnType !== 'FIXED' && <Text style={styles.fieldSuffix}>%</Text>}
               </View>
-              {equityError ? (
-                <Text style={{ color: Colors.accentRed, fontSize: 12, marginTop: 4 }}>
-                  {equityError}
-                </Text>
-              ) : null}
+              {equityError ? <Text style={styles.errorText}>{equityError}</Text> : null}
             </View>
 
-            <View style={styles.fieldRow}>
-              <Text style={styles.fieldLabel}>Investment timeline (months)</Text>
-              <View style={styles.fieldInput}>
+            {/* Timeline Months Input */}
+            <View style={styles.inputGroup}>
+              <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>Target Timeline (Months)</Text>
+              <View style={[styles.inputBox, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
                 <TextInput
-                  style={styles.fieldInputText}
-                  placeholder="12"
-                  placeholderTextColor={Colors.textMuted}
+                  style={[styles.textInput, { color: colors.textPrimary }]}
                   keyboardType="numeric"
+                  placeholder="e.g. 12"
+                  placeholderTextColor={colors.textMuted}
                   value={timelineMonths}
                   onChangeText={setTimelineMonths}
                 />
-                <Text style={styles.fieldSuffix}>mo</Text>
               </View>
             </View>
 
-            <Text style={styles.fieldLabel}>Note to business owner (optional)</Text>
-            <TextInput
-              style={styles.noteInput}
-              placeholder="Tell them why you're interested..."
-              placeholderTextColor={Colors.textMuted}
-              value={note}
-              onChangeText={setNote}
-              multiline
-              numberOfLines={3}
-              textAlignVertical="top"
-            />
+            {/* Optional Note to Business Owner */}
+            <View style={styles.inputGroup}>
+              <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>Message to Business Owner (Optional)</Text>
+              <View style={[styles.inputBox, styles.inputBoxArea, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
+                <TextInput
+                  style={[styles.textInput, { color: colors.textPrimary }]}
+                  multiline
+                  placeholder="Introduce yourself or highlight why you want to invest..."
+                  placeholderTextColor={colors.textMuted}
+                  value={note}
+                  onChangeText={setNote}
+                />
+              </View>
+            </View>
 
             <Button
-              title="Review bid"
-              disabled={isReturnInvalid()}
-              onPress={() => {
-                if (isReturnInvalid()) {
-                  const num = parseFloat(returnValue);
-                  if (returnType === 'FIXED' && (isNaN(num) || num < 100)) {
-                    setEquityError('Minimum fixed return is GH₵ 100');
-                    Alert.alert('Invalid fixed return', 'Minimum fixed return is GH₵ 100');
-                  } else if (returnType === 'REVENUE_SHARE') {
-                    setEquityError('Minimum revenue share is 1%');
-                    Alert.alert('Invalid revenue share', 'Revenue share must be between 1% and 100%');
-                  } else {
-                    setEquityError('Minimum equity is 1%');
-                    Alert.alert('Invalid equity', 'Equity must be between 1% and 100%');
-                  }
-                  return;
-                }
-                setStep('review');
-              }}
+              title="Next: Review Offer →"
+              onPress={() => setStep('review')}
+              disabled={!returnValue || !!equityError}
+              style={styles.nextBtn}
             />
-          </>
+          </FadeInView>
         )}
 
-        {/* Step 3: Review */}
         {step === 'review' && (
-          <>
-            <Text style={styles.sectionTitle}>Review your bid</Text>
-
-            <View style={styles.reviewCard}>
-              <Text style={styles.reviewBusiness}>{pitch.businessName}</Text>
-
-              {[
-                { label: 'Investment amount', value: `GH₵${finalAmount.toLocaleString()}` },
-                { label: 'Return type', value: returnType.replace('_', ' ') },
-                { label: 'Expected return', value: returnType === 'FIXED' ? `GH₵${returnValue}` : `${returnValue}%` },
-                { label: 'Timeline', value: `${timelineMonths} months` },
-                { label: 'Platform fee (1%)', value: `GH₵${platformFee.toFixed(2)}` },
-                { label: 'Total you pay', value: `GH₵${(finalAmount + platformFee).toFixed(2)}` },
-              ].map((item, i, arr) => (
-                <View key={item.label}>
-                  <View style={styles.reviewRow}>
-                    <Text style={styles.reviewLabel}>{item.label}</Text>
-                    <Text
-                      style={[
-                        styles.reviewValue,
-                        item.label.includes('Total') && styles.reviewValueBold,
-                      ]}
-                    >
-                      {item.value}
-                    </Text>
-                  </View>
-                  {i < arr.length - 1 && <View style={styles.reviewDivider} />}
-                </View>
-              ))}
-            </View>
-
-            {note && (
-              <View style={styles.notePreview}>
-                <Text style={styles.notePreviewLabel}>Your note:</Text>
-                <Text style={styles.notePreviewText}>{note}</Text>
-              </View>
-            )}
-
-            <View style={styles.reviewTerms}>
-              <Ionicons name="shield-checkmark-outline" size={14} color={Colors.accent} />
-              <Text style={styles.reviewTermsText}>
-                Your bid will be reviewed by the business owner. A deal only closes when
-                both parties agree and the MFI partner approves.
-              </Text>
-            </View>
-
-            <Button title="Place bid" onPress={handleSubmit} loading={mutation.isPending} />
-            <Text style={styles.ctaDisclaimer}>
-              By placing a bid, you agree to the Nkɔso investment terms.
+          <FadeInView style={styles.stepContainer}>
+            <Text style={[styles.stepTitle, { color: colors.textPrimary }]}>Review Bid Proposal</Text>
+            <Text style={[styles.stepSub, { color: colors.textSecondary }]}>
+              Double-check your bid parameters before submitting your offer.
             </Text>
-          </>
+
+            <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <View style={styles.reviewRow}>
+                <Text style={[styles.reviewLabel, { color: colors.textSecondary }]}>Target Business</Text>
+                <Text style={[styles.reviewValue, { color: colors.textPrimary }]}>{pitch.businessName}</Text>
+              </View>
+
+              <View style={styles.reviewDivider} />
+
+              <View style={styles.reviewRow}>
+                <Text style={[styles.reviewLabel, { color: colors.textSecondary }]}>Investment Amount</Text>
+                <Text style={[styles.reviewValueBold, { color: isDark ? colors.accent : colors.primary }]}>GH₵ {finalAmount.toLocaleString()}</Text>
+              </View>
+
+              <View style={styles.reviewDivider} />
+
+              <View style={styles.reviewRow}>
+                <Text style={[styles.reviewLabel, { color: colors.textSecondary }]}>Return Structure</Text>
+                <Text style={[styles.reviewValue, { color: colors.textPrimary }]}>
+                  {returnType === 'FIXED' ? `GH₵${returnValue} Fixed Return` : `${returnValue}% ${returnType}`}
+                </Text>
+              </View>
+
+              <View style={styles.reviewDivider} />
+
+              <View style={styles.reviewRow}>
+                <Text style={[styles.reviewLabel, { color: colors.textSecondary }]}>Timeline</Text>
+                <Text style={[styles.reviewValue, { color: colors.textPrimary }]}>{timelineMonths} Months</Text>
+              </View>
+
+              <View style={styles.reviewDivider} />
+
+              <View style={styles.reviewRow}>
+                <Text style={[styles.reviewLabel, { color: colors.textSecondary }]}>Estimated Platform Fee (1%)</Text>
+                <Text style={[styles.reviewValue, { color: colors.textPrimary }]}>GH₵ {platformFee.toFixed(2)}</Text>
+              </View>
+            </View>
+
+            <Button
+              title="Submit Bid Offer"
+              onPress={handleSubmit}
+              loading={placeBidMutation.isPending}
+              style={styles.submitBtn}
+            />
+          </FadeInView>
         )}
+
+        <View style={{ height: 40 }} />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#fff' },
-  notFound: {
+  safe: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
-  notFoundText: { fontSize: 16, color: Colors.textSecondary },
   header: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 12,
+    justifyContent: 'space-between',
     borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
   },
   backBtn: {
-    width: 44,
-    height: 44,
+    padding: 4,
+  },
+  headerTitleBox: {
     alignItems: 'center',
-    justifyContent: 'center',
   },
   headerTitle: {
-    flex: 1,
     fontSize: 16,
-    lineHeight: 22,
-    fontWeight: '700',
-    color: Colors.textPrimary,
-    textAlign: 'center',
+    fontWeight: '800',
   },
-  content: {
-    padding: 20,
-    paddingBottom: 40,
+  headerSub: {
+    fontSize: 11,
+    marginTop: 1,
+  },
+  wizardRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    gap: 8,
+  },
+  wizardStep: {
+    flex: 1,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: '#E2E8F0',
+    alignItems: 'center',
+  },
+  wizardStepActive: {
+    backgroundColor: '#16A34A',
+  },
+  wizardStepText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  wizardStepTextActive: {
+    color: '#FFFFFF',
+  },
+  scrollContent: {
+    padding: 16,
+  },
+  stepContainer: {
     gap: 16,
   },
-  stepRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 24,
-    marginBottom: 8,
-  },
-  stepItem: {
-    alignItems: 'center',
-    gap: 4,
-  },
-  stepCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: Colors.borderLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  stepCircleActive: {
-    backgroundColor: Colors.primary,
-  },
-  stepNum: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: Colors.textMuted,
-  },
-  stepLabel: {
-    fontSize: 11,
-    color: Colors.textMuted,
-    fontWeight: '500',
-  },
-  sectionTitle: {
-    fontSize: 20,
-    lineHeight: 26,
+  stepTitle: {
+    fontSize: 18,
     fontWeight: '800',
-    color: Colors.textPrimary,
   },
-  amountDisplay: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: 4,
+  stepSub: {
+    fontSize: 13,
+    marginTop: -8,
+    lineHeight: 18,
   },
-  currency: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: Colors.textPrimary,
-    paddingBottom: 6,
-  },
-  amountValue: {
-    fontSize: 52,
-    fontWeight: '800',
-    color: Colors.textPrimary,
-    lineHeight: 60,
-  },
-  presetGrid: {
+  presetsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: 10,
   },
-  presetBtn: {
-    paddingHorizontal: 16,
+  presetChip: {
+    width: '31%',
     paddingVertical: 12,
-    minHeight: 44,
-    borderRadius: 12,
-    backgroundColor: Colors.borderLight,
-    borderWidth: 1.5,
-    borderColor: Colors.border,
-  },
-  presetBtnActive: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
-  },
-  presetBtnText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.textSecondary,
-  },
-  presetBtnTextActive: {
-    color: '#fff',
-  },
-  customLabel: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: Colors.textSecondary,
-    marginBottom: 6,
-  },
-  customInput: {},
-  customInputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.inputBg,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    paddingHorizontal: 14,
-    minHeight: 52,
-    gap: 6,
-  },
-  customCurrency: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.textSecondary,
-  },
-  customInputField: {
-    flex: 1,
-    fontSize: 16,
-    color: Colors.textPrimary,
-    height: '100%',
-  },
-  minNote: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  minNoteText: {
-    fontSize: 12,
-    color: Colors.textMuted,
-  },
-  fieldLabel: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: Colors.textSecondary,
-    marginBottom: 8,
-  },
-  fieldRow: { gap: 8 },
-  fieldInput: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.inputBg,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    paddingHorizontal: 14,
-    minHeight: 52,
-  },
-  fieldInputText: {
-    flex: 1,
-    fontSize: 16,
-    color: Colors.textPrimary,
-  },
-  fieldSuffix: {
-    fontSize: 15,
-    color: Colors.textMuted,
-    fontWeight: '500',
-  },
-  returnTypeRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 8,
-  },
-  rtChip: {
-    flex: 1,
-    minHeight: 44,
-    paddingVertical: 12,
-    borderRadius: 12,
-    backgroundColor: Colors.borderLight,
-    borderWidth: 1.5,
-    borderColor: Colors.border,
-    alignItems: 'center',
-  },
-  rtChipActive: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
-  },
-  rtChipText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: Colors.textSecondary,
-  },
-  rtChipTextActive: { color: '#fff' },
-  noteInput: {
-    backgroundColor: Colors.inputBg,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    padding: 14,
-    fontSize: 14,
-    color: Colors.textPrimary,
-    minHeight: 90,
-  },
-  reviewCard: {
-    ...cardStyles.surface,
-    backgroundColor: Colors.borderLight,
     borderRadius: 14,
-    overflow: 'hidden',
+    borderWidth: 1,
+    alignItems: 'center',
   },
-  reviewBusiness: {
-    fontSize: 16,
+  presetText: {
+    fontSize: 13,
     fontWeight: '700',
-    color: Colors.textPrimary,
-    padding: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+  },
+  inputGroup: {
+    gap: 6,
+  },
+  inputLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  inputBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    height: 48,
+    gap: 6,
+  },
+  inputBoxArea: {
+    height: 80,
+    paddingVertical: 8,
+  },
+  prefix: {
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  textInput: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  errorText: {
+    fontSize: 11,
+    color: '#DC2626',
+    fontWeight: '600',
+  },
+  segmentContainer: {
+    flexDirection: 'row',
+    borderRadius: 14,
+    padding: 4,
+    gap: 4,
+  },
+  segmentTab: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  segmentText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  card: {
+    borderRadius: 18,
+    padding: 16,
+    borderWidth: 1,
+    gap: 12,
   },
   reviewRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingHorizontal: 14,
-    paddingVertical: 11,
+    alignItems: 'center',
   },
   reviewLabel: {
     fontSize: 13,
-    color: Colors.textSecondary,
   },
   reviewValue: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: Colors.textPrimary,
+    fontSize: 14,
+    fontWeight: '700',
   },
   reviewValueBold: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '800',
-    color: Colors.primary,
   },
   reviewDivider: {
     height: 1,
-    backgroundColor: Colors.border,
-    marginHorizontal: 14,
+    backgroundColor: '#E2E8F0',
   },
-  notePreview: {
-    backgroundColor: Colors.borderLight,
-    borderRadius: 10,
-    padding: 12,
-    gap: 4,
-    borderWidth: 1,
-    borderColor: Colors.border,
+  nextBtn: {
+    marginTop: 8,
   },
-  notePreviewLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: Colors.textSecondary,
-  },
-  notePreviewText: {
-    fontSize: 13,
-    color: Colors.textPrimary,
-    lineHeight: 18,
-  },
-  reviewTerms: {
-    flexDirection: 'row',
-    backgroundColor: '#F0FDF4',
-    borderRadius: 10,
-    padding: 12,
-    gap: 8,
-    alignItems: 'flex-start',
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  reviewTermsText: {
-    flex: 1,
-    fontSize: 12,
-    color: '#16A34A',
-    lineHeight: 18,
-  },
-  ctaDisclaimer: {
-    fontSize: 11,
-    color: Colors.textMuted,
-    textAlign: 'center',
+  submitBtn: {
+    marginTop: 8,
   },
 });

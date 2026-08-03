@@ -1,76 +1,107 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Image,
   RefreshControl,
-  Animated,
+  TextInput,
+  Image,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Colors } from '@/constants/Colors';
-import { PitchCard } from '@/components/pitch/PitchCard';
-import { ScreenState } from '@/components/ui/ScreenState';
-import { PitchCardSkeleton } from '@/components/ui/Skeleton';
-import { AnimatedNumber } from '@/components/ui/AnimatedNumber';
-import { FadeInView, SlideInView } from '@/components/ui/FadeInView';
-import { PressableScale } from '@/components/ui/PressableScale';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useAuthStore } from '@/store/authStore';
+import { useTheme } from '@/store/themeStore';
+import { ScreenState } from '@/components/ui/ScreenState';
 import { useQuery } from '@tanstack/react-query';
 import { getPitches, getMyDeals, getNotifications } from '@/services/api';
+import { ProgressBar } from '@/components/ui/ProgressBar';
+import { MiniChart } from '@/components/portfolio/MiniChart';
+import { Badge } from '@/components/ui/Badge';
+import { Colors } from '@/constants/Colors';
+import type { Pitch, Industry } from '@/types';
 
-// Pulse animation for notification bell dot
-function PulseDot() {
-  const scale = useRef(new Animated.Value(1)).current;
-  const opacity = useRef(new Animated.Value(1)).current;
-
-  useEffect(() => {
-    const pulse = Animated.loop(
-      Animated.sequence([
-        Animated.parallel([
-          Animated.timing(scale,   { toValue: 1.6, duration: 700, useNativeDriver: true }),
-          Animated.timing(opacity, { toValue: 0,   duration: 700, useNativeDriver: true }),
-        ]),
-        Animated.parallel([
-          Animated.timing(scale,   { toValue: 1, duration: 0,   useNativeDriver: true }),
-          Animated.timing(opacity, { toValue: 1, duration: 0,   useNativeDriver: true }),
-        ]),
-      ])
-    );
-    pulse.start();
-    return () => pulse.stop();
-  }, []);
-
-  return (
-    <>
-      {/* Outer pulse ring */}
-      <Animated.View
-        style={[
-          styles.bellDotRing,
-          { transform: [{ scale }], opacity },
-        ]}
-      />
-      {/* Solid dot */}
-      <View style={styles.bellDot} />
-    </>
-  );
+export function getIndustryImageUrl(industry?: string, pitchImage?: string): string {
+  if (pitchImage && pitchImage.startsWith('http')) {
+    return pitchImage;
+  }
+  if (!industry) {
+    return 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=300&q=80';
+  }
+  const ind = industry.toLowerCase();
+  if (ind.includes('tech')) {
+    return 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=300&q=80';
+  }
+  if (ind.includes('food') || ind.includes('bev')) {
+    return 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=300&q=80';
+  }
+  if (ind.includes('health') || ind.includes('med')) {
+    return 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=300&q=80';
+  }
+  if (ind.includes('agri') || ind.includes('farm')) {
+    return 'https://images.unsplash.com/photo-1500937386664-56d1dfef3854?w=300&q=80';
+  }
+  if (ind.includes('sustain') || ind.includes('eco') || ind.includes('green')) {
+    return 'https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?w=300&q=80';
+  }
+  if (ind.includes('retail') || ind.includes('shop') || ind.includes('store')) {
+    return 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=300&q=80';
+  }
+  if (ind.includes('trans') || ind.includes('auto') || ind.includes('car') || ind.includes('logistics')) {
+    return 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=300&q=80';
+  }
+  if (ind.includes('fit') || ind.includes('sport')) {
+    return 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=300&q=80';
+  }
+  if (ind.includes('fashion') || ind.includes('cloth') || ind.includes('apparel')) {
+    return 'https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?w=300&q=80';
+  }
+  if (ind.includes('beauty') || ind.includes('cosmetic')) {
+    return 'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=300&q=80';
+  }
+  if (ind.includes('construct') || ind.includes('build')) {
+    return 'https://images.unsplash.com/photo-1541888946425-d0fbb186a5b7?w=300&q=80';
+  }
+  if (ind.includes('edu') || ind.includes('school')) {
+    return 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=300&q=80';
+  }
+  if (ind.includes('entertain') || ind.includes('media')) {
+    return 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=300&q=80';
+  }
+  if (ind.includes('hospit') || ind.includes('hotel')) {
+    return 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=300&q=80';
+  }
+  if (ind.includes('manufactur') || ind.includes('factory')) {
+    return 'https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?w=300&q=80';
+  }
+  return 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=300&q=80';
 }
 
-export default function HomeScreen() {
+export default function InvestorHomeScreen() {
   const { user } = useAuthStore();
-  const firstName = user?.name.split(' ')[0] ?? 'Investor';
+  const { isDark, colors, toggleTheme } = useTheme();
+  const firstName = user?.name?.split(' ')[0] ?? 'Investor';
+  const userInitials = (user?.name || 'Investor')[0].toUpperCase();
+  const [searchQuery, setSearchQuery] = useState('');
 
-  const { data: pitches = [], isLoading: isLoadingPitches, isError: isPitchesError, refetch: refetchPitches, isRefetching: isRefetchingPitches } = useQuery({
+  const {
+    data: pitches = [],
+    isLoading: isLoadingPitches,
+    refetch: refetchPitches,
+    isRefetching: isRefetchingPitches,
+  } = useQuery({
     queryKey: ['pitches'],
     queryFn: () => getPitches(),
   });
 
-  const { data: deals = [], isLoading: isLoadingDeals, isError: isDealsError, refetch: refetchDeals } = useQuery({
+  const {
+    data: deals = [],
+    isLoading: isLoadingDeals,
+    refetch: refetchDeals,
+  } = useQuery({
     queryKey: ['myDeals'],
     queryFn: () => getMyDeals(),
   });
@@ -82,321 +113,689 @@ export default function HomeScreen() {
 
   const unreadNotifCount = notifications.filter((n: any) => !n.read).length;
 
-  const ACTIVE_STATUSES = ['PENDING_SIGNATURES', 'PENDING_MFI', 'MFI_APPROVED', 'PAYMENT_PENDING', 'FUNDED', 'ACTIVE'];
-  const activeDeals = deals.filter(d => ACTIVE_STATUSES.includes(d.status));
+  const ACTIVE_STATUSES = [
+    'PENDING_SIGNATURES', 'PENDING_MFI', 'MFI_APPROVED',
+    'PAYMENT_PENDING', 'FUNDED', 'ACTIVE',
+  ];
+  const activeDeals = deals.filter((d) => ACTIVE_STATUSES.includes(d.status));
   const totalInvested = activeDeals.reduce((sum, d) => sum + d.amount, 0);
 
-  const featuredPitch = pitches.length > 0 ? pitches[0] : null;
-  const fundedPct = featuredPitch
-    ? Math.min(100, Math.round((featuredPitch.amountRaised / featuredPitch.amountNeeded) * 100))
-    : 0;
+  const sparklineData = useMemo(() => {
+    const r = totalInvested || 1000;
+    return [r * 0.15, r * 0.35, r * 0.55, r * 0.72, r * 0.88, r];
+  }, [totalInvested]);
+
+  const featuredPitches = useMemo(() => {
+    let result = [...pitches];
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(
+        (p) =>
+          p.businessName.toLowerCase().includes(q) ||
+          p.industry.toLowerCase().includes(q) ||
+          p.location.toLowerCase().includes(q)
+      );
+    }
+    return result;
+  }, [pitches, searchQuery]);
 
   const onRefresh = async () => {
     await Promise.all([refetchPitches(), refetchDeals()]);
   };
 
+  if (isLoadingPitches || isLoadingDeals) {
+    return (
+      <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top']}>
+        <ScreenState loading title="Loading home" />
+      </SafeAreaView>
+    );
+  }
+
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top']}>
+      {/* ── 1. Top Custom Navigation Header with Theme Toggle Switch ── */}
+      <View style={styles.topHeader}>
+        <View style={styles.userProfileGroup}>
+          <View style={styles.profileAvatar}>
+            <Text style={styles.avatarLetter}>{userInitials}</Text>
+          </View>
+          <View>
+            <Text style={[styles.userWelcomeLabel, { color: colors.textSecondary }]}>Welcome Back 👋</Text>
+            <Text style={[styles.userNameText, { color: colors.textPrimary }]}>{user?.name || 'Investor'}</Text>
+          </View>
+        </View>
+
+        <View style={styles.headerRightActions}>
+          {/* Theme Switcher Button */}
+          <TouchableOpacity
+            style={[styles.headerIconButton, { backgroundColor: colors.headerBtnBg, borderColor: colors.border }]}
+            onPress={toggleTheme}
+            activeOpacity={0.8}
+          >
+            <Ionicons
+              name={isDark ? 'sunny' : 'moon'}
+              size={19}
+              color={isDark ? '#F59E0B' : '#0F172A'}
+            />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.headerIconButton, { backgroundColor: colors.headerBtnBg, borderColor: colors.border }]}
+            onPress={() => router.push('/notifications')}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="notifications-outline" size={19} color={colors.textPrimary} />
+            {unreadNotifCount > 0 && <View style={styles.redBadgeDot} />}
+          </TouchableOpacity>
+        </View>
+      </View>
+
       <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
         refreshControl={
-          <RefreshControl
-            refreshing={isRefetchingPitches}
-            onRefresh={onRefresh}
-            tintColor={Colors.primary}
-          />
+          <RefreshControl refreshing={isRefetchingPitches} onRefresh={onRefresh} tintColor={isDark ? '#38BDF8' : '#0D1B3E'} />
         }
       >
-        {/* ── Header ── */}
-        <SlideInView from="left" style={styles.header}>
-          <View>
-            <Text style={styles.greeting}>Hello, {firstName}</Text>
-            <Text style={styles.tagline}>
-              Invest in businesses.{'\n'}Build the future.
-            </Text>
-          </View>
-          <TouchableOpacity
-            style={styles.bellBtn}
-            onPress={() => router.push('/notifications')}
-            activeOpacity={0.75}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Ionicons name="notifications-outline" size={22} color={Colors.textPrimary} />
-            {unreadNotifCount > 0 && (
-              <View style={styles.bellDotWrap}>
-                <PulseDot />
-              </View>
-            )}
-          </TouchableOpacity>
-        </SlideInView>
-
-        {/* ── Search Bar ── */}
-        <TouchableOpacity
-          style={styles.searchBar}
-          onPress={() => router.push('/(investor)/explore')}
-          activeOpacity={0.8}
+        {/* ── 2. Distinct Gradient Wallet / Portfolio Hero Card ── */}
+        <LinearGradient
+          colors={colors.heroBg}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.capitalHeroCard}
         >
-          <Ionicons name="search-outline" size={18} color={Colors.textMuted} />
-          <Text style={styles.searchPlaceholder}>Search businesses or industries...</Text>
-        </TouchableOpacity>
+          <View style={styles.heroHeaderRow}>
+            <View style={styles.capitalLabelChip}>
+              <View style={styles.greenPulseDot} />
+              <Text style={styles.capitalChipText}>PORTFOLIO CAPITAL DEPLOYED</Text>
+            </View>
+            <TouchableOpacity
+              style={styles.explorePillBtn}
+              onPress={() => router.push('/(investor)/explore')}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="compass-outline" size={16} color="#FFFFFF" />
+              <Text style={styles.explorePillText}>Explore</Text>
+            </TouchableOpacity>
+          </View>
 
-        {/* ── Portfolio Card ── */}
-        <FadeInView delay={60} style={styles.portfolioCard}>
-          {/* Subtle asymmetric highlight stripe */}
-          <View style={styles.portfolioHighlight} />
+          <Text style={styles.heroAmountText}>GH₵{totalInvested.toLocaleString()}</Text>
+          <Text style={styles.heroAmountSub}>Active equity & return commitments</Text>
 
-          <View style={styles.portfolioHeader}>
-            <Text style={styles.portfolioLabel}>Invested Capital</Text>
-            <View style={styles.portfolioBadge}>
-              <View style={styles.liveDot} />
-              <Text style={styles.portfolioBadgeText}>Live Portfolio</Text>
+          {/* Sparkline Chart */}
+          <View style={styles.heroChartBox}>
+            <MiniChart data={sparklineData} width={260} height={38} color="#10B981" showFill />
+          </View>
+
+          {/* 3 Metrics Pills Inside Card */}
+          <View style={styles.heroMetricsBar}>
+            <View style={styles.metricItem}>
+              <Text style={styles.metricValue}>{activeDeals.length}</Text>
+              <Text style={styles.metricLabel}>Active Deals</Text>
+            </View>
+            <View style={styles.metricDivider} />
+            <View style={styles.metricItem}>
+              <Text style={styles.metricValue}>{pitches.length}</Text>
+              <Text style={styles.metricLabel}>Pitches</Text>
+            </View>
+            <View style={styles.metricDivider} />
+            <View style={styles.metricItem}>
+              <Text style={[styles.metricValue, { color: '#10B981' }]}>
+                {activeDeals.filter((d) => d.status === 'FUNDED' || d.status === 'ACTIVE').length}
+              </Text>
+              <Text style={styles.metricLabel}>Funded</Text>
             </View>
           </View>
+        </LinearGradient>
 
-          {isLoadingDeals || isDealsError ? (
-            <Text style={styles.portfolioValue}>{isDealsError ? '--' : '...'}</Text>
-          ) : (
-            <AnimatedNumber
-              value={totalInvested}
-              prefix="GH₵"
-              formatter={(n) => Math.round(n).toLocaleString()}
-              style={styles.portfolioValue}
-            />
-          )}
+        {/* ── 3. Search Bar Widget ── */}
+        <View style={[styles.searchBar, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
+          <Ionicons name="search-outline" size={18} color={colors.textMuted} />
+          <TextInput
+            style={[styles.searchInput, { color: colors.textPrimary }]}
+            placeholder="Search business, industry, or location..."
+            placeholderTextColor={colors.textMuted}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+          {searchQuery ? (
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <Ionicons name="close-circle" size={16} color={colors.textMuted} />
+            </TouchableOpacity>
+          ) : null}
+        </View>
 
-          <View style={styles.changeRow}>
-            <Ionicons name="trending-up" size={14} color={Colors.accent} />
-            <Text style={styles.changeText}>
-              {activeDeals.length} deal{activeDeals.length !== 1 ? 's' : ''} in progress
-            </Text>
-          </View>
+        {/* ── 4. Investor Hub (2x2 Grid) ── */}
+        <Text style={[styles.sectionHeaderTitle, { color: colors.textPrimary }]}>Investor Hub</Text>
 
-          <View style={styles.shortcutsRow}>
-            {[
-              { icon: 'compass-outline',       label: 'Explore',  route: '/(investor)/explore' },
-              { icon: 'briefcase-outline',     label: 'My Deals', route: '/(investor)/active-deals' },
-              { icon: 'notifications-outline', label: 'Alerts',   route: '/notifications' },
-              { icon: 'person-outline',        label: 'Profile',  route: '/(investor)/profile' },
-            ].map((item, i) => (
-              <TouchableOpacity
-                key={item.label}
-                style={styles.shortcut}
-                onPress={() => router.push(item.route as any)}
-                activeOpacity={0.7}
-              >
-                <View style={[styles.shortcutIconBox, i === 0 && styles.shortcutIconBoxAccent]}>
-                  <Ionicons name={item.icon as any} size={20} color="#fff" />
+        <View style={styles.hubGrid}>
+          <TouchableOpacity
+            style={[styles.hubCard, {
+              backgroundColor: isDark ? '#172554' : '#EFF6FF',
+              borderColor: isDark ? '#1E40AF' : '#BFDBFE',
+            }]}
+            onPress={() => router.push('/(investor)/explore')}
+            activeOpacity={0.82}
+          >
+            <View style={styles.hubHeaderRow}>
+              <View style={[styles.hubIconCircle, { backgroundColor: isDark ? '#1E3A8A' : '#DBEAFE' }]}>
+                <Ionicons name="compass" size={20} color={isDark ? '#60A5FA' : '#2563EB'} />
+              </View>
+            </View>
+            <Text style={[styles.hubCardTitle, { color: colors.textPrimary }]}>Explore Pitches</Text>
+            <Text style={[styles.hubCardSub, { color: colors.textSecondary }]}>{pitches.length} live business opportunities</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.hubCard, {
+              backgroundColor: isDark ? '#064E3B' : '#ECFDF5',
+              borderColor: isDark ? '#065F46' : '#A7F3D0',
+            }]}
+            onPress={() => router.push('/(investor)/active-deals')}
+            activeOpacity={0.82}
+          >
+            <View style={styles.hubHeaderRow}>
+              <View style={[styles.hubIconCircle, { backgroundColor: isDark ? '#065F46' : '#D1FAE5' }]}>
+                <Ionicons name="briefcase" size={20} color={isDark ? '#34D399' : '#16A34A'} />
+              </View>
+            </View>
+            <Text style={[styles.hubCardTitle, { color: colors.textPrimary }]}>Active Portfolio</Text>
+            <Text style={[styles.hubCardSub, { color: colors.textSecondary }]}>{activeDeals.length} active deal contracts</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.hubCard, {
+              backgroundColor: isDark ? '#451A03' : '#FFF7ED',
+              borderColor: isDark ? '#78350F' : '#FDE68A',
+            }]}
+            onPress={() => router.push('/notifications')}
+            activeOpacity={0.82}
+          >
+            <View style={styles.hubHeaderRow}>
+              <View style={[styles.hubIconCircle, { backgroundColor: isDark ? '#78350F' : '#FEF3C7' }]}>
+                <Ionicons name="notifications" size={20} color={isDark ? '#FBBF24' : '#D97706'} />
+              </View>
+              {unreadNotifCount > 0 && (
+                <View style={styles.hubBadgeAlert}>
+                  <Text style={styles.hubBadgeAlertText}>{unreadNotifCount} NEW</Text>
                 </View>
-                <Text style={styles.shortcutLabel}>{item.label}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </FadeInView>
+              )}
+            </View>
+            <Text style={[styles.hubCardTitle, { color: colors.textPrimary }]}>Activity Alerts</Text>
+            <Text style={[styles.hubCardSub, { color: colors.textSecondary }]}>Updates & Counter-offers</Text>
+          </TouchableOpacity>
 
-        {/* ── Featured section ── */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Featured opportunity</Text>
-          <TouchableOpacity onPress={() => router.push('/(investor)/explore')} activeOpacity={0.7}>
-            <Text style={styles.viewAll}>View all</Text>
+          <TouchableOpacity
+            style={[styles.hubCard, {
+              backgroundColor: isDark ? '#3B0764' : '#F3E8FF',
+              borderColor: isDark ? '#581C87' : '#DDD6FE',
+            }]}
+            onPress={() => router.push('/profile')}
+            activeOpacity={0.82}
+          >
+            <View style={styles.hubHeaderRow}>
+              <View style={[styles.hubIconCircle, { backgroundColor: isDark ? '#581C87' : '#EDE9FE' }]}>
+                <Ionicons name="person" size={20} color={isDark ? '#C084FC' : '#9333EA'} />
+              </View>
+            </View>
+            <Text style={[styles.hubCardTitle, { color: colors.textPrimary }]}>Account & MoMo</Text>
+            <Text style={[styles.hubCardSub, { color: colors.textSecondary }]}>Payout settings & verification</Text>
           </TouchableOpacity>
         </View>
 
-        {/* ── Featured hero card ── */}
-        {featuredPitch ? (
-          <FadeInView delay={100}>
-            <PressableScale onPress={() => router.push(`/pitch/${featuredPitch.id}`)}>
-              <View style={styles.featuredHero}>
-                <Image
-                  source={{ uri: featuredPitch.imageUrl || 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=800&q=80' }}
-                  style={styles.featuredImg}
-                />
-                {/* Gradient overlay — not a flat block */}
-                <LinearGradient
-                  colors={['transparent', 'rgba(13,27,62,0.88)']}
-                  style={styles.featuredGradient}
-                >
-                  <View style={styles.featuredBadge}>
-                    <Text style={styles.featuredBadgeText}>{featuredPitch.industry}</Text>
-                  </View>
-                  <Text style={styles.featuredName}>{featuredPitch.businessName}</Text>
-                  <Text style={styles.featuredDesc} numberOfLines={2}>
-                    {featuredPitch.shortDescription}
-                  </Text>
+        {/* ── 5. Vertical Stacked Featured Pitches Cards with Industry Specific Images ── */}
+        <View style={styles.sectionTitleRow}>
+          <Text style={[styles.sectionHeaderTitle, { color: colors.textPrimary }]}>Featured Pitches</Text>
+          <TouchableOpacity onPress={() => router.push('/(investor)/explore')}>
+            <Text style={styles.seeAllLink}>Explore All ({pitches.length})</Text>
+          </TouchableOpacity>
+        </View>
 
-                  {/* Funding progress bar */}
-                  <View style={styles.progressBarContainer}>
-                    <View style={[styles.progressBarFill, { width: `${fundedPct}%` }]} />
-                  </View>
-                  <Text style={styles.featuredFunded}>
-                    GH₵{featuredPitch.amountNeeded.toLocaleString()} goal · {fundedPct}% raised
-                  </Text>
-                </LinearGradient>
-              </View>
-            </PressableScale>
-          </FadeInView>
+        {featuredPitches.length === 0 ? (
+          <View style={[styles.emptyCardContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Ionicons name="briefcase-outline" size={32} color={colors.textMuted} />
+            <Text style={[styles.emptyCardTitle, { color: colors.textPrimary }]}>No Pitches Available</Text>
+            <Text style={[styles.emptyCardSub, { color: colors.textSecondary }]}>
+              Check back soon for new investment opportunities.
+            </Text>
+          </View>
         ) : (
-          <View style={[styles.featuredHero, { justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.surface }]}>
-            {isLoadingPitches ? (
-              <Text style={{ color: Colors.textMuted }}>Loading...</Text>
-            ) : isPitchesError ? (
-              <Text style={{ color: Colors.textMuted }}>Could not load opportunities</Text>
-            ) : (
-              <Text style={{ color: Colors.textMuted }}>No featured opportunities</Text>
-            )}
+          <View style={styles.verticalCardsStack}>
+            {featuredPitches.map((pitch) => {
+              const raised = Number(pitch.amountRaised ?? 0);
+              const needed = Number(pitch.amountNeeded ?? 0);
+              const pct = needed > 0 ? (raised / needed) * 100 : 0;
+              const industryImageUrl = getIndustryImageUrl(pitch.industry, pitch.imageUrl);
+
+              return (
+                <TouchableOpacity
+                  key={pitch.id}
+                  style={[styles.verticalCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                  onPress={() => router.push(`/pitch/${pitch.id}`)}
+                  activeOpacity={0.85}
+                >
+                  <View style={styles.verticalCardHeader}>
+                    {/* Industry Specific Image Thumbnail Avatar */}
+                    <View style={[styles.industryImageAvatarCircle, { borderColor: colors.border }]}>
+                      <Image
+                        source={{ uri: industryImageUrl }}
+                        style={styles.industryImageAvatar}
+                        resizeMode="cover"
+                      />
+                    </View>
+
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.verticalBusinessName, { color: colors.textPrimary }]} numberOfLines={1}>
+                        {pitch.businessName}
+                      </Text>
+
+                      {/* Official Industry Badge Pill */}
+                      <View style={styles.industryBadgePillRow}>
+                        <Badge label={pitch.industry} industry={pitch.industry as Industry} size="sm" />
+                        <Text style={[styles.locationText, { color: colors.textSecondary }]}>· {pitch.location}</Text>
+                      </View>
+                    </View>
+
+                    <View style={[styles.liveChip, { backgroundColor: isDark ? '#052E16' : '#DCFCE7' }]}>
+                      <Text style={[styles.liveChipText, { color: isDark ? '#4ADE80' : '#15803D' }]}>LIVE</Text>
+                    </View>
+                  </View>
+
+                  <View style={[styles.verticalAmountBox, { backgroundColor: colors.boxBg }]}>
+                    <View style={styles.amountCol}>
+                      <Text style={[styles.amountLabel, { color: colors.textSecondary }]}>RAISED</Text>
+                      <Text style={[styles.amountVal, { color: colors.textPrimary }]}>GH₵{raised.toLocaleString()}</Text>
+                    </View>
+                    <View style={[styles.amountDivider, { backgroundColor: colors.border }]} />
+                    <View style={styles.amountCol}>
+                      <Text style={[styles.amountLabel, { color: colors.textSecondary }]}>TARGET GOAL</Text>
+                      <Text style={[styles.amountVal, { color: colors.textPrimary }]}>GH₵{needed.toLocaleString()}</Text>
+                    </View>
+                  </View>
+
+                  <ProgressBar percent={pct} height={5} color="#16A34A" />
+
+                  <View style={styles.verticalFooter}>
+                    <Text style={styles.verticalPctText}>{pct.toFixed(0)}% Funded</Text>
+                    <TouchableOpacity
+                      style={styles.bidMiniBtn}
+                      onPress={() => router.push({ pathname: '/invest/[id]', params: { id: pitch.id } })}
+                    >
+                      <Text style={styles.bidMiniBtnText}>Place Bid</Text>
+                    </TouchableOpacity>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         )}
 
-        {/* ── Recent pitches ── */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Recent pitches</Text>
-        </View>
-
-        <View style={styles.pitchList}>
-          {isLoadingPitches ? (
-            <View style={{ gap: 12 }}>
-              <PitchCardSkeleton />
-              <PitchCardSkeleton />
-            </View>
-          ) : isPitchesError ? (
-            <ScreenState
-              icon="alert-circle-outline"
-              title="Could not load opportunities"
-              detail="Pull down or open Explore to try again."
-            />
-          ) : pitches.length === 0 ? (
-            <ScreenState
-              icon="compass-outline"
-              title="No opportunities yet"
-              detail="New pitches will appear here when they go live."
-            />
-          ) : (
-            pitches.slice(0, 4).map((pitch, index) => (
-              <PitchCard key={pitch.id} pitch={pitch} compact delay={index * 40} />
-            ))
-          )}
-        </View>
+        <View style={{ height: 32 }} />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe:          { flex: 1, backgroundColor: Colors.background },
-  scroll:        { flex: 1 },
-  scrollContent: { paddingBottom: 28 },
+  safe: {
+    flex: 1,
+  },
 
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+  /* Top Custom Header */
+  topHeader: {
     paddingHorizontal: 20,
     paddingTop: 14,
-    paddingBottom: 8,
+    paddingBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  greeting: { fontSize: 14, color: Colors.textSecondary, marginBottom: 2, fontWeight: '500' },
-  tagline:  { fontSize: 22, fontWeight: '800', color: Colors.textPrimary, lineHeight: 28, letterSpacing: -0.4 },
+  userProfileGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  profileAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#0D1B3E',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarLetter: {
+    color: '#FFFFFF',
+    fontSize: 17,
+    fontWeight: '800',
+  },
+  userWelcomeLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  userNameText: {
+    fontSize: 18,
+    fontWeight: '800',
+    letterSpacing: -0.4,
+  },
+  headerRightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  headerIconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  redBadgeDot: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#DC2626',
+  },
 
-  bellBtn: {
-    width: 44, height: 44, borderRadius: 22,
-    backgroundColor: Colors.surface,
-    alignItems: 'center', justifyContent: 'center',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06, shadowRadius: 6, elevation: 2, position: 'relative',
-  },
-  bellDotWrap: { position: 'absolute', top: 10, right: 11 },
-  bellDotRing: {
-    position: 'absolute', width: 8, height: 8, borderRadius: 4,
-    backgroundColor: Colors.accentRed, top: 0, left: 0,
-  },
-  bellDot: {
-    width: 8, height: 8, borderRadius: 4,
-    backgroundColor: Colors.accentRed,
-    borderWidth: 1.5, borderColor: Colors.surface,
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 40,
+    gap: 20,
   },
 
+  /* Distinct Gradient Wallet Hero Card */
+  capitalHeroCard: {
+    borderRadius: 24,
+    padding: 20,
+    shadowColor: '#0D1B3E',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  heroHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  capitalLabelChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  greenPulseDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#10B981',
+  },
+  capitalChipText: {
+    color: '#94A3B8',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+  },
+  explorePillBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#16A34A',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 14,
+  },
+  explorePillText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  heroAmountText: {
+    fontSize: 32,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    marginTop: 14,
+    letterSpacing: -0.8,
+  },
+  heroAmountSub: {
+    fontSize: 12,
+    color: '#94A3B8',
+    marginTop: 2,
+  },
+  heroChartBox: {
+    marginVertical: 12,
+    alignItems: 'center',
+  },
+  heroMetricsBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    marginTop: 14,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  metricItem: {
+    alignItems: 'center',
+  },
+  metricValue: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  metricLabel: {
+    fontSize: 11,
+    color: '#94A3B8',
+    marginTop: 2,
+  },
+  metricDivider: {
+    width: 1,
+    height: 24,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+  },
+
+  /* Search Bar */
   searchBar: {
-    marginHorizontal: 20, marginVertical: 12,
-    backgroundColor: Colors.surface, borderRadius: 14,
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 16, paddingVertical: 13, gap: 10,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04, shadowRadius: 6, elevation: 1,
-    borderWidth: 1, borderColor: Colors.borderLight,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    height: 46,
+    borderWidth: 1,
+    gap: 8,
   },
-  searchPlaceholder: { fontSize: 14, color: Colors.textMuted },
+  searchInput: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '600',
+  },
 
-  portfolioCard: {
-    marginHorizontal: 20, backgroundColor: Colors.primary,
-    borderRadius: 20, padding: 20, marginBottom: 24,
-    shadowColor: Colors.primary, shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.28, shadowRadius: 14, elevation: 5,
-    overflow: 'hidden', position: 'relative',
+  /* Management Hub 2x2 Colorful Grid */
+  sectionHeaderTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    letterSpacing: -0.3,
   },
-  // Asymmetric highlight — intentional design choice, not a template default
-  portfolioHighlight: {
-    position: 'absolute', width: 140, height: 140, borderRadius: 70,
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    top: -40, right: -20,
+  hubGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
   },
-  portfolioHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-  portfolioLabel: { fontSize: 12, color: 'rgba(255,255,255,0.7)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
-  portfolioBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10,
+  hubCard: {
+    width: '48%',
+    borderRadius: 20,
+    padding: 16,
+    borderWidth: 1,
+    gap: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 6,
+    elevation: 1,
   },
-  liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: Colors.accent },
-  portfolioBadgeText: { fontSize: 10, color: '#fff', fontWeight: '600' },
-  portfolioValue:     { fontSize: 34, fontWeight: '800', color: '#fff', marginBottom: 4, letterSpacing: -0.5 },
-  changeRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 16 },
-  changeText: { fontSize: 13, color: Colors.accent, fontWeight: '600' },
+  hubHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  hubIconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  hubBadgeAlert: {
+    backgroundColor: '#DC2626',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  hubBadgeAlertText: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '800',
+  },
+  hubCardTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  hubCardSub: {
+    fontSize: 11,
+    lineHeight: 15,
+  },
 
-  shortcutsRow: {
-    flexDirection: 'row', justifyContent: 'space-between',
-    borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.12)', paddingTop: 14,
+  /* Vertical Stacked Featured Cards */
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 4,
   },
-  shortcut:          { alignItems: 'center', minWidth: 56, gap: 5 },
-  shortcutIconBox: {
-    width: 40, height: 40, borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    alignItems: 'center', justifyContent: 'center',
+  seeAllLink: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#16A34A',
   },
-  // Primary action (Explore) gets accent highlight — intentional asymmetry
-  shortcutIconBoxAccent: { backgroundColor: Colors.accent },
-  shortcutLabel: { fontSize: 11, color: 'rgba(255,255,255,0.75)', fontWeight: '500' },
+  verticalCardsStack: {
+    gap: 14,
+  },
+  verticalCard: {
+    borderRadius: 20,
+    padding: 16,
+    borderWidth: 1,
+    gap: 12,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  verticalCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  industryImageAvatarCircle: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    overflow: 'hidden',
+    borderWidth: 1.5,
+  },
+  industryImageAvatar: {
+    width: '100%',
+    height: '100%',
+  },
+  verticalBusinessName: {
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  industryBadgePillRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 3,
+  },
+  locationText: {
+    fontSize: 11,
+  },
+  liveChip: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 10,
+  },
+  liveChipText: {
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  verticalAmountBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    borderRadius: 14,
+    padding: 12,
+  },
+  amountCol: {
+    alignItems: 'center',
+  },
+  amountLabel: {
+    fontSize: 9,
+    fontWeight: '800',
+  },
+  amountVal: {
+    fontSize: 15,
+    fontWeight: '800',
+    marginTop: 2,
+  },
+  amountDivider: {
+    width: 1,
+    height: 24,
+  },
+  verticalFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  verticalPctText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#16A34A',
+  },
+  bidMiniBtn: {
+    backgroundColor: '#0D1B3E',
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 10,
+  },
+  bidMiniBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
 
-  sectionHeader: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: 20, marginBottom: 12,
+  /* Empty Cards */
+  emptyCardContainer: {
+    borderRadius: 20,
+    padding: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    gap: 6,
   },
-  sectionTitle: { fontSize: 18, fontWeight: '700', color: Colors.textPrimary, letterSpacing: -0.3 },
-  viewAll:      { fontSize: 13, color: Colors.primary, fontWeight: '600' },
-
-  featuredHero: {
-    marginHorizontal: 20, borderRadius: 18, overflow: 'hidden',
-    marginBottom: 20, height: 220,
-    borderWidth: 1, borderColor: Colors.borderLight,
+  emptyCardTitle: {
+    fontSize: 15,
+    fontWeight: '800',
   },
-  featuredImg:      { width: '100%', height: '100%', resizeMode: 'cover', position: 'absolute' },
-  featuredGradient: {
-    position: 'absolute', bottom: 0, left: 0, right: 0,
-    paddingTop: 60, paddingBottom: 16, paddingHorizontal: 16, gap: 5,
+  emptyCardSub: {
+    fontSize: 12,
+    textAlign: 'center',
   },
-  featuredBadge: {
-    backgroundColor: Colors.accent, paddingHorizontal: 8, paddingVertical: 3,
-    borderRadius: 10, alignSelf: 'flex-start',
-  },
-  featuredBadgeText: { fontSize: 10, color: '#fff', fontWeight: '700' },
-  featuredName:      { fontSize: 18, fontWeight: '800', color: '#fff' },
-  featuredDesc:      { fontSize: 12, color: 'rgba(255,255,255,0.85)' },
-  progressBarContainer: {
-    height: 4, backgroundColor: 'rgba(255,255,255,0.2)',
-    borderRadius: 2, overflow: 'hidden', marginTop: 4,
-  },
-  progressBarFill: { height: '100%', backgroundColor: Colors.accent, borderRadius: 2 },
-  featuredFunded:  { fontSize: 11, color: Colors.accent, fontWeight: '600' },
-
-  pitchList: { paddingHorizontal: 20 },
 });

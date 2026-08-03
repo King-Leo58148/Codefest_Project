@@ -10,11 +10,10 @@ import {
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Colors } from '@/constants/Colors';
+import { useTheme } from '@/store/themeStore';
 import { ScreenState } from '@/components/ui/ScreenState';
 import { FadeInView } from '@/components/ui/FadeInView';
 import { NotificationSkeleton } from '@/components/ui/Skeleton';
-import { cardStyles } from '@/components/ui/Card';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getNotifications, markNotificationRead, markAllNotificationsRead } from '@/services/api';
 
@@ -34,6 +33,7 @@ function formatRelativeTime(dateString: string) {
 }
 
 export default function NotificationsScreen() {
+  const { isDark, colors } = useTheme();
   const queryClient = useQueryClient();
 
   const { data: notifications = [], isLoading, isError, error, refetch, isRefetching } = useQuery({
@@ -75,225 +75,223 @@ export default function NotificationsScreen() {
   };
 
   const getIconBgForType = (type: string, isRead: boolean) => {
-    if (isRead) return { bg: Colors.borderLight, color: Colors.textMuted };
+    if (isRead) return { bg: colors.surfaceSubtle, color: colors.textMuted };
     switch (type) {
       case 'DEAL_CREATED':
-        return { bg: '#EFF6FF', color: '#2563EB' };
+        return { bg: isDark ? '#172554' : '#EFF6FF', color: isDark ? '#60A5FA' : '#2563EB' };
       case 'DEAL_SIGNED':
-        return { bg: '#FDF4FF', color: '#9333EA' };
+        return { bg: isDark ? '#3B0764' : '#F3E8FF', color: isDark ? '#C084FC' : '#9333EA' };
       case 'MFI_APPROVED':
-        return { bg: '#F0FDF4', color: '#16A34A' };
+        return { bg: isDark ? '#064E3B' : '#ECFDF5', color: isDark ? '#34D399' : '#16A34A' };
       case 'PAYMENT_RECEIVED':
-        return { bg: '#FFFBEB', color: '#D97706' };
+        return { bg: isDark ? '#052E16' : '#F0FDF4', color: isDark ? '#4ADE80' : '#15803D' };
       case 'MESSAGE_RECEIVED':
-        return { bg: '#F5F3FF', color: '#7C3AED' };
+        return { bg: isDark ? '#451A03' : '#FFF7ED', color: isDark ? '#FBBF24' : '#EA580C' };
       default:
-        return { bg: '#EFF6FF', color: Colors.primary };
+        return { bg: isDark ? '#172554' : '#EFF6FF', color: isDark ? '#60A5FA' : '#2563EB' };
     }
   };
 
-  const handlePress = (notification: any) => {
+  const handleNotificationPress = (notification: any) => {
     if (!notification.read) {
       markReadMutation.mutate(notification.id);
     }
-
-    const targetId = notification.chatId || notification.referenceId;
-    if (targetId) {
-      if (
-        notification.type === 'DEAL_CREATED' ||
-        notification.type === 'DEAL_SIGNED' ||
-        notification.type === 'MFI_APPROVED' ||
-        notification.type === 'PAYMENT_RECEIVED' ||
-        notification.type === 'MESSAGE_RECEIVED'
-      ) {
-        router.push(`/chat/${targetId}` as any);
-      }
+    if (notification.targetScreen) {
+      router.push(notification.targetScreen as any);
     }
   };
 
-  return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backBtn}
-          onPress={() => router.back()}
-          activeOpacity={0.72}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <Ionicons name="arrow-back" size={22} color={Colors.textPrimary} />
-        </TouchableOpacity>
-        
-        <View style={styles.headerTitleRow}>
-          <Text style={styles.headerTitle}>Notifications</Text>
-          {unreadCount > 0 && (
-            <View style={styles.countBadge}>
-              <Text style={styles.countBadgeText}>{unreadCount}</Text>
-            </View>
-          )}
+  if (isLoading) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+        <View style={[styles.header, { borderBottomColor: colors.border }]}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
+          </TouchableOpacity>
+          <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Notifications</Text>
+          <View style={{ width: 24 }} />
         </View>
+        <ScrollView style={{ flex: 1, padding: 16 }}>
+          {[1, 2, 3, 4].map((i) => (
+            <NotificationSkeleton key={i} />
+          ))}
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
 
-        <TouchableOpacity
-          onPress={() => markAllReadMutation.mutate()}
-          activeOpacity={0.72}
-          style={styles.markAllBtn}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <Ionicons name="checkmark-done" size={22} color={unreadCount > 0 ? Colors.primary : Colors.textMuted} />
+  if (isError) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+        <View style={[styles.header, { borderBottomColor: colors.border }]}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
+          </TouchableOpacity>
+          <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Notifications</Text>
+          <View style={{ width: 24 }} />
+        </View>
+        <ScreenState
+          icon="alert-circle-outline"
+          title="Could not load notifications"
+          detail={(error as Error)?.message || 'Check your connection'}
+          action="Try Again"
+          onPress={() => refetch()}
+        />
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+      {/* Top Header */}
+      <View style={[styles.header, { borderBottomColor: colors.border }]}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
+        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Notifications</Text>
+        {unreadCount > 0 ? (
+          <TouchableOpacity
+            onPress={() => markAllReadMutation.mutate()}
+            disabled={markAllReadMutation.isPending}
+          >
+            <Text style={styles.markAllReadText}>Mark all read</Text>
+          </TouchableOpacity>
+        ) : (
+          <View style={{ width: 24 }} />
+        )}
       </View>
 
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={Colors.primary} />}
-      >
-        {isLoading ? (
-          <View style={{ gap: 8 }}>
-            <NotificationSkeleton />
-            <NotificationSkeleton />
-            <NotificationSkeleton />
-            <NotificationSkeleton />
-          </View>
-        ) : isError ? (
-          <ScreenState
-            icon="alert-circle-outline"
-            title="Could not load notifications"
-            detail={error instanceof Error ? error.message : 'Please try again.'}
-            action="Retry"
-            onPress={() => refetch()}
-          />
-        ) : notifications.length === 0 ? (
-          <ScreenState
-            icon="notifications-off-outline"
-            title="All caught up"
-            detail="You don't have any notifications right now."
-          />
-        ) : (
-          notifications.map((notif: any, index: number) => {
-            const iconStyle = getIconBgForType(notif.type, notif.read);
+      {notifications.length === 0 ? (
+        <ScreenState
+          icon="notifications-off-outline"
+          title="No notifications yet"
+          detail="You'll be notified when there's an update on your bids, pitches, or deals."
+        />
+      ) : (
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={styles.scrollContent}
+          refreshControl={
+            <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={isDark ? '#38BDF8' : '#0D1B3E'} />
+          }
+        >
+          {notifications.map((n: any, index: number) => {
+            const iconInfo = getIconBgForType(n.type, n.read);
             return (
-              <FadeInView key={notif.id} delay={index * 30}>
+              <FadeInView key={n.id || index} delay={index * 40}>
                 <TouchableOpacity
-                  style={[styles.notificationCard, !notif.read && styles.unreadCard]}
-                  onPress={() => handlePress(notif)}
-                  activeOpacity={0.75}
+                  style={[
+                    styles.notificationCard,
+                    { backgroundColor: colors.surface, borderColor: colors.border },
+                    !n.read && { backgroundColor: isDark ? '#112244' : '#F0F9FF', borderColor: isDark ? '#1E3A8A' : '#BAE6FD' },
+                  ]}
+                  onPress={() => handleNotificationPress(n)}
+                  activeOpacity={0.8}
                 >
-                  <View style={[styles.iconBox, { backgroundColor: iconStyle.bg }]}>
-                    <Ionicons
-                      name={getIconForType(notif.type)}
-                      size={20}
-                      color={iconStyle.color}
-                    />
+                  <View style={[styles.iconContainer, { backgroundColor: iconInfo.bg }]}>
+                    <Ionicons name={getIconForType(n.type)} size={20} color={iconInfo.color} />
                   </View>
-                  <View style={styles.notifContent}>
-                    <View style={styles.notifHeader}>
-                      <Text style={[styles.notifTitle, !notif.read && styles.unreadText]} numberOfLines={1}>
-                        {notif.title}
+
+                  <View style={styles.contentContainer}>
+                    <View style={styles.titleRow}>
+                      <Text style={[styles.title, { color: colors.textPrimary }, !n.read && styles.unreadTitle]}>
+                        {n.title}
                       </Text>
-                      <Text style={styles.notifTime}>
-                        {formatRelativeTime(notif.createdAt)}
-                      </Text>
+                      {!n.read && <View style={styles.unreadDot} />}
                     </View>
-                    <Text style={styles.notifMessage} numberOfLines={2}>
-                      {notif.message}
-                    </Text>
+                    <Text style={[styles.message, { color: colors.textSecondary }]}>{n.message}</Text>
+                    <Text style={[styles.timestamp, { color: colors.textMuted }]}>{formatRelativeTime(n.createdAt)}</Text>
                   </View>
-                  {!notif.read && <View style={styles.unreadDot} />}
+
+                  {n.targetScreen && (
+                    <Ionicons name="chevron-forward" size={16} color={colors.textMuted} style={styles.chevron} />
+                  )}
                 </TouchableOpacity>
               </FadeInView>
             );
-          })
-        )}
-      </ScrollView>
+          })}
+        </ScrollView>
+      )}
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.background },
+  container: {
+    flex: 1,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 14,
-    backgroundColor: Colors.surface,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: Colors.border,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
   },
-  backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.borderLight, alignItems: 'center', justifyContent: 'center' },
-  markAllBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.borderLight, alignItems: 'center', justifyContent: 'center' },
-  headerTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  headerTitle: { fontSize: 18, lineHeight: 24, fontWeight: '700', color: Colors.textPrimary },
-  countBadge: {
-    backgroundColor: Colors.primary,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
+  backButton: {
+    padding: 4,
   },
-  countBadgeText: {
-    fontSize: 11,
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  markAllReadText: {
+    fontSize: 13,
     fontWeight: '700',
-    color: '#fff',
+    color: '#16A34A',
   },
-  scroll: { flex: 1 },
-  content: { padding: 16, paddingBottom: 40, gap: 10 },
+  scrollContent: {
+    padding: 16,
+    gap: 10,
+  },
   notificationCard: {
-    ...cardStyles.surface,
     flexDirection: 'row',
-    backgroundColor: Colors.surface,
+    alignItems: 'flex-start',
     padding: 14,
     borderRadius: 16,
+    borderWidth: 1,
     gap: 12,
-    alignItems: 'center',
   },
-  unreadCard: {
-    backgroundColor: '#F8FAFC',
-    borderColor: Colors.primary + '30',
-    borderWidth: 1.5,
-  },
-  iconBox: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+  iconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
+    marginTop: 2,
   },
-  notifContent: { flex: 1, justifyContent: 'center' },
-  notifHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 2,
-  },
-  notifTitle: {
+  contentContainer: {
     flex: 1,
+    gap: 3,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  title: {
     fontSize: 14,
-    lineHeight: 18,
     fontWeight: '600',
-    color: Colors.textSecondary,
-    marginRight: 8,
+    flex: 1,
   },
-  unreadText: {
-    color: Colors.textPrimary,
-    fontWeight: '700',
-  },
-  notifTime: {
-    fontSize: 11,
-    color: Colors.textMuted,
-    marginTop: 1,
-  },
-  notifMessage: {
-    fontSize: 13,
-    color: Colors.textSecondary,
-    lineHeight: 18,
+  unreadTitle: {
+    fontWeight: '800',
   },
   unreadDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: Colors.primary,
+    backgroundColor: '#3B82F6',
+  },
+  message: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  timestamp: {
+    fontSize: 11,
+    marginTop: 2,
+  },
+  chevron: {
+    alignSelf: 'center',
   },
 });

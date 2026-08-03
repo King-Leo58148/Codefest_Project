@@ -1,7 +1,7 @@
 import { MaterialTopTabs } from '@/components/MaterialTopTabs';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '@/constants/Colors';
-import { Platform, View } from 'react-native';
+import { Platform, View, StyleSheet } from 'react-native';
+import { useTheme } from '@/store/themeStore';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -10,11 +10,13 @@ function TabIcon({
   activeName,
   color,
   focused,
+  activeColor,
 }: {
   name: IoniconName;
   activeName: IoniconName;
   color: string;
   focused: boolean;
+  activeColor: string;
 }) {
   return (
     <View style={{ alignItems: 'center' }}>
@@ -24,7 +26,7 @@ function TabIcon({
             width: 4,
             height: 4,
             borderRadius: 2,
-            backgroundColor: Colors.primary,
+            backgroundColor: activeColor,
             marginBottom: 4,
           }}
         />
@@ -35,19 +37,25 @@ function TabIcon({
 }
 
 export default function InvestorTabLayout() {
+  const { isDark, colors } = useTheme();
+  const activeColor = isDark ? '#38BDF8' : '#0D1B3E';
+  const inactiveColor = isDark ? '#64748B' : '#9CA3AF';
+  const tabBarBg = isDark ? '#0F1A34' : '#FFFFFF';
+  const borderColor = isDark ? '#1E2C4F' : '#E2E8F0';
+
   return (
     <MaterialTopTabs
       tabBarPosition="bottom"
       screenOptions={{
         swipeEnabled: true,
-        tabBarActiveTintColor: Colors.primary,
-        tabBarInactiveTintColor: Colors.tabInactive,
+        tabBarActiveTintColor: activeColor,
+        tabBarInactiveTintColor: inactiveColor,
         tabBarStyle: {
-          borderTopColor: Colors.border,
+          borderTopColor: borderColor,
           borderTopWidth: StyleSheet.hairlineWidth,
           height: Platform.OS === 'ios' ? 84 : 66,
           elevation: 0,
-          backgroundColor: '#ffffff',
+          backgroundColor: tabBarBg,
           shadowColor: '#000',
           shadowOffset: { width: 0, height: -2 },
           shadowOpacity: 0.06,
@@ -76,7 +84,7 @@ export default function InvestorTabLayout() {
         options={{
           title: 'Home',
           tabBarIcon: ({ color, focused }) => (
-            <TabIcon name="home-outline" activeName="home" color={color} focused={focused} />
+            <TabIcon name="home-outline" activeName="home" color={color} focused={focused} activeColor={activeColor} />
           ),
         }}
       />
@@ -85,7 +93,7 @@ export default function InvestorTabLayout() {
         options={{
           title: 'Explore',
           tabBarIcon: ({ color, focused }) => (
-            <TabIcon name="compass-outline" activeName="compass" color={color} focused={focused} />
+            <TabIcon name="compass-outline" activeName="compass" color={color} focused={focused} activeColor={activeColor} />
           ),
         }}
       />
@@ -94,7 +102,7 @@ export default function InvestorTabLayout() {
         options={{
           title: 'Deals',
           tabBarIcon: ({ color, focused }) => (
-            <TabIcon name="briefcase-outline" activeName="briefcase" color={color} focused={focused} />
+            <TabIcon name="briefcase-outline" activeName="briefcase" color={color} focused={focused} activeColor={activeColor} />
           ),
         }}
       />
@@ -103,12 +111,10 @@ export default function InvestorTabLayout() {
         options={{
           title: 'Profile',
           tabBarIcon: ({ color, focused }) => (
-            <TabIcon name="person-outline" activeName="person" color={color} focused={focused} />
+            <TabIcon name="person-outline" activeName="person" color={color} focused={focused} activeColor={activeColor} />
           ),
         }}
       />
     </MaterialTopTabs>
   );
 }
-
-import { StyleSheet } from 'react-native';

@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Colors } from '@/constants/Colors';
+import { useTheme } from '@/store/themeStore';
 import { PitchCard } from '@/components/pitch/PitchCard';
 import { ScreenState } from '@/components/ui/ScreenState';
 import { PitchCardSkeleton } from '@/components/ui/Skeleton';
@@ -23,10 +23,6 @@ const INDUSTRIES: Industry[] = [
   'Fitness', 'Agriculture', 'Retail',
 ];
 
-/**
- * Animated industry chip — springs to scale on selection.
- * Principle: micro-interaction + evaluative ease (one clear active state).
- */
 function IndustryChip({
   label,
   active,
@@ -36,6 +32,7 @@ function IndustryChip({
   active: boolean;
   onPress: () => void;
 }) {
+  const { isDark, colors } = useTheme();
   const scale = useRef(new Animated.Value(1)).current;
 
   const handlePress = () => {
@@ -49,12 +46,20 @@ function IndustryChip({
   return (
     <Animated.View style={{ transform: [{ scale }] }}>
       <TouchableOpacity
-        style={[styles.industryChip, active && styles.industryChipActive]}
+        style={[
+          styles.industryChip,
+          { backgroundColor: colors.surfaceSubtle, borderColor: colors.border },
+          active && { backgroundColor: isDark ? colors.accent : colors.primary, borderColor: isDark ? colors.accent : colors.primary },
+        ]}
         onPress={handlePress}
         activeOpacity={0.85}
       >
         {active && <View style={styles.chipActiveDot} />}
-        <Text style={[styles.industryChipText, active && styles.industryChipTextActive]}>
+        <Text style={[
+          styles.industryChipText,
+          { color: colors.textSecondary },
+          active && { color: '#FFFFFF', fontWeight: '800' },
+        ]}>
           {label}
         </Text>
       </TouchableOpacity>
@@ -63,85 +68,73 @@ function IndustryChip({
 }
 
 export default function ExploreScreen() {
+  const { colors, isDark } = useTheme();
   const [selectedIndustry, setSelectedIndustry] = useState<Industry>('All');
-  const [search, setSearch] = useState('');
-  const [isFocused, setIsFocused] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
-  // Animated border colour on search focus
-  const borderAnim = useRef(new Animated.Value(0)).current;
-  const borderColor = borderAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [Colors.border, Colors.primary],
+  const {
+    data: pitches = [],
+    isLoading,
+    isError,
+    error,
+    refetch,
+    isRefetching,
+  } = useQuery({
+    queryKey: ['pitches'],
+    queryFn: () => getPitches(),
   });
 
-  const onFocus = () => {
-    setIsFocused(true);
-    Animated.timing(borderAnim, { toValue: 1, duration: 200, useNativeDriver: false }).start();
-  };
-  const onBlur = () => {
-    setIsFocused(false);
-    Animated.timing(borderAnim, { toValue: 0, duration: 200, useNativeDriver: false }).start();
-  };
-
-  const { data: pitches = [], isLoading, isError, error, refetch, isRefetching } = useQuery({
-    queryKey: ['pitches', selectedIndustry],
-    queryFn: () => getPitches(selectedIndustry),
-  });
-
-  const filtered = pitches.filter((p) => {
-    if (!search) return true;
-    const q = search.toLowerCase();
-    return (
-      p.businessName.toLowerCase().includes(q) ||
-      p.shortDescription.toLowerCase().includes(q) ||
-      p.location.toLowerCase().includes(q)
-    );
+  const filteredPitches = pitches.filter((p) => {
+    const matchesIndustry =
+      selectedIndustry === 'All' ||
+      p.industry.toLowerCase() === selectedIndustry.toLowerCase();
+    const matchesSearch =
+      !searchQuery.trim() ||
+      p.businessName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.industry.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.summary.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesIndustry && matchesSearch;
   });
 
   const renderHeader = useCallback(
     () => (
-      <>
-        <View style={styles.header}>
-          <Text style={styles.title}>Explore</Text>
-          <TouchableOpacity
-            style={styles.filterBtn}
-            activeOpacity={0.7}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Ionicons name="options-outline" size={18} color={Colors.textPrimary} />
-          </TouchableOpacity>
+      <View style={styles.headerContainer}>
+        <View style={styles.titleRow}>
+          <View>
+            <Text style={[styles.heading, { color: colors.textPrimary }]}>Explore Pitches</Text>
+            <Text style={[styles.subheading, { color: colors.textSecondary }]}>Discover Ghana's next big businesses</Text>
+          </View>
+          {pitches.length > 0 && (
+            <View style={[styles.countBadge, { backgroundColor: colors.surfaceSubtle }]}>
+              <Text style={[styles.countBadgeText, { color: colors.textPrimary }]}>{pitches.length} Live</Text>
+            </View>
+          )}
         </View>
 
-        {/* Animated focus search bar */}
-        <Animated.View style={[styles.searchBar, { borderColor }]}>
-          <Ionicons
-            name="search-outline"
-            size={18}
-            color={isFocused ? Colors.primary : Colors.textMuted}
-          />
+        {/* Search Bar */}
+        <View style={[styles.searchContainer, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
+          <Ionicons name="search-outline" size={18} color={colors.textMuted} />
           <TextInput
-            style={styles.searchInput}
-            placeholder="Search businesses or industries"
-            placeholderTextColor={Colors.textMuted}
-            value={search}
-            onChangeText={setSearch}
-            onFocus={onFocus}
-            onBlur={onBlur}
+            style={[styles.searchInput, { color: colors.textPrimary }]}
+            placeholder="Search business, industry, location..."
+            placeholderTextColor={colors.textMuted}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
           />
-          {search.length > 0 && (
-            <TouchableOpacity onPress={() => setSearch('')} activeOpacity={0.7}>
-              <Ionicons name="close-circle" size={18} color={Colors.textMuted} />
+          {searchQuery ? (
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <Ionicons name="close-circle" size={16} color={colors.textMuted} />
             </TouchableOpacity>
-          )}
-        </Animated.View>
+          ) : null}
+        </View>
 
-        {/* Animated chips */}
+        {/* Industry Chips */}
         <FlatList
-          data={INDUSTRIES}
           horizontal
           showsHorizontalScrollIndicator={false}
+          data={INDUSTRIES}
           keyExtractor={(item) => item}
-          contentContainerStyle={styles.industryList}
           renderItem={({ item }) => (
             <IndustryChip
               label={item}
@@ -149,106 +142,138 @@ export default function ExploreScreen() {
               onPress={() => setSelectedIndustry(item)}
             />
           )}
+          contentContainerStyle={styles.chipsContainer}
         />
-
-        {/* Result count — upgraded to a styled label */}
-        <View style={styles.resultCountRow}>
-          <Ionicons
-            name={isLoading ? 'hourglass-outline' : 'grid-outline'}
-            size={12}
-            color={Colors.textMuted}
-          />
-          <Text style={styles.resultCount}>
-            {isLoading
-              ? 'Searching opportunities…'
-              : `${filtered.length} ${filtered.length === 1 ? 'opportunity' : 'opportunities'} available`}
-          </Text>
-        </View>
-      </>
+      </View>
     ),
-    [selectedIndustry, search, filtered.length, isLoading, isFocused, borderColor]
+    [selectedIndustry, searchQuery, pitches.length, colors, isDark]
   );
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
-      <FlatList
-        data={filtered}
-        keyExtractor={(item) => item.id}
-        refreshing={isRefetching}
-        onRefresh={refetch}
-        renderItem={({ item, index }) => (
-          <View style={styles.cardWrapper}>
-            <PitchCard pitch={item} delay={index * 30} />
-          </View>
-        )}
-        ListHeaderComponent={renderHeader}
-        contentContainerStyle={styles.list}
-        showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
-          isLoading ? (
-            <View style={styles.cardWrapper}>
-              <PitchCardSkeleton />
-              <PitchCardSkeleton />
-              <PitchCardSkeleton />
-            </View>
-          ) : isError ? (
-            <ScreenState
-              icon="alert-circle-outline"
-              title="Could not load opportunities"
-              detail={error instanceof Error ? error.message : 'Please try again.'}
-              action="Retry"
-              onPress={() => refetch()}
-            />
-          ) : (
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top']}>
+      {isLoading ? (
+        <FlatList
+          data={[1, 2, 3]}
+          keyExtractor={(item) => item.toString()}
+          ListHeaderComponent={renderHeader}
+          renderItem={() => <PitchCardSkeleton />}
+          contentContainerStyle={styles.listContent}
+        />
+      ) : isError ? (
+        <FlatList
+          data={[]}
+          renderItem={null}
+          ListHeaderComponent={
+            <>
+              {renderHeader()}
+              <ScreenState
+                icon="wifi-outline"
+                title="Could not load pitches"
+                detail={(error as Error)?.message || 'Check connection'}
+                action="Try Again"
+                onPress={() => refetch()}
+              />
+            </>
+          }
+          contentContainerStyle={styles.listContent}
+        />
+      ) : (
+        <FlatList
+          data={filteredPitches}
+          keyExtractor={(item) => item.id}
+          ListHeaderComponent={renderHeader}
+          renderItem={({ item }) => <PitchCard pitch={item} />}
+          ListEmptyComponent={
             <ScreenState
               icon="search-outline"
-              title="No results found"
-              detail="Try a different search term or industry filter."
+              title="No pitches found"
+              detail={
+                searchQuery || selectedIndustry !== 'All'
+                  ? 'Try clearing filters or search keywords.'
+                  : 'Check back soon for new opportunities.'
+              }
             />
-          )
-        }
-      />
+          }
+          contentContainerStyle={styles.listContent}
+          onRefresh={refetch}
+          refreshing={isRefetching}
+        />
+      )}
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.background },
-  list: { paddingBottom: 28 },
-  header: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: 20, paddingTop: 14, paddingBottom: 12,
+  safe: {
+    flex: 1,
   },
-  title: { fontSize: 26, fontWeight: '800', color: Colors.textPrimary, letterSpacing: -0.5 },
-  filterBtn: {
-    width: 40, height: 40, backgroundColor: Colors.surface, borderRadius: 20,
-    alignItems: 'center', justifyContent: 'center',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06, shadowRadius: 6, elevation: 2,
-    borderWidth: 1, borderColor: Colors.borderLight,
+  listContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 24,
   },
-  searchBar: {
-    marginHorizontal: 20, backgroundColor: Colors.surface, borderRadius: 14,
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 16, minHeight: 48, gap: 10, marginBottom: 14,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04, shadowRadius: 6, elevation: 1, borderWidth: 1.5,
+  headerContainer: {
+    paddingTop: 12,
+    paddingBottom: 16,
+    gap: 14,
   },
-  searchInput: { flex: 1, fontSize: 14, color: Colors.textPrimary },
-  industryList: { paddingHorizontal: 20, paddingBottom: 8, gap: 8 },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  heading: {
+    fontSize: 22,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+  },
+  subheading: {
+    fontSize: 13,
+    marginTop: 2,
+  },
+  countBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  countBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    height: 44,
+    borderWidth: 1,
+    gap: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  chipsContainer: {
+    gap: 8,
+    paddingRight: 16,
+  },
   industryChip: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    paddingHorizontal: 14, paddingVertical: 9, borderRadius: 20,
-    backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    gap: 6,
   },
-  industryChipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
-  chipActiveDot: { width: 5, height: 5, borderRadius: 2.5, backgroundColor: Colors.accent },
-  industryChipText:       { fontSize: 13, fontWeight: '600', color: Colors.textSecondary },
-  industryChipTextActive: { color: '#fff' },
-  resultCountRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingHorizontal: 20, marginTop: 4, marginBottom: 10,
+  chipActiveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#FFFFFF',
   },
-  resultCount: { fontSize: 12, color: Colors.textMuted, fontWeight: '600' },
-  cardWrapper: { paddingHorizontal: 20 },
+  industryChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
 });

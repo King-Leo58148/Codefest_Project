@@ -12,7 +12,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Colors } from '@/constants/Colors';
+import { useTheme } from '@/store/themeStore';
 import {
   approveAdminPitch,
   getAdminPendingPitches,
@@ -20,8 +20,15 @@ import {
 } from '@/services/api';
 import type { Pitch } from '@/types';
 
+function showError(error: unknown, fallbackMessage: string) {
+  const message = error instanceof Error ? error.message : fallbackMessage;
+  Alert.alert('Action Failed', message);
+}
+
 export default function AdminPitchesScreen() {
+  const { isDark, colors } = useTheme();
   const queryClient = useQueryClient();
+
   const {
     data: pendingPitches = [],
     isLoading,
@@ -48,295 +55,204 @@ export default function AdminPitchesScreen() {
   const busyPitchId = approveMutation.variables ?? rejectMutation.variables;
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Pitch Review</Text>
-        <Text style={styles.subtitle}>Review and approve funding requests</Text>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+      <View style={[styles.header, { borderBottomColor: colors.border }]}>
+        <Text style={[styles.title, { color: colors.textPrimary }]}>Pitch Review</Text>
+        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Review and approve funding requests</Text>
       </View>
 
       {isLoading ? (
         <View style={styles.state}>
-          <ActivityIndicator size="large" color={Colors.primary} />
-          <Text style={styles.stateText}>Loading pitches</Text>
+          <ActivityIndicator size="large" color={isDark ? colors.accent : colors.primary} />
+          <Text style={[styles.stateText, { color: colors.textSecondary }]}>Loading pitches</Text>
         </View>
       ) : isError ? (
         <View style={styles.state}>
-          <Ionicons name="alert-circle-outline" size={42} color={Colors.accentRed} />
-          <Text style={styles.stateTitle}>Could not load pitches</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={() => refetch()}>
+          <Ionicons name="alert-circle-outline" size={42} color="#DC2626" />
+          <Text style={[styles.stateText, { color: colors.textPrimary }]}>Could not load pitches.</Text>
+          <TouchableOpacity style={styles.retryBtn} onPress={() => refetch()}>
             <Text style={styles.retryText}>Retry</Text>
           </TouchableOpacity>
         </View>
+      ) : pendingPitches.length === 0 ? (
+        <View style={styles.state}>
+          <Ionicons name="checkmark-circle-outline" size={44} color="#16A34A" />
+          <Text style={[styles.stateText, { color: colors.textPrimary }]}>All pending pitches reviewed.</Text>
+        </View>
       ) : (
         <ScrollView
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={styles.content}
           refreshControl={
-            <RefreshControl refreshing={isRefetching} onRefresh={() => refetch()} />
+            <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={isDark ? '#38BDF8' : '#0D1B3E'} />
           }
         >
-          {pendingPitches.length === 0 ? (
-            <View style={styles.empty}>
-              <Ionicons name="checkmark-circle-outline" size={44} color={Colors.accent} />
-              <Text style={styles.emptyTitle}>No pending pitches</Text>
-              <Text style={styles.emptyText}>New business pitches will appear here for review.</Text>
-            </View>
-          ) : (
-            pendingPitches.map((pitch) => (
-              <PitchReviewCard
-                key={pitch.id}
-                pitch={pitch}
-                busy={busyPitchId === pitch.id}
-                onApprove={() => approveMutation.mutate(pitch.id)}
-                onReject={() => rejectMutation.mutate(pitch.id)}
-              />
-            ))
-          )}
+          {pendingPitches.map((pitch: Pitch) => {
+            const busy = busyPitchId === pitch.id;
+            return (
+              <View key={pitch.id} style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <Text style={[styles.businessName, { color: colors.textPrimary }]}>{pitch.businessName}</Text>
+                <Text style={[styles.meta, { color: colors.textSecondary }]}>
+                  {pitch.industry} • {pitch.location}
+                </Text>
+
+                <View style={[styles.metrics, { backgroundColor: colors.surfaceSubtle }]}>
+                  <View style={styles.metricItem}>
+                    <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>Target Goal</Text>
+                    <Text style={[styles.metricValue, { color: colors.textPrimary }]}>GH₵{pitch.amountNeeded?.toLocaleString()}</Text>
+                  </View>
+                  <View style={styles.metricItem}>
+                    <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>Min Invest</Text>
+                    <Text style={[styles.metricValue, { color: colors.textPrimary }]}>GH₵{pitch.minInvestment?.toLocaleString()}</Text>
+                  </View>
+                </View>
+
+                {pitch.summary ? (
+                  <Text style={[styles.summary, { color: colors.textSecondary }]} numberOfLines={3}>
+                    {pitch.summary}
+                  </Text>
+                ) : null}
+
+                <View style={styles.actions}>
+                  <TouchableOpacity
+                    style={[styles.btn, styles.rejectBtn, busy && styles.disabled]}
+                    onPress={() => rejectMutation.mutate(pitch.id)}
+                    disabled={busy}
+                  >
+                    <Text style={styles.rejectText}>Reject</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.btn, styles.approveBtn, busy && styles.disabled]}
+                    onPress={() => approveMutation.mutate(pitch.id)}
+                    disabled={busy}
+                  >
+                    {busy ? (
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                    ) : (
+                      <Text style={styles.approveText}>Approve Pitch</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </View>
+            );
+          })}
         </ScrollView>
       )}
     </SafeAreaView>
   );
 }
 
-function PitchReviewCard({
-  pitch,
-  busy,
-  onApprove,
-  onReject,
-}: {
-  pitch: Pitch;
-  busy: boolean;
-  onApprove: () => void;
-  onReject: () => void;
-}) {
-  return (
-    <View style={styles.card}>
-      <View style={styles.cardHeader}>
-        <View style={styles.cardTitleBlock}>
-          <Text style={styles.businessName}>{pitch.businessName || 'Untitled business'}</Text>
-          <Text style={styles.industry}>{pitch.industry} · {pitch.location || 'Location pending'}</Text>
-        </View>
-        <View style={styles.badgeWarning}>
-          <Text style={styles.badgeTextWarning}>{pitch.status}</Text>
-        </View>
-      </View>
-
-      <Text style={styles.description} numberOfLines={3}>
-        {pitch.shortDescription || pitch.description || 'No description provided.'}
-      </Text>
-
-      <View style={styles.metrics}>
-        <Metric label="Requested" value={`GH₵ ${formatCurrency(pitch.amountNeeded)}`} />
-        <Metric label="Minimum" value={`GH₵ ${formatCurrency(pitch.minimumInvestment)}`} />
-        <Metric label="Return" value={`${pitch.offerValue}% ${pitch.offerType.replace('_', ' ')}`} />
-      </View>
-
-      <View style={styles.cardFooter}>
-        <TouchableOpacity
-          style={[styles.button, styles.buttonReject]}
-          onPress={onReject}
-          disabled={busy}
-        >
-          <Ionicons name="close" size={16} color="#d32f2f" />
-          <Text style={styles.buttonTextReject}>Reject</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.button, styles.buttonApprove]}
-          onPress={onApprove}
-          disabled={busy}
-        >
-          {busy ? (
-            <ActivityIndicator size="small" color="#fff" />
-          ) : (
-            <Ionicons name="checkmark" size={16} color="#fff" />
-          )}
-          <Text style={styles.buttonTextApprove}>Approve</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-}
-
-function Metric({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.metric}>
-      <Text style={styles.metricLabel}>{label}</Text>
-      <Text style={styles.metricValue}>{value}</Text>
-    </View>
-  );
-}
-
-function formatCurrency(value: number | string | null | undefined) {
-  const next = typeof value === 'number' ? value : Number(value ?? 0);
-  return Number.isFinite(next) ? next.toLocaleString() : '0';
-}
-
-function showError(error: unknown, fallback: string) {
-  Alert.alert('Pitch review failed', error instanceof Error ? error.message : fallback);
-}
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
   },
   header: {
-    padding: 20,
-    backgroundColor: Colors.surface,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
   },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: Colors.textPrimary,
+    fontSize: 22,
+    fontWeight: '800',
   },
   subtitle: {
-    fontSize: 14,
-    color: Colors.textSecondary,
-    marginTop: 4,
+    fontSize: 12,
+    marginTop: 2,
   },
-  scrollContent: {
+  content: {
     padding: 20,
     paddingBottom: 100,
+    gap: 16,
   },
   state: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 8,
     padding: 24,
-    gap: 10,
-  },
-  stateTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: Colors.textPrimary,
   },
   stateText: {
     fontSize: 14,
-    color: Colors.textSecondary,
+    fontWeight: '600',
   },
-  retryButton: {
-    backgroundColor: Colors.primary,
-    borderRadius: 8,
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    marginTop: 6,
+  retryBtn: {
+    backgroundColor: '#16A34A',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 10,
+    marginTop: 4,
   },
   retryText: {
-    color: '#fff',
+    color: '#FFFFFF',
     fontWeight: '700',
-  },
-  empty: {
-    alignItems: 'center',
-    paddingTop: 60,
-    gap: 8,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: Colors.textPrimary,
-  },
-  emptyText: {
-    fontSize: 14,
-    color: Colors.textSecondary,
-    textAlign: 'center',
+    fontSize: 12,
   },
   card: {
-    backgroundColor: Colors.surface,
-    borderRadius: 8,
+    borderRadius: 18,
     padding: 16,
-    marginBottom: 16,
     borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: 12,
-    marginBottom: 12,
-  },
-  cardTitleBlock: {
-    flex: 1,
-  },
-  businessName: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: Colors.textPrimary,
-  },
-  industry: {
-    fontSize: 13,
-    color: Colors.textSecondary,
-    marginTop: 2,
-  },
-  description: {
-    fontSize: 14,
-    color: Colors.textSecondary,
-    lineHeight: 20,
-    marginBottom: 14,
-  },
-  metrics: {
-    gap: 8,
-    marginBottom: 16,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  metric: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  metricLabel: {
-    fontSize: 13,
-    color: Colors.textSecondary,
-  },
-  metricValue: {
-    flex: 1,
-    textAlign: 'right',
-    fontSize: 13,
-    fontWeight: '700',
-    color: Colors.textPrimary,
-  },
-  badgeWarning: {
-    backgroundColor: '#fff3e0',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-  },
-  badgeTextWarning: {
-    color: '#e65100',
-    fontSize: 10,
-    fontWeight: 'bold',
-  },
-  cardFooter: {
-    flexDirection: 'row',
     gap: 10,
   },
-  button: {
+  businessName: {
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  meta: {
+    fontSize: 12,
+    marginTop: -4,
+  },
+  metrics: {
     flexDirection: 'row',
+    justifyContent: 'space-around',
+    padding: 10,
+    borderRadius: 12,
+  },
+  metricItem: {
+    alignItems: 'center',
+  },
+  metricLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  metricValue: {
+    fontSize: 14,
+    fontWeight: '800',
+    marginTop: 2,
+  },
+  summary: {
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  actions: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 4,
+  },
+  btn: {
+    flex: 1,
+    height: 40,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 9,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    flex: 1,
-    gap: 4,
   },
-  buttonReject: {
-    backgroundColor: '#ffebee',
-    borderWidth: 1,
-    borderColor: '#ffcdd2',
+  approveBtn: {
+    backgroundColor: '#16A34A',
   },
-  buttonTextReject: {
-    color: '#d32f2f',
-    fontWeight: '700',
+  approveText: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 12,
   },
-  buttonApprove: {
-    backgroundColor: Colors.primary,
+  rejectBtn: {
+    backgroundColor: '#FEE2E2',
   },
-  buttonTextApprove: {
-    color: '#fff',
-    fontWeight: '700',
+  rejectText: {
+    color: '#DC2626',
+    fontWeight: '800',
+    fontSize: 12,
+  },
+  disabled: {
+    opacity: 0.6,
   },
 });

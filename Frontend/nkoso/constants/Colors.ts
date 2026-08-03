@@ -27,4 +27,15 @@ export const Colors = {
     Agriculture: { bg: '#FFFBEB', text: '#D97706' },
     Retail: { bg: '#FFF1F2', text: '#E11D48' },
   } as Record<string, { bg: string; text: string }>,
+
+  darkIndustries: {
+    All: { bg: '#1E293B', text: '#94A3B8' },
+    Technology: { bg: '#172554', text: '#60A5FA' },
+    'Food & Bev': { bg: '#451A03', text: '#FB923C' },
+    Health: { bg: '#052E16', text: '#4ADE80' },
+    Sustainability: { bg: '#052E16', text: '#4ADE80' },
+    Fitness: { bg: '#3B0764', text: '#C084FC' },
+    Agriculture: { bg: '#451A03', text: '#FBBF24' },
+    Retail: { bg: '#4C0519', text: '#FB7185' },
+  } as Record<string, { bg: string; text: string }>,
 };
