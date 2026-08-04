@@ -205,7 +205,7 @@ export function createAccountApi(request: RequestFn, normalizeUser: NormalizeUse
         return success;
       }
 
-      return true;
+      return false;
     },
   };
 }
