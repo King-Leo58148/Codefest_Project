@@ -1,22 +1,29 @@
 package com.codewithlouis.codefest_project.configs;
 
 import org.springframework.cache.CacheManager;
-import org.springframework.cache.annotation.EnableCaching;
-import org.springframework.cache.concurrent.ConcurrentMapCacheManager;
+import org.springframework.cache.support.NoOpCacheManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+/**
+ * Application caching is intentionally disabled.
+ *
+ * The admin views (pitch review queue, user list, deals, repayments) all have to
+ * reflect the current database state the moment something changes — a business
+ * owner submitting a pitch expects it in the review queue immediately. The
+ * previous ConcurrentMapCacheManager served those reads from an in-process map,
+ * which also meant the caches were per-instance and would go stale if more than
+ * one replica was ever running.
+ *
+ * A NoOpCacheManager is used rather than deleting this class so that any
+ * @Cacheable/@CacheEvict added later degrades to a harmless no-op instead of
+ * failing at runtime with "Cannot find cache named ...".
+ */
 @Configuration
-@EnableCaching
 public class CacheConfiguration {
 
     @Bean
     public CacheManager cacheManager() {
-        // Only admin-facing read caches remain — these are low-frequency,
-        // admin-only views where slight staleness is acceptable.
-        // Real-time caches (deals, repayments, live pitches) were removed.
-        return new ConcurrentMapCacheManager(
-                "allUsers" // admin: user list (evicted on suspend/unsuspend)
-        );
+        return new NoOpCacheManager();
     }
 }

@@ -3,7 +3,6 @@ package com.codewithlouis.codefest_project.services;
 import com.codewithlouis.codefest_project.model.*;
 import com.codewithlouis.codefest_project.repository.*;
 import lombok.RequiredArgsConstructor;
-import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;

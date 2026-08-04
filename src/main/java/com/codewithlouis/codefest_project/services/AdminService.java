@@ -4,8 +4,6 @@ package com.codewithlouis.codefest_project.services;
 import com.codewithlouis.codefest_project.model.*;
 import com.codewithlouis.codefest_project.repository.*;
 import lombok.RequiredArgsConstructor;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
@@ -30,14 +28,13 @@ public class AdminService {
         }
     }
 
-    // USERS
-    @Cacheable("allUsers")
+    // USERS — not cached: admin views must always reflect current DB state,
+    // and caching here also skipped the checkAdmin() guard on every cache hit.
     public List<User> getAllUsers() {
         checkAdmin();
         return userRepository.findAll();
     }
 
-    @CacheEvict(value = "allUsers", allEntries = true)
     public User suspendUser(Integer userId) {
         checkAdmin();
         User user = userRepository.findById(userId)
@@ -53,7 +50,6 @@ public class AdminService {
         return userRepository.save(user);
     }
 
-    @CacheEvict(value = "allUsers", allEntries = true)
     public User unsuspendUser(Integer userId) {
         checkAdmin();
         User user = userRepository.findById(userId)
