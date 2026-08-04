@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -19,19 +19,43 @@ export default function VerifyMomoScreen() {
   const [momoNumber, setMomoNumber] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [statusMessage, setStatusMessage] = useState('');
   const { user, setUser, token } = useAuthStore();
+
+  useEffect(() => {
+    const refreshUser = async () => {
+      if (!token) return;
+      try {
+        const currentUser = await getCurrentUser();
+        setUser(currentUser);
+      } catch {
+        // Keep the current user if refresh fails.
+      }
+    };
+
+    refreshUser();
+  }, [token, setUser]);
 
   const handleVerify = async () => {
     if (!token || !user) {
       setError('User session not initialized. Please sign in to complete verification.');
       return;
     }
+
+    if (user.momoVerified) {
+      setStatusMessage('Your MoMo account is already verified. No further action is needed.');
+      return;
+    }
+
     const cleaned = momoNumber.replace(/\D/g, '');
     if (!cleaned || cleaned.length < 10) {
       setError('Please enter a valid MTN MoMo number (10 digits).');
+      setStatusMessage('');
       return;
     }
+
     setError('');
+    setStatusMessage('Verifying your MoMo account...');
     setLoading(true);
     try {
       const verified = await verifyMomo(cleaned);
@@ -56,9 +80,11 @@ export default function VerifyMomoScreen() {
         );
       } else {
         setError('MoMo verification failed. Please check your number and try again.');
+        setStatusMessage('');
       }
     } catch {
       setError('MoMo verification failed. Please check your number and try again.');
+      setStatusMessage('');
     } finally {
       setLoading(false);
     }
@@ -71,6 +97,8 @@ export default function VerifyMomoScreen() {
       router.replace('/(investor)');
     }
   };
+
+  const alreadyVerified = user?.momoVerified;
 
   return (
     <ScrollView
@@ -105,16 +133,29 @@ export default function VerifyMomoScreen() {
       </Text>
 
       <View style={styles.form}>
-        <Input
-          label="MTN MoMo Number"
-          placeholder="024 XXX XXXX"
-          value={momoNumber}
-          onChangeText={setMomoNumber}
-          keyboardType="phone-pad"
-          leftIcon="phone-portrait-outline"
-        />
+        {alreadyVerified ? (
+          <View style={styles.verifiedCard}>
+            <Ionicons name="checkmark-circle" size={28} color="#16A34A" />
+            <View style={styles.verifiedContent}>
+              <Text style={styles.verifiedTitle}>MoMo already verified</Text>
+              <Text style={styles.verifiedText}>
+                Your MoMo account is already verified with {user?.momoNumber ?? 'the registered number'}.
+              </Text>
+            </View>
+          </View>
+        ) : (
+          <Input
+            label="MTN MoMo Number"
+            placeholder="024 XXX XXXX"
+            value={momoNumber}
+            onChangeText={setMomoNumber}
+            keyboardType="phone-pad"
+            leftIcon="phone-portrait-outline"
+          />
+        )}
 
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
+        {!error && statusMessage ? <Text style={styles.statusText}>{statusMessage}</Text> : null}
 
         <View style={styles.infoBox}>
           <Ionicons name="information-circle-outline" size={16} color={Colors.primary} />
@@ -125,9 +166,10 @@ export default function VerifyMomoScreen() {
         </View>
 
         <Button
-          title="Verify MoMo Account"
+          title={alreadyVerified ? 'Already verified' : 'Verify MoMo Account'}
           onPress={handleVerify}
           loading={loading}
+          disabled={loading || alreadyVerified}
           style={styles.btn}
         />
         <TouchableOpacity
