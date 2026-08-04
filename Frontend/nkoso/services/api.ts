@@ -125,7 +125,25 @@ export async function createPitch(data: any): Promise<Pitch> {
     throw new Error('A pitch video is required.');
   }
 
-  formData.append('data', JSON.stringify(data.data));
+  // The create screen passes the pitch fields under `pitch`. This previously
+  // read `data.data`, which was always undefined — JSON.stringify(undefined)
+  // returns undefined and FormData coerced it to the string "undefined", so the
+  // backend received an unparseable `data` part and no pitch was ever created.
+  // `data.data` is still accepted so any other caller keeps working.
+  const pitchPayload = data?.pitch ?? data?.data;
+  if (!pitchPayload) {
+    throw new Error('Pitch details are missing.');
+  }
+
+  // Map the screen's field names onto the names PitchRequest expects.
+  formData.append(
+    'data',
+    JSON.stringify({
+      ...pitchPayload,
+      shortDescription: pitchPayload.shortDescription ?? pitchPayload.summary,
+      minimumInvestment: pitchPayload.minimumInvestment ?? pitchPayload.minInvestment,
+    })
+  );
   formData.append('video', {
     uri: data.video.uri,
     name: data.video.fileName || 'pitch-video.mp4',
