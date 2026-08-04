@@ -41,7 +41,12 @@ function Register() {
         password: formData.password
       })
       const accessToken = loginRes.data.accessToken || loginRes.data.token
-      localStorage.setItem('accesstoken', accessToken)
+      // Key must be 'token' — api.js and DealChat both read that one.
+      localStorage.setItem('token', accessToken)
+      if (loginRes.data.refreshToken) {
+        localStorage.setItem('refreshToken', loginRes.data.refreshToken)
+      }
+      localStorage.setItem('userEmail', formData.email)
       localStorage.setItem('userRole', formData.role)
       
       setStep(2)

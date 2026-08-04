@@ -8,41 +8,76 @@ export default function DealChat({ dealId }) {
   const [messages, setMessages] = useState([]);
   const [inputMsg, setInputMsg] = useState('');
   const [connected, setConnected] = useState(false);
+  const [otherPartyOnline, setOtherPartyOnline] = useState(false);
   const stompClient = useRef(null);
   const messagesEndRef = useRef(null);
   const currentUserEmail = localStorage.getItem('userEmail');
 
   useEffect(() => {
-    // 1. Fetch history
+    let cancelled = false;
+
+    // Works out which side of the deal *I* am on, then reads the other side's flag.
+    const applyStatus = (status) => {
+      if (!status || cancelled) return;
+      const iAmOwner = status.ownerEmail === currentUserEmail;
+      setOtherPartyOnline(!!(iAmOwner ? status.investorOnline : status.ownerOnline));
+    };
+
+    // 1. Fetch history + the current presence snapshot
     api.get(`/api/deals/${dealId}/messages`).then(res => {
+      if (cancelled) return;
       setMessages(res.data);
       scrollToBottom();
     }).catch(console.error);
 
-    // 2. Connect WebSocket
-    const token = localStorage.getItem("accesstoken");
+    api.get(`/api/deals/${dealId}/chat-status`)
+      .then(res => applyStatus(res.data))
+      .catch(() => {});
+
+    // 2. Connect WebSocket. The key here must match api.js / Login.jsx —
+    // a bad token means the STOMP CONNECT is anonymous, so the backend never
+    // registers presence and both sides look permanently offline.
+    const token = localStorage.getItem('token');
     const socket = new SockJS(`${BASE_URL}/ws`);
-    
+
     stompClient.current = Stomp.over(socket);
     stompClient.current.debug = () => {};
 
     stompClient.current.connect({ Authorization: `Bearer ${token}` }, () => {
+      if (cancelled) return;
       setConnected(true);
+
       stompClient.current.subscribe(`/topic/deal/${dealId}`, (msg) => {
         const newMsg = JSON.parse(msg.body);
-        setMessages(prev => [...prev, newMsg]);
+        setMessages(prev => (prev.some(m => m.id && m.id === newMsg.id) ? prev : [...prev, newMsg]));
         scrollToBottom();
       });
+
+      // Live presence updates for this deal room.
+      stompClient.current.subscribe(`/topic/deal/${dealId}/status`, (msg) => {
+        try { applyStatus(JSON.parse(msg.body)); } catch { /* ignore */ }
+      });
+
+      // Announce that I'm in this room — this also marks incoming messages read
+      // and pushes a fresh status to the other party.
+      stompClient.current.send(`/app/chat.enterRoom/${dealId}`, {}, '');
     }, (err) => {
       console.error('STOMP connection error:', err);
+      if (!cancelled) setConnected(false);
     });
 
     return () => {
-      if (stompClient.current) {
-        stompClient.current.disconnect();
-      }
+      cancelled = true;
+      const client = stompClient.current;
+      if (!client) return;
+      try {
+        if (client.connected) {
+          client.send(`/app/chat.leaveRoom/${dealId}`, {}, '');
+        }
+      } catch { /* ignore */ }
+      try { client.disconnect(); } catch { /* ignore */ }
     };
-  }, [dealId]);
+  }, [dealId, currentUserEmail]);
 
   const scrollToBottom = () => {
     setTimeout(() => {
@@ -64,7 +99,13 @@ export default function DealChat({ dealId }) {
   return (
     <div className="flex flex-col h-[500px] border border-slate-200 rounded-3xl bg-white shadow-sm overflow-hidden">
       <div className="p-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
-        <h3 className="font-semibold text-slate-900">Deal Room Chat</h3>
+        <div>
+          <h3 className="font-semibold text-slate-900">Deal Room Chat</h3>
+          <span className="flex items-center gap-1.5 text-xs text-slate-500 mt-0.5">
+            <span className={`w-2 h-2 rounded-full ${otherPartyOnline ? 'bg-green-500' : 'bg-slate-300'}`} />
+            {otherPartyOnline ? 'Online' : 'Offline'}
+          </span>
+        </div>
         <span className={`text-xs font-medium px-2 py-1 rounded-full ${connected ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
           {connected ? 'Live' : 'Connecting...'}
         </span>

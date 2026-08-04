@@ -2,6 +2,7 @@ package com.codewithlouis.codefest_project.controllers;
 
 import com.codewithlouis.codefest_project.services.ChatPresenceService;
 import com.codewithlouis.codefest_project.services.DealService;
+import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
@@ -36,6 +37,27 @@ public class ChatPresenceController {
         chatPresenceService.clearUserActiveRoom(userEmail, dealId);
 
         broadcastStatus(dealId);
+    }
+
+    /**
+     * The mobile client publishes here when its socket is live. Without this
+     * mapping the frame was silently dropped by the broker.
+     */
+    @MessageMapping("/chat.sendMessage/{dealId}")
+    public void sendMessage(@DestinationVariable Integer dealId,
+                            ChatMessagePayload payload,
+                            Principal principal) {
+        if (principal == null || payload == null) return;
+        String content = payload.getContent();
+        if (content == null || content.isBlank()) return;
+
+        // Fans out to /topic/deal/{dealId} inside the service.
+        dealService.sendMessage(dealId, content, principal.getName());
+    }
+
+    @Data
+    public static class ChatMessagePayload {
+        private String content;
     }
 
     private void broadcastStatus(Integer dealId) {

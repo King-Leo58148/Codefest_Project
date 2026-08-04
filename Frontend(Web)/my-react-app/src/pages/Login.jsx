@@ -21,6 +21,11 @@ function Login() {
         if (response.data.refreshToken) {
           localStorage.setItem('refreshToken', response.data.refreshToken)
         }
+        // DealChat needs this to tell "my" messages from the other party's.
+        localStorage.setItem('userEmail', response.data.email || email)
+        if (response.data.role) {
+          localStorage.setItem('userRole', response.data.role)
+        }
         navigate('/dashboard')
       } else {
         setError('Login failed: Invalid response from server')

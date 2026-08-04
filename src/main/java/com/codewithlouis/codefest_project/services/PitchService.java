@@ -6,8 +6,6 @@ import com.codewithlouis.codefest_project.repository.PitchRepository;
 import com.codewithlouis.codefest_project.repository.UserRepository;
 import com.codewithlouis.codefest_project.services.CloudinaryService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -24,7 +22,6 @@ public class PitchService {
     private final CloudinaryService cloudinaryService;
     private final NotificationService notificationService;
 
-    @CacheEvict(value = {"allPitches", "pendingPitches"}, allEntries = true)
     public Pitch createPitch(PitchRequest request, MultipartFile video, MultipartFile image) {
         // 1. Auth check
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -86,7 +83,6 @@ public class PitchService {
                 .orElseThrow(() -> new RuntimeException("Pitch not found"));
     }
 
-    @CacheEvict(value = {"allPitches", "pendingPitches"}, allEntries = true)
     public Pitch approvePitch(Integer id) {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         User currentUser = userRepository.findByEmail(email)
@@ -118,7 +114,6 @@ public class PitchService {
         return pitchRepository.filterPitches(location, industryStr, offerTypeStr, minAmount, maxAmount);
     }
 
-    @CacheEvict(value = {"allPitches", "pendingPitches"}, allEntries = true)
     public void deletePitch(Integer id) {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         Pitch pitch = getPitchById(id);

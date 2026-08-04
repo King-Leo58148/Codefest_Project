@@ -1,2 +1,30 @@
-/mvnw text eol=lf
-*.cmd text eol=crlf
+# Normalise all text files to LF inside the repository.
+# Git still checks them out with the native endings on Windows,
+# so this is invisible while you work — it only stops CRLF from
+# being committed and showing up as a whole-file diff.
+* text=auto
+
+# Files that MUST stay LF, whatever the OS: they are executed by
+# Linux (Docker build / Railway). CRLF here gives "bad interpreter: ^M".
+/mvnw       text eol=lf
+*.sh        text eol=lf
+Dockerfile  text eol=lf
+*.yaml      text eol=lf
+*.yml       text eol=lf
+
+# Files that MUST stay CRLF: Windows batch scripts.
+*.cmd       text eol=crlf
+*.bat       text eol=crlf
+
+# Binary — never touch, never diff.
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.ttf   binary
+*.otf   binary
+*.woff  binary
+*.woff2 binary
+*.jar   binary
+*.keystore binary

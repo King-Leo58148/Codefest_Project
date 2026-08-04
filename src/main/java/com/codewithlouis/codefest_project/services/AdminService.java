@@ -69,20 +69,19 @@ public class AdminService {
         return userRepository.save(user);
     }
 
-    // PITCHES
-    @Cacheable("allPitches")
+    // PITCHES — deliberately not cached. A newly submitted pitch has to appear in
+    // the review queue straight away, and caching here also skipped checkAdmin()
+    // on every cache hit.
     public List<Pitch> getAllPitches() {
         checkAdmin();
         return pitchRepository.findAll();
     }
 
-    @Cacheable("pendingPitches")
     public List<Pitch> getPendingPitches() {
         checkAdmin();
         return pitchRepository.findByStatus(PitchStatus.PENDING);
     }
 
-    @CacheEvict(value = {"allPitches", "pendingPitches"}, allEntries = true)
     public Pitch rejectPitch(Integer pitchId) {
         checkAdmin();
         Pitch pitch = pitchRepository.findById(pitchId)

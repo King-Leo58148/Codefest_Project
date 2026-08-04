@@ -38,6 +38,10 @@ export default function AdminPitchesScreen() {
   } = useQuery({
     queryKey: ['adminPendingPitches'],
     queryFn: getAdminPendingPitches,
+    // Review queue is a live inbox — don't serve a stale list.
+    staleTime: 0,
+    refetchInterval: 15000,
+    refetchOnMount: 'always',
   });
 
   const approveMutation = useMutation({

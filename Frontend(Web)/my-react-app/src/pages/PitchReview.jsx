@@ -19,18 +19,35 @@ function PitchReview() {
   }, [urlQuery])
 
   useEffect(() => {
+    let cancelled = false
+
     async function fetchPitches() {
       try {
         const response = await api.get('/api/admin/pitches/pending')
+        if (cancelled) return
         const data = response.data
         setPitches(Array.isArray(data) ? data : [])
+        setError('')
       } catch (err) {
-        setError('Failed to load pitches.')
+        if (!cancelled) setError('Failed to load pitches.')
       } finally {
-        setLoading(false)
+        if (!cancelled) setLoading(false)
       }
     }
+
     fetchPitches()
+
+    // The queue is a live inbox — poll so newly submitted pitches show up
+    // without the admin having to reload the page.
+    const interval = setInterval(fetchPitches, 15000)
+    const onFocus = () => fetchPitches()
+    window.addEventListener('focus', onFocus)
+
+    return () => {
+      cancelled = true
+      clearInterval(interval)
+      window.removeEventListener('focus', onFocus)
+    }
   }, [])
 
   async function handleApprove(id) {

@@ -98,8 +98,10 @@ export default function FullPageChatScreen() {
           }
         } catch (e) {}
 
-        const token = await AsyncStorage.getItem('auth_token');
-        const wsUrl = `${BASE_URL}/ws-chat`;
+        // Must match the key used by persistAuthSession() in services/api.ts,
+        // and the STOMP endpoint registered in WebSocketConfig ("/ws").
+        const token = await AsyncStorage.getItem('token');
+        const wsUrl = `${BASE_URL}/ws`;
 
         const client = new Client({
           webSocketFactory: () => new SockJS(wsUrl) as any,
