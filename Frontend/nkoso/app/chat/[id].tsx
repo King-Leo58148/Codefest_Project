@@ -19,7 +19,7 @@ import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '@/store/themeStore';
-import { getDealMessages, sendDealMessage, getDeal } from '@/services/api';
+import { getDealMessages, sendDealMessage, getDeal, getChatStatus } from '@/services/api';
 import { BASE_URL } from '@/services/backendClient';
 import { useAuthStore } from '@/store/authStore';
 import { Deal } from '@/types';
@@ -86,6 +86,18 @@ export default function FullPageChatScreen() {
         const msgs = await getDealMessages(dealId);
         if (isMounted) setMessages(msgs);
 
+        try {
+          const statusData = await getChatStatus(dealId);
+          if (isMounted && statusData) {
+            const userRole = user?.role;
+            const isOwner = userRole === 'OWNER';
+            const online = isOwner ? statusData.investorOnline : statusData.ownerOnline;
+            const activeInRoom = isOwner ? statusData.investorActiveInRoom : statusData.ownerActiveInRoom;
+            if (online !== undefined) setOtherPartyOnline(!!online);
+            if (activeInRoom !== undefined) setOtherPartyActiveInRoom(!!activeInRoom);
+          }
+        } catch (e) {}
+
         const token = await AsyncStorage.getItem('auth_token');
         const wsUrl = `${BASE_URL}/ws-chat`;
 
@@ -126,8 +138,12 @@ export default function FullPageChatScreen() {
             if (!isMounted) return;
             try {
               const data = JSON.parse(statusMsg.body);
-              if (data.otherPartyOnline !== undefined) setOtherPartyOnline(data.otherPartyOnline);
-              if (data.otherPartyActiveInRoom !== undefined) setOtherPartyActiveInRoom(data.otherPartyActiveInRoom);
+              const userRole = user?.role;
+              const isOwner = userRole === 'OWNER';
+              const online = isOwner ? data.investorOnline : data.ownerOnline;
+              const activeInRoom = isOwner ? data.investorActiveInRoom : data.ownerActiveInRoom;
+              if (online !== undefined) setOtherPartyOnline(!!online);
+              if (activeInRoom !== undefined) setOtherPartyActiveInRoom(!!activeInRoom);
             } catch (e) {}
           });
 

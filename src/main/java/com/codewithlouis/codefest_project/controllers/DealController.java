@@ -48,6 +48,11 @@ public class DealController {
         return ResponseEntity.ok(dealService.getMessages(dealId));
     }
 
+    @GetMapping("/{dealId}/chat-status")
+    public ResponseEntity<Map<String, Object>> getChatStatus(@PathVariable Integer dealId) {
+        return ResponseEntity.ok(dealService.getChatStatus(dealId));
+    }
+
     @Data
     static class MessageRequest {
         private String content;
@@ -69,6 +74,27 @@ public class DealController {
             @RequestBody(required = false) VerifyPaymentRequest body) {
         String reference = (body != null) ? body.getReference() : null;
         return ResponseEntity.ok(dealService.verifyPayment(dealId, reference));
+    }
+
+    @PostMapping("/{dealId}/repay")
+    public ResponseEntity<Map<String, Object>> initiateDirectRepayment(
+            @PathVariable Integer dealId,
+            @RequestBody(required = false) Map<String, Object> body) {
+        Double amount = null;
+        Integer repaymentId = null;
+        if (body != null) {
+            if (body.containsKey("amount") && body.get("amount") != null) {
+                try {
+                    amount = Double.valueOf(body.get("amount").toString());
+                } catch (Exception ignored) {}
+            }
+            if (body.containsKey("repaymentId") && body.get("repaymentId") != null) {
+                try {
+                    repaymentId = Integer.valueOf(body.get("repaymentId").toString());
+                } catch (Exception ignored) {}
+            }
+        }
+        return ResponseEntity.ok(repaymentService.initiateDirectRepayment(dealId, amount, repaymentId));
     }
 
     @PostMapping("/{dealId}/repayments/{repaymentId}/pay")

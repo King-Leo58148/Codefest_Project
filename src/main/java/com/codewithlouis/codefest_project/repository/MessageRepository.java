@@ -7,4 +7,5 @@ import java.util.List;
 
 public interface MessageRepository extends JpaRepository<Message, Integer> {
     List<Message> findByDealIdOrderBySentAtAsc(Integer dealId);
+    List<Message> findByDealIdAndSenderIdNotAndReadAtIsNull(Integer dealId, Integer senderId);
 }

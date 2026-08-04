@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { motion } from 'motion/react'
+import { Search, Filter, MapPin, TrendingUp, ArrowUpRight } from 'lucide-react'
 import api from '../api'
+import BlurFade from '../components/magic/BlurFade'
+import Particles from '../components/magic/Particles'
 
 function ExplorePitches() {
   const navigate = useNavigate()
@@ -72,8 +76,22 @@ function ExplorePitches() {
       </div>
 
       {loading && (
-        <div className="p-10 flex flex-col items-center justify-center">
-          <p className="text-slate-500 font-medium">Loading opportunities...</p>
+        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3 pt-4">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="glass-card overflow-hidden animate-pulse">
+              <div className="h-28 bg-slate-100" />
+              <div className="p-5 space-y-3">
+                <div className="flex gap-2">
+                  <div className="h-5 w-16 bg-slate-200 rounded-full" />
+                  <div className="h-5 w-20 bg-slate-100 rounded-full" />
+                </div>
+                <div className="h-3 bg-slate-100 rounded w-full" />
+                <div className="h-3 bg-slate-100 rounded w-3/4" />
+                <div className="h-10 bg-slate-100 rounded-2xl mt-4" />
+                <div className="h-10 bg-slate-200 rounded-xl mt-2" />
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
@@ -95,44 +113,57 @@ function ExplorePitches() {
       )}
 
       {!loading && filteredPitches.length > 0 && (
-        <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3 pt-4">
-          {filteredPitches.map((pitch) => (
-            <div key={pitch.id} className="bg-white rounded-3xl border border-slate-200 flex flex-col shadow-sm hover:shadow-md transition">
-              <div className="h-24 bg-slate-50 border-b border-slate-100 rounded-t-3xl p-6 flex items-end">
-                <h3 className="text-lg font-semibold text-slate-900 line-clamp-1">
+        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3 pt-4">
+          {filteredPitches.map((pitch, i) => (
+            <motion.div
+              key={pitch.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.06, duration: 0.35, ease: 'easeOut' }}
+              whileHover={{ y: -4, boxShadow: '0 12px 32px rgba(0,0,0,0.1)' }}
+              className="glass-card overflow-hidden flex flex-col cursor-pointer group"
+              onClick={() => navigate(`/pitch/${pitch.id}`)}
+            >
+              {/* Card top accent */}
+              <div className="h-1.5 w-full" style={{ background: 'linear-gradient(90deg, #10b981, #3b82f6)' }} />
+              
+              <div className="px-5 pt-5 pb-3">
+                <div className="flex items-start justify-between gap-2 mb-3">
+                  <div className="flex flex-wrap gap-1.5">
+                    {pitch.industry && (
+                      <span className="badge badge-green text-[10px]">{pitch.industry}</span>
+                    )}
+                    {pitch.location && (
+                      <span className="badge badge-slate text-[10px] flex items-center gap-1">
+                        <MapPin size={8} /> {pitch.location}
+                      </span>
+                    )}
+                  </div>
+                  <span className="badge badge-blue text-[10px] flex-shrink-0">{pitch.status || 'APPROVED'}</span>
+                </div>
+                <h3 className="text-base font-bold text-slate-900 mb-2 line-clamp-1 group-hover:text-emerald-600 transition-colors">
                   {pitch.businessName}
                 </h3>
-              </div>
-              
-              <div className="p-6 flex-1 flex flex-col">
-                <div className="flex gap-2 mb-4">
-                  <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-1 rounded">
-                    {pitch.industry || 'General'}
-                  </span>
-                  {pitch.location && (
-                    <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-1 rounded">
-                      {pitch.location}
-                    </span>
-                  )}
-                </div>
-                
-                <p className="text-sm text-slate-600 mb-6 line-clamp-3 flex-1">
+                <p className="text-sm text-slate-500 line-clamp-3 mb-4">
                   {pitch.description}
                 </p>
-                
-                <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 mb-6">
-                  <p className="text-xs text-slate-500 mb-1 font-medium">Funding Goal</p>
-                  <p className="text-xl font-semibold text-slate-900">GH₵ {pitch.amountNeeded?.toLocaleString()}</p>
-                </div>
-                
-                <button 
-                  onClick={() => navigate(`/pitch/${pitch.id}`)}
-                  className="w-full pill-button justify-center"
-                >
-                  View Details
-                </button>
               </div>
-            </div>
+
+              <div className="mx-5 mb-4 p-3 rounded-2xl" style={{ background: 'linear-gradient(135deg, #f0fdf4, #ecfdf5)' }}>
+                <p className="text-xs text-slate-500 mb-0.5 font-medium">Funding Goal</p>
+                <p className="text-xl font-bold text-slate-900">GH₵ {pitch.amountNeeded?.toLocaleString() || '—'}</p>
+              </div>
+
+              <div className="px-5 pb-5 mt-auto">
+                <motion.button
+                  whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                  onClick={(e) => { e.stopPropagation(); navigate(`/pitch/${pitch.id}`) }}
+                  className="w-full cta-button flex items-center justify-center gap-2"
+                >
+                  View & Invest <ArrowUpRight size={14} />
+                </motion.button>
+              </div>
+            </motion.div>
           ))}
         </div>
       )}

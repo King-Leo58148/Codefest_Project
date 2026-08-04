@@ -6,6 +6,7 @@ import com.codewithlouis.codefest_project.model.Repayment;
 import com.codewithlouis.codefest_project.model.RepaymentStatus;
 import com.codewithlouis.codefest_project.model.ReturnType;
 import com.codewithlouis.codefest_project.model.User;
+import com.codewithlouis.codefest_project.repository.DealRepository;
 import com.codewithlouis.codefest_project.repository.RepaymentRepository;
 import com.codewithlouis.codefest_project.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +27,7 @@ import java.util.Map;
 public class RepaymentService {
 
     private final RepaymentRepository repaymentRepository;
+    private final DealRepository dealRepository;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
     private final PaystackService paystackService;
@@ -70,12 +72,42 @@ public class RepaymentService {
         return repaymentRepository.findByDealId(dealId);
     }
 
-    public Map<String, Object> initiateRepaymentPayment(Integer dealId, Integer repaymentId) {
+    public Map<String, Object> initiateDirectRepayment(Integer dealId, Double customAmount, Integer repaymentId) {
         User currentUser = getCurrentUser();
-        Repayment repayment = getRepaymentForDeal(dealId, repaymentId);
+        Deal deal = dealRepository.findById(dealId)
+                .orElseThrow(() -> new RuntimeException("Deal not found: " + dealId));
 
-        if (!repayment.getDeal().getOwner().getEmail().equals(currentUser.getEmail())) {
-            throw new RuntimeException("Only the business owner can pay repayments");
+        if (!deal.getOwner().getEmail().equals(currentUser.getEmail())) {
+            throw new RuntimeException("Only the business owner can make repayments");
+        }
+
+        Repayment repayment = null;
+        if (repaymentId != null) {
+            repayment = repaymentRepository.findById(repaymentId).orElse(null);
+        }
+
+        if (repayment == null) {
+            List<Repayment> pending = repaymentRepository.findByDealId(dealId).stream()
+                    .filter(r -> r.getStatus() == RepaymentStatus.PENDING)
+                    .toList();
+
+            if (!pending.isEmpty()) {
+                repayment = pending.get(0);
+                if (customAmount != null && customAmount > 0) {
+                    repayment.setAmount(customAmount);
+                }
+            } else {
+                repayment = new Repayment();
+                repayment.setDeal(deal);
+                double amt = (customAmount != null && customAmount > 0)
+                        ? customAmount
+                        : Math.round((deal.getBid().getAmount() / Math.max(1, deal.getBid().getTimelineMonths())) * 100.0) / 100.0;
+                repayment.setAmount(amt);
+                repayment.setDueDate(LocalDate.now());
+                repayment.setStatus(RepaymentStatus.PENDING);
+                repayment.setInstallmentNumber(1);
+            }
+            repayment = repaymentRepository.save(repayment);
         }
 
         Map<String, Object> response = paystackService.initializeRepayment(repayment);
@@ -83,6 +115,10 @@ public class RepaymentService {
         repaymentRepository.save(repayment);
 
         return response;
+    }
+
+    public Map<String, Object> initiateRepaymentPayment(Integer dealId, Integer repaymentId) {
+        return initiateDirectRepayment(dealId, null, repaymentId);
     }
 
     public Repayment verifyRepaymentPayment(Integer dealId, Integer repaymentId, String reference) {

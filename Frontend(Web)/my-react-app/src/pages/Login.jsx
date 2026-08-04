@@ -32,6 +32,11 @@ function Login() {
     }
   }
 
+  const quickFill = (roleEmail, rolePass) => {
+    setEmail(roleEmail)
+    setPassword(rolePass)
+  }
+
   return (
     <>
       <style>{`
@@ -43,14 +48,15 @@ function Login() {
           min-height: 100vh;
           display: flex;
           font-family: 'Inter', sans-serif;
-          background: #0f1117;
+          background: #f8fafc;
         }
 
-        /* ── LEFT PANEL ── */
+        /* ── LEFT PANEL (Navy Brand Deep Slate) ── */
         .login-left {
           display: none;
           flex: 1;
-          background: linear-gradient(145deg, #0c1426 0%, #0f2847 45%, #0d1f3c 100%);
+          background: #0f172a;
+          border-right: 1px solid #1e293b;
           padding: 56px 52px;
           flex-direction: column;
           justify-content: space-between;
@@ -58,26 +64,6 @@ function Login() {
           overflow: hidden;
         }
         @media (min-width: 900px) { .login-left { display: flex; } }
-
-        /* decorative blobs */
-        .login-left::before {
-          content: '';
-          position: absolute;
-          top: -120px; right: -120px;
-          width: 420px; height: 420px;
-          background: radial-gradient(circle, rgba(16,185,129,.18) 0%, transparent 70%);
-          border-radius: 50%;
-          pointer-events: none;
-        }
-        .login-left::after {
-          content: '';
-          position: absolute;
-          bottom: -140px; left: -80px;
-          width: 380px; height: 380px;
-          background: radial-gradient(circle, rgba(59,130,246,.14) 0%, transparent 70%);
-          border-radius: 50%;
-          pointer-events: none;
-        }
 
         .brand-logo {
           display: flex;
@@ -88,284 +74,199 @@ function Login() {
         }
         .brand-icon {
           width: 44px; height: 44px;
-          background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+          background: #10b981;
           border-radius: 12px;
           display: flex;
           align-items: center;
           justify-content: center;
+          box-shadow: 0 4px 14px rgba(16,185,129,0.35);
         }
-        .brand-icon svg { width: 24px; height: 24px; }
         .brand-name {
           font-size: 22px;
           font-weight: 800;
           color: #ffffff;
-          letter-spacing: -0.3px;
+          letter-spacing: -0.5px;
         }
         .brand-sub {
-          font-size: 11px;
-          color: #6ee7b7;
+          font-size: 12px;
+          color: #94a3b8;
           font-weight: 500;
-          letter-spacing: 0.6px;
-          text-transform: uppercase;
         }
 
         .left-hero {
           position: relative;
           z-index: 1;
+          max-width: 480px;
+          border-left: 3px solid #10b981;
+          padding-left: 20px;
         }
         .left-hero h1 {
-          font-size: clamp(28px, 3vw, 40px);
+          font-size: 34px;
           font-weight: 800;
           color: #ffffff;
-          line-height: 1.18;
-          letter-spacing: -0.8px;
-          margin-bottom: 20px;
-        }
-        .left-hero h1 span {
-          background: linear-gradient(90deg, #10b981, #34d399);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          background-clip: text;
+          line-height: 1.15;
+          letter-spacing: -1px;
+          margin-bottom: 16px;
         }
         .left-hero p {
-          font-size: 16px;
+          font-size: 14px;
           color: #94a3b8;
-          line-height: 1.65;
-          max-width: 380px;
+          line-height: 1.6;
         }
 
         .stats-row {
-          display: flex;
-          gap: 32px;
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 16px;
           position: relative;
           z-index: 1;
+          border-top: 1px solid #1e293b;
+          padding-top: 24px;
         }
-        .stat-item {}
         .stat-value {
-          font-size: 26px;
+          font-size: 20px;
           font-weight: 800;
-          color: #ffffff;
-          letter-spacing: -0.5px;
+          color: #10b981;
         }
         .stat-label {
-          font-size: 12px;
-          color: #64748b;
-          margin-top: 2px;
-          font-weight: 500;
-        }
-
-        /* glass cards floating in background — repositioned so they no longer sit under the hero text */
-        .glass-cards {
-          position: absolute;
-          top: 90px;
-          right: -40px;
-          width: 300px;
-          pointer-events: none;
-          z-index: 0;
-        }
-        .glass-card-float {
-          background: rgba(255,255,255,.03);
-          border: 1px solid rgba(255,255,255,.07);
-          border-radius: 18px;
-          padding: 20px 24px;
-          backdrop-filter: blur(8px);
-          margin-bottom: 14px;
-        }
-        .gc-label { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; }
-        .gc-value { font-size: 20px; font-weight: 700; color: #e2e8f0; }
-        .gc-badge {
-          display: inline-block;
           font-size: 11px;
-          font-weight: 600;
-          padding: 3px 10px;
-          border-radius: 20px;
-          background: rgba(16,185,129,.15);
-          color: #10b981;
-          margin-top: 6px;
+          color: #94a3b8;
+          margin-top: 2px;
         }
 
-        /* ── RIGHT PANEL ── */
+        /* ── RIGHT PANEL (Off-White & Clean Card) ── */
         .login-right {
           flex: 1;
-          min-height: 100vh;
           display: flex;
           align-items: center;
           justify-content: center;
-          background: #ffffff;
-          padding: 48px 24px;
+          padding: 40px 24px;
+          background: #f8fafc;
         }
-        @media (min-width: 900px) { .login-right { max-width: 560px; } }
-
         .login-card {
           width: 100%;
-          max-width: 420px;
+          max-width: 400px;
+          background: #ffffff;
+          border: 1px solid #e2e8f0;
+          padding: 32px;
+          border-radius: 24px;
+          box-shadow: 0 4px 20px rgba(0,0,0,0.03);
         }
-
-        .login-card-header {
-          margin-bottom: 40px;
-        }
-
-        /* mobile logo (visible on small screens only) */
-        .mobile-logo {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          margin-bottom: 36px;
-        }
-        @media (min-width: 900px) { .mobile-logo { display: none; } }
-        .mobile-logo .brand-icon { width: 36px; height: 36px; border-radius: 10px; }
-        .mobile-logo .brand-name { font-size: 18px; }
-
         .login-card-header h2 {
-          font-size: 28px;
+          font-size: 24px;
           font-weight: 800;
           color: #0f172a;
           letter-spacing: -0.5px;
-          margin-bottom: 8px;
         }
         .login-card-header p {
-          font-size: 14px;
+          font-size: 13px;
           color: #64748b;
+          margin-top: 4px;
+          margin-bottom: 24px;
         }
 
-        .form-group {
-          margin-bottom: 20px;
-        }
+        .form-group { margin-bottom: 20px; }
         .form-label {
           display: block;
-          font-size: 13px;
+          font-size: 12px;
           font-weight: 600;
-          color: #374151;
-          margin-bottom: 8px;
-          letter-spacing: 0.1px;
-        }
-        .input-wrapper {
-          position: relative;
+          color: #334155;
+          margin-bottom: 6px;
         }
         .form-input {
           width: 100%;
-          padding: 13px 16px;
-          border: 1.5px solid #e2e8f0;
+          height: 44px;
+          padding: 0 14px;
           border-radius: 12px;
-          font-size: 15px;
-          color: #0f172a;
+          border: 1px solid #cbd5e1;
           background: #f8fafc;
+          font-size: 14px;
+          color: #0f172a;
           outline: none;
-          transition: border-color 0.18s, box-shadow 0.18s, background 0.18s;
-          font-family: 'Inter', sans-serif;
+          transition: all 0.18s ease;
         }
         .form-input:focus {
           border-color: #10b981;
           background: #ffffff;
-          box-shadow: 0 0 0 4px rgba(16,185,129,.1);
+          box-shadow: 0 0 0 3px rgba(16,185,129,0.15);
         }
-        .form-input::placeholder { color: #94a3b8; }
-        .form-input.password-input { padding-right: 48px; }
 
+        .input-wrapper { position: relative; }
         .password-toggle {
           position: absolute;
-          right: 14px;
-          top: 50%;
+          right: 12px; top: 50%;
           transform: translateY(-50%);
-          background: none;
-          border: none;
-          cursor: pointer;
-          color: #94a3b8;
-          display: flex;
-          align-items: center;
-          padding: 4px;
-          transition: color 0.15s;
-        }
-        .password-toggle:hover { color: #475569; }
-
-        .error-box {
-          background: #fef2f2;
-          border: 1.5px solid #fecaca;
-          border-radius: 12px;
-          padding: 13px 16px;
-          margin-bottom: 20px;
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          font-size: 14px;
-          color: #dc2626;
-          font-weight: 500;
-        }
-        .error-dot {
-          width: 8px; height: 8px;
-          background: #ef4444;
-          border-radius: 50%;
-          flex-shrink: 0;
+          background: none; border: none;
+          color: #94a3b8; cursor: pointer;
         }
 
         .submit-btn {
           width: 100%;
-          padding: 14px 24px;
-          background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+          height: 46px;
+          background: #10b981;
           color: #ffffff;
-          font-size: 15px;
-          font-weight: 700;
           border: none;
           border-radius: 12px;
+          font-size: 14px;
+          font-weight: 700;
           cursor: pointer;
-          font-family: 'Inter', sans-serif;
-          letter-spacing: 0.1px;
-          transition: opacity 0.18s, transform 0.12s, box-shadow 0.18s;
-          box-shadow: 0 4px 14px rgba(16,185,129,.35);
+          transition: all 0.18s ease;
           margin-top: 8px;
-          position: relative;
-          overflow: hidden;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          box-shadow: 0 4px 14px rgba(16,185,129,0.35);
         }
         .submit-btn:hover:not(:disabled) {
-          opacity: 0.93;
-          transform: translateY(-1px);
-          box-shadow: 0 6px 20px rgba(16,185,129,.4);
+          background: #059669;
         }
-        .submit-btn:active:not(:disabled) { transform: translateY(0); }
-        .submit-btn:disabled { opacity: 0.65; cursor: not-allowed; transform: none; }
 
-        .btn-spinner {
-          display: inline-block;
-          width: 18px; height: 18px;
-          border: 2px solid rgba(255,255,255,.4);
-          border-top-color: #ffffff;
-          border-radius: 50%;
-          animation: spin 0.7s linear infinite;
-          vertical-align: middle;
-          margin-right: 8px;
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
-
-        .login-footer {
-          margin-top: 32px;
-          padding-top: 24px;
-          border-top: 1px solid #f1f5f9;
-          text-align: center;
-          font-size: 13px;
-          color: #94a3b8;
-        }
-        .admin-chip {
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          background: #f0fdf4;
-          color: #059669;
+        .error-box {
+          background: #fef2f2;
+          border: 1px solid #fecaca;
+          color: #dc2626;
+          padding: 10px 14px;
+          border-radius: 10px;
           font-size: 12px;
+          margin-bottom: 20px;
+        }
+
+        .quick-switch {
+          margin-top: 24px;
+          padding: 12px;
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
+          border-radius: 12px;
+        }
+        .quick-switch p {
+          font-size: 11px;
           font-weight: 600;
-          padding: 5px 12px;
-          border-radius: 20px;
-          border: 1px solid #d1fae5;
-          margin-top: 12px;
+          color: #64748b;
+          margin-bottom: 8px;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
         }
-        .chip-dot {
-          width: 6px; height: 6px;
-          background: #10b981;
-          border-radius: 50%;
-          animation: pulse 1.8s ease-in-out infinite;
+        .quick-switch-buttons {
+          display: flex;
+          gap: 8px;
         }
-        @keyframes pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.4; }
+        .quick-btn {
+          flex: 1;
+          padding: 6px 10px;
+          background: #ffffff;
+          border: 1px solid #cbd5e1;
+          border-radius: 8px;
+          font-size: 11px;
+          font-weight: 600;
+          color: #334155;
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+        .quick-btn:hover {
+          background: #ecfdf5;
+          border-color: #10b981;
+          color: #047857;
         }
       `}</style>
 
@@ -374,54 +275,36 @@ function Login() {
         <div className="login-left">
           <div className="brand-logo">
             <div className="brand-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" width="24" height="24">
                 <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
                 <polyline points="16 7 22 7 22 13" />
               </svg>
             </div>
             <div>
               <div className="brand-name">Nkoso</div>
-              <div className="brand-sub">Admin Portal</div>
-            </div>
-          </div>
-
-          {/* Floating glass cards */}
-          <div className="glass-cards">
-            <div className="glass-card-float">
-              <div className="gc-label">Platform Volume</div>
-              <div className="gc-value">GH₵ 2.4M</div>
-              <div className="gc-badge">↑ 18.3% this month</div>
-            </div>
-            <div className="glass-card-float">
-              <div className="gc-label">Active Deals</div>
-              <div className="gc-value">142 Investments</div>
-              <div className="gc-badge">↑ 24 new this week</div>
+              <div className="brand-sub">Fintech Marketplace Admin</div>
             </div>
           </div>
 
           <div className="left-hero">
-            <h1>
-              Empowering<br />
-              <span>African Business</span><br />
-              Growth
-            </h1>
+            <h1>Ghanaian Marketplace Governance</h1>
             <p>
-              The Nkoso admin portal gives you full visibility and control over pitches, investments, deals, and users across the platform.
+              Real-time administrative visibility over business pitch vetting, accredited investor capital commitments, and MFI legal workflows.
             </p>
           </div>
 
           <div className="stats-row">
             <div className="stat-item">
-              <div className="stat-value">2,400+</div>
-              <div className="stat-label">Businesses funded</div>
+              <div className="stat-value">GHS 4.2M+</div>
+              <div className="stat-label">Capital Deployed</div>
             </div>
             <div className="stat-item">
-              <div className="stat-value">GH₵40M+</div>
-              <div className="stat-label">Capital deployed</div>
+              <div className="stat-value">18 MFIs</div>
+              <div className="stat-label">Legal Partners</div>
             </div>
             <div className="stat-item">
-              <div className="stat-value">98%</div>
-              <div className="stat-label">Repayment rate</div>
+              <div className="stat-value">98.4%</div>
+              <div className="stat-label">On-Time Repayment</div>
             </div>
           </div>
         </div>
@@ -429,25 +312,31 @@ function Login() {
         {/* Right login form */}
         <div className="login-right">
           <div className="login-card">
-            {/* Mobile logo */}
-            <div className="mobile-logo">
-              <div className="brand-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
-                  <polyline points="16 7 22 7 22 13" />
-                </svg>
-              </div>
-              <div className="brand-name">Nkoso</div>
-            </div>
-
             <div className="login-card-header">
-              <h2>Welcome back</h2>
-              <p>Sign in to your admin account to continue</p>
+              <div className="flex items-center justify-between">
+                <h2>Nkoso Admin Portal</h2>
+                <button
+                  type="button"
+                  onClick={() => navigate('/presentation')}
+                  style={{
+                    background: 'rgba(16, 185, 129, 0.1)',
+                    border: '1px solid rgba(16, 185, 129, 0.3)',
+                    color: '#059669',
+                    padding: '6px 12px',
+                    borderRadius: '8px',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    cursor: 'pointer'
+                  }}
+                >
+                  🌐 App Presentation →
+                </button>
+              </div>
+              <p>Sign in to manage pitches, deals, and platform users</p>
             </div>
 
             {error && (
               <div className="error-box">
-                <div className="error-dot" />
                 {error}
               </div>
             )}
@@ -460,7 +349,7 @@ function Login() {
                     id="email"
                     type="email"
                     className="form-input"
-                    placeholder="admin@nkoso.com"
+                    placeholder="admin@nkoso.gh"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
@@ -475,7 +364,7 @@ function Login() {
                   <input
                     id="password"
                     type={showPassword ? 'text' : 'password'}
-                    className="form-input password-input"
+                    className="form-input"
                     placeholder="••••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -486,44 +375,39 @@ function Login() {
                     type="button"
                     className="password-toggle"
                     onClick={() => setShowPassword((v) => !v)}
-                    aria-label={showPassword ? 'Hide password' : 'Show password'}
                   >
-                    {showPassword ? (
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
-                        <line x1="1" y1="1" x2="23" y2="23"/>
-                      </svg>
-                    ) : (
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                        <circle cx="12" cy="12" r="3"/>
-                      </svg>
-                    )}
+                    {showPassword ? 'Hide' : 'Show'}
                   </button>
                 </div>
               </div>
 
               <button
                 type="submit"
-                className="submit-btn"
+                className="submit-btn cursor-pointer"
                 disabled={loading}
               >
-                {loading ? (
-                  <>
-                    <span className="btn-spinner" />
-                    Signing in...
-                  </>
-                ) : (
-                  'Sign in to Admin Portal'
-                )}
+                {loading ? 'Authenticating...' : 'Sign in to Admin Console'}
               </button>
             </form>
 
-            <div className="login-footer">
-              <p>This portal is restricted to authorized administrators only.</p>
-              <div className="admin-chip">
-                <div className="chip-dot" />
-                Secured with JWT Authentication
+            {/* Quick Persona Switcher for Admin Testing */}
+            <div className="quick-switch">
+              <p>Quick Test Credentials</p>
+              <div className="quick-switch-buttons">
+                <button
+                  type="button"
+                  onClick={() => quickFill('admin@nkoso.gh', 'password123')}
+                  className="quick-btn"
+                >
+                  Admin Role
+                </button>
+                <button
+                  type="button"
+                  onClick={() => quickFill('mfi@fidelity.gh', 'password123')}
+                  className="quick-btn"
+                >
+                  MFI Officer
+                </button>
               </div>
             </div>
           </div>

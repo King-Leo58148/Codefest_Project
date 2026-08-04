@@ -321,6 +321,9 @@ export async function sendDealMessage(dealId: string, text: string): Promise<any
     body: JSON.stringify({ content: text }),
   });
 }
+export async function getChatStatus(dealId: string): Promise<any> {
+  return request(`/api/deals/${dealId}/chat-status`);
+}
 export async function verifyPayment(dealId: string, reference: string): Promise<any> {
   return request(`/api/deals/${dealId}/verify-payment`, {
     method: 'POST',

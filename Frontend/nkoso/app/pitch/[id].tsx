@@ -1,5 +1,5 @@
 import React from 'react';
-import { Video, ResizeMode } from 'expo-av';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import {
   View,
   Text,
@@ -30,6 +30,8 @@ export default function PitchDetailScreen() {
     queryKey: ['pitch', id],
     queryFn: () => getPitch(id as string),
   });
+
+  const player = useVideoPlayer(pitch?.videoUrl || null);
 
   if (isLoading) {
     return (
@@ -94,10 +96,11 @@ export default function PitchDetailScreen() {
         {/* Media Player / Image Banner */}
         <View style={styles.mediaContainer}>
           {pitch.videoUrl ? (
-            <Video
-              source={{ uri: pitch.videoUrl }}
-              useNativeControls
-              resizeMode={ResizeMode.CONTAIN}
+            <VideoView
+              player={player}
+              allowsFullscreen
+              allowsPictureInPicture
+              contentFit="contain"
               style={styles.videoPlayer}
             />
           ) : (

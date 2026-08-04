@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { motion } from 'motion/react'
+import { MapPin, ArrowLeft, Calendar, BadgeCheck } from 'lucide-react'
 import api from '../api'
+import BlurFade from '../components/magic/BlurFade'
+import BorderBeam from '../components/magic/BorderBeam'
 
 function PitchDetail() {
   const { id } = useParams()
@@ -58,8 +62,9 @@ function PitchDetail() {
 
   if (loading) {
     return (
-      <div className="flex h-64 items-center justify-center">
-        <p className="text-slate-500">Loading pitch details...</p>
+      <div className="flex h-64 items-center justify-center flex-col gap-3">
+        <div className="spinner" />
+        <p className="text-slate-400 text-sm">Loading pitch details...</p>
       </div>
     )
   }
@@ -78,12 +83,14 @@ function PitchDetail() {
 
   return (
     <div className="max-w-5xl mx-auto pb-12">
-      <button 
-        onClick={() => navigate(-1)}
-        className="mb-6 text-sm font-medium text-slate-500 hover:text-slate-900"
-      >
-        &larr; Back
-      </button>
+      <BlurFade delay={0}>
+        <button
+          onClick={() => navigate(-1)}
+          className="mb-5 flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-900 transition-colors"
+        >
+          <ArrowLeft size={15} /> Back
+        </button>
+      </BlurFade>
 
       <div className="grid lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">

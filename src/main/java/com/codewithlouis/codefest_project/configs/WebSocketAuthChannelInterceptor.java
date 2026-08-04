@@ -18,13 +18,16 @@ public class WebSocketAuthChannelInterceptor implements ChannelInterceptor {
 
     private final JwtService jwtService;
     private final UserDetailsService userDetailsService;
+    private final com.codewithlouis.codefest_project.services.ChatPresenceService chatPresenceService;
 
     public WebSocketAuthChannelInterceptor(
             JwtService jwtService,
-            UserDetailsService userDetailsService
+            UserDetailsService userDetailsService,
+            com.codewithlouis.codefest_project.services.ChatPresenceService chatPresenceService
     ) {
         this.jwtService = jwtService;
         this.userDetailsService = userDetailsService;
+        this.chatPresenceService = chatPresenceService;
     }
 
     @Override
@@ -43,6 +46,9 @@ public class WebSocketAuthChannelInterceptor implements ChannelInterceptor {
                                     new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
                             accessor.setUser(authentication);
                             SecurityContextHolder.getContext().setAuthentication(authentication);
+                            if (accessor.getSessionId() != null) {
+                                chatPresenceService.userConnected(username, accessor.getSessionId());
+                            }
                         }
                     }
                 } catch (Exception ignored) {

@@ -21,12 +21,17 @@ import DealDetail from './pages/DealDetail'
 import Layout from './components/Layout'
 import ProtectedRoute from './components/ProtectedRoute'
 
+import Presentation from './pages/Presentation'
+
 function App() {
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/presentation" element={<Presentation />} />
+        <Route path="/landing" element={<Presentation />} />
+
         
         <Route
           element={
@@ -35,7 +40,7 @@ function App() {
             </ProtectedRoute>
           }
         >
-          {/* Shared Routes */}
+          {/* Shared Admin & User Routes */}
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/notifications" element={<Notifications />} />

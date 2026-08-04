@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import * as ImagePicker from 'expo-image-picker';
 import * as VideoThumbnails from 'expo-video-thumbnails';
-import { Video, ResizeMode } from 'expo-av';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import {
   View,
   Text,
@@ -66,6 +66,9 @@ export default function PitchesScreen() {
   const { isDark, colors } = useTheme();
   const [showCreate, setShowCreate] = useState(false);
   const [playingVideo, setPlayingVideo] = useState<string | null>(null);
+  const player = useVideoPlayer(playingVideo, (p) => {
+    if (playingVideo) p.play();
+  });
   const [menuPitchId, setMenuPitchId] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
@@ -559,12 +562,12 @@ export default function PitchesScreen() {
           </TouchableOpacity>
 
           {playingVideo ? (
-            <Video
-              source={{ uri: playingVideo }}
+            <VideoView
+              player={player}
               style={styles.videoPlayer}
-              useNativeControls
-              resizeMode={ResizeMode.CONTAIN}
-              shouldPlay
+              allowsFullscreen
+              allowsPictureInPicture
+              contentFit="contain"
             />
           ) : null}
         </View>
