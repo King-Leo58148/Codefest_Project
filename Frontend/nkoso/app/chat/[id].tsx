@@ -59,6 +59,8 @@ export default function FullPageChatScreen() {
   const [connected, setConnected] = useState(false);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [otherPartyOnline, setOtherPartyOnline] = useState(false);
+  const [otherPartyActiveInRoom, setOtherPartyActiveInRoom] = useState(false);
   const flatListRef = useRef<FlatList>(null);
   const stompClientRef = useRef<Client | null>(null);
 
@@ -100,7 +102,11 @@ export default function FullPageChatScreen() {
           if (!isMounted) return;
           setConnected(true);
 
-          client.subscribe(`/topic/deal.${dealId}`, (message) => {
+          try {
+            client.publish({ destination: `/app/chat.enterRoom/${dealId}` });
+          } catch (e) {}
+
+          const handleIncomingMsg = (message: any) => {
             if (!isMounted) return;
             try {
               const newMsg = JSON.parse(message.body);
@@ -111,6 +117,33 @@ export default function FullPageChatScreen() {
             } catch (e) {
               console.error('Error parsing WS message:', e);
             }
+          };
+
+          client.subscribe(`/topic/deal/${dealId}`, handleIncomingMsg);
+          client.subscribe(`/topic/deal.${dealId}`, handleIncomingMsg);
+
+          client.subscribe(`/topic/deal/${dealId}/status`, (statusMsg) => {
+            if (!isMounted) return;
+            try {
+              const data = JSON.parse(statusMsg.body);
+              if (data.otherPartyOnline !== undefined) setOtherPartyOnline(data.otherPartyOnline);
+              if (data.otherPartyActiveInRoom !== undefined) setOtherPartyActiveInRoom(data.otherPartyActiveInRoom);
+            } catch (e) {}
+          });
+
+          client.subscribe(`/topic/deal/${dealId}/read`, (readMsg) => {
+            if (!isMounted) return;
+            try {
+              const data = JSON.parse(readMsg.body);
+              setMessages((prev) =>
+                prev.map((m) => {
+                  if (m.sender?.email !== data.readBy && !m.readAt) {
+                    return { ...m, readAt: data.readAt };
+                  }
+                  return m;
+                })
+              );
+            } catch (e) {}
           });
         };
 
@@ -132,6 +165,11 @@ export default function FullPageChatScreen() {
     return () => {
       isMounted = false;
       if (stompClientRef.current) {
+        try {
+          if (stompClientRef.current.connected) {
+            stompClientRef.current.publish({ destination: `/app/chat.leaveRoom/${dealId}` });
+          }
+        } catch (e) {}
         stompClientRef.current.deactivate();
       }
     };
@@ -165,22 +203,33 @@ export default function FullPageChatScreen() {
   };
 
   const renderMessageItem = ({ item, index }: { item: any; index: number }) => {
-    const isMe = item.senderId === currentUserId || item.senderName === user?.name;
+    const senderId = item.sender?.id?.toString() || item.senderId?.toString();
+    const senderEmail = item.sender?.email;
+    const senderName = item.sender?.name || item.senderName;
+    const msgDate = item.createdAt || item.sentAt;
+
+    const isMe =
+      (senderId && currentUserId && senderId === currentUserId.toString()) ||
+      (senderEmail && user?.email && senderEmail === user.email) ||
+      (senderName && user?.name && senderName === user.name);
+
     const showDateHeader = index === 0 || 
-      formatDateHeader(item.createdAt) !== formatDateHeader(messages[index - 1]?.createdAt);
+      formatDateHeader(msgDate) !== formatDateHeader(messages[index - 1]?.createdAt || messages[index - 1]?.sentAt);
+
+    const displayName = senderName || 'Partner';
 
     return (
       <View>
         {showDateHeader && (
           <View style={styles.dateHeaderContainer}>
-            <Text style={[styles.dateHeaderText, { color: colors.textMuted }]}>{formatDateHeader(item.createdAt)}</Text>
+            <Text style={[styles.dateHeaderText, { color: colors.textMuted }]}>{formatDateHeader(msgDate)}</Text>
           </View>
         )}
 
         <View style={[styles.msgRow, isMe ? styles.msgRowMe : styles.msgRowOther]}>
           {!isMe && (
             <View style={styles.avatarCircle}>
-              <Text style={styles.avatarText}>{(item.senderName || 'P')[0].toUpperCase()}</Text>
+              <Text style={styles.avatarText}>{(displayName || 'P')[0].toUpperCase()}</Text>
             </View>
           )}
 
@@ -188,15 +237,21 @@ export default function FullPageChatScreen() {
             styles.bubble,
             isMe ? styles.bubbleMe : [styles.bubbleOther, { backgroundColor: colors.surface, borderColor: colors.border }],
           ]}>
-            {!isMe && <Text style={styles.senderLabel}>{item.senderName || 'Partner'}</Text>}
+            {!isMe && <Text style={styles.senderLabel}>{displayName}</Text>}
             <Text style={[styles.msgContent, isMe ? styles.msgContentMe : { color: colors.textPrimary }]}>{item.content}</Text>
 
             <View style={styles.msgFooter}>
               <Text style={[styles.timeText, isMe ? styles.timeTextMe : { color: colors.textMuted }]}>
-                {formatMessageTime(item.createdAt)}
+                {formatMessageTime(msgDate)}
               </Text>
               {isMe && (
-                <Ionicons name="checkmark-done" size={14} color="#A7F3D0" style={{ marginLeft: 3 }} />
+                item.readAt ? (
+                  <Ionicons name="checkmark-done" size={14} color="#60A5FA" style={{ marginLeft: 3 }} />
+                ) : otherPartyOnline ? (
+                  <Ionicons name="checkmark-done" size={14} color="#94A3B8" style={{ marginLeft: 3 }} />
+                ) : (
+                  <Ionicons name="checkmark" size={14} color="#94A3B8" style={{ marginLeft: 3 }} />
+                )
               )}
             </View>
           </View>
@@ -222,9 +277,9 @@ export default function FullPageChatScreen() {
               {otherPartyName}
             </Text>
             <View style={styles.statusOnlineRow}>
-              <View style={[styles.statusDot, connected ? styles.statusDotOnline : styles.statusDotOffline]} />
+              <View style={[styles.statusDot, otherPartyOnline ? styles.statusDotOnline : styles.statusDotOffline]} />
               <Text style={[styles.statusText, { color: colors.textSecondary }]}>
-                {connected ? 'Real-time Encrypted' : 'Reconnecting...'}
+                {otherPartyOnline ? 'Online' : 'Offline'}
               </Text>
             </View>
           </View>

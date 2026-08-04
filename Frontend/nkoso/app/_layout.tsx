@@ -67,7 +67,7 @@ function RootLayoutNav() {
         <Stack.Screen name="invest/[id]" />
         <Stack.Screen name="deal/[id]" />
         <Stack.Screen name="bid/[id]" />
-        <Stack.Screen name="repayments/[id]" />
+        <Stack.Screen name="repayments/[pitchId]" />
         <Stack.Screen name="profile/personal-info" />
         <Stack.Screen name="profile/bank-account" />
         <Stack.Screen name="profile/verification" />

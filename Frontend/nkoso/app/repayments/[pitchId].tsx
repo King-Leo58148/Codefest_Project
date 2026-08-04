@@ -405,7 +405,8 @@ export default function RepaymentScheduleScreen() {
                         <ActivityIndicator color="#FFFFFF" size="small" />
                       ) : (
                         <>
-                          <Ionicons name="logo-paystack" size={16} color="#FFFFFF" />
+                          {/* TODO: Replace with real Paystack logo asset (Image/SVG) when available */}
+                          <Ionicons name="card-outline" size={16} color="#FFFFFF" />
                           <Text style={styles.payBtnText}>Pay GH₵{(item.amount || 0).toLocaleString()} via MoMo</Text>
                         </>
                       )}
