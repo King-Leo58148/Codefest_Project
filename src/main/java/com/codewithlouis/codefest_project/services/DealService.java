@@ -131,7 +131,8 @@ public class DealService {
         );
 
         if (deal.isOwnerSigned() && deal.isInvestorSigned()) {
-            deal.setStatus(DealStatus.PENDING_MFI);
+            deal.setMfiApproved(true);
+            deal.setStatus(DealStatus.PAYMENT_PENDING);
             emailService.sendMfiNotification(deal);
         }
 

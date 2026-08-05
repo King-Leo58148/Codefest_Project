@@ -29,7 +29,7 @@ public class PaystackService {
 
     // Step 1 - initialize payment, returns authorization URL.
     public Map<String, Object> initializePayment(Deal deal) {
-        if (deal.getStatus() != DealStatus.PAYMENT_PENDING) {
+        if (deal.getStatus() != DealStatus.PAYMENT_PENDING && deal.getStatus() != DealStatus.PENDING_MFI && !deal.isMfiApproved()) {
             throw new RuntimeException("Deal is not ready for payment");
         }
 

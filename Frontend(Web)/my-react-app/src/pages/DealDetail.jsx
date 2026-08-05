@@ -200,16 +200,10 @@ function DealDetail() {
                 </div>
               )}
 
-              {bothSigned && !deal.mfiApproved && (
-                <div className="p-4 rounded-2xl bg-slate-50 text-slate-600 text-sm border border-slate-200">
-                  Agreement fully signed. Pending legal review by MFI partner.
-                </div>
-              )}
-
-              {bothSigned && deal.mfiApproved && !deal.paystackRef && isInvestor && (
+              {bothSigned && !deal.paystackRef && isInvestor && (
                 <div className="space-y-4">
                   <div className="p-4 rounded-2xl bg-blue-50 text-blue-800 text-sm border border-blue-200">
-                    MFI has approved this deal. Please proceed to fund the investment.
+                    Agreement fully signed. Please proceed to fund the investment.
                   </div>
                   <button 
                     onClick={handlePayment} 
@@ -221,9 +215,9 @@ function DealDetail() {
                 </div>
               )}
 
-              {bothSigned && deal.mfiApproved && !deal.paystackRef && isOwner && (
+              {bothSigned && !deal.paystackRef && isOwner && (
                 <div className="p-4 rounded-2xl bg-slate-50 text-slate-600 text-sm border border-slate-200">
-                  MFI approved. Waiting for the investor to complete payment.
+                  Agreement signed. Waiting for the investor to complete payment.
                 </div>
               )}
 

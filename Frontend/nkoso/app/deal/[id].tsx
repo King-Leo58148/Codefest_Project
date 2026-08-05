@@ -258,18 +258,18 @@ export default function DealRoomScreen() {
           <View style={styles.timeline}>
             <View style={styles.timelineStep}>
               <Ionicons
-                name={deal.signedByOwner && deal.signedByInvestor ? 'checkmark-circle' : 'ellipsis-horizontal-circle'}
+                name={deal.ownerSigned && deal.investorSigned ? 'checkmark-circle' : 'ellipsis-horizontal-circle'}
                 size={22}
-                color={deal.signedByOwner && deal.signedByInvestor ? '#16A34A' : '#D97706'}
+                color={deal.ownerSigned && deal.investorSigned ? '#16A34A' : '#D97706'}
               />
               <Text style={[styles.timelineText, { color: colors.textPrimary }]}>1. Signatures Executed</Text>
             </View>
 
             <View style={styles.timelineStep}>
               <Ionicons
-                name={deal.status === 'MFI_APPROVED' || deal.status === 'PAYMENT_PENDING' || deal.status === 'ACTIVE' || deal.status === 'FUNDED' ? 'checkmark-circle' : 'ellipsis-horizontal-circle'}
+                name={deal.mfiApproved || deal.status === 'MFI_APPROVED' || deal.status === 'PAYMENT_PENDING' || deal.status === 'ACTIVE' || deal.status === 'FUNDED' ? 'checkmark-circle' : 'ellipsis-horizontal-circle'}
                 size={22}
-                color={deal.status === 'MFI_APPROVED' || deal.status === 'PAYMENT_PENDING' || deal.status === 'ACTIVE' || deal.status === 'FUNDED' ? '#16A34A' : '#D97706'}
+                color={deal.mfiApproved || deal.status === 'MFI_APPROVED' || deal.status === 'PAYMENT_PENDING' || deal.status === 'ACTIVE' || deal.status === 'FUNDED' ? '#16A34A' : '#D97706'}
               />
               <Text style={[styles.timelineText, { color: colors.textPrimary }]}>2. MFI Due Diligence Audit</Text>
             </View>
@@ -287,7 +287,16 @@ export default function DealRoomScreen() {
 
         {/* Action Buttons */}
         <View style={styles.actionsStack}>
-          {isInvestor && deal.status === 'MFI_APPROVED' && (
+          {((isOwner && !deal.ownerSigned) || (isInvestor && !deal.investorSigned)) && (
+            <Button
+              title="Digitally Sign Agreement"
+              onPress={handleSign}
+              loading={signMutation.isPending}
+              style={styles.actionBtn}
+            />
+          )}
+
+          {isInvestor && !deal.paystackRef && deal.status !== 'ACTIVE' && (deal.status === 'PAYMENT_PENDING' || deal.status === 'MFI_APPROVED' || (deal.ownerSigned && deal.investorSigned)) && (
             <Button
               title="Deposit Funds via Paystack / MoMo"
               onPress={handlePay}
@@ -296,13 +305,12 @@ export default function DealRoomScreen() {
             />
           )}
 
-          {((isOwner && !deal.signedByOwner) || (isInvestor && !deal.signedByInvestor)) && (
-            <Button
-              title="Digitally Sign Agreement"
-              onPress={handleSign}
-              loading={signMutation.isPending}
-              style={styles.actionBtn}
-            />
+          {isOwner && !deal.paystackRef && deal.ownerSigned && deal.investorSigned && deal.status !== 'ACTIVE' && (
+            <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <Text style={[{ color: colors.textSecondary, fontSize: 13 }]}>
+                Agreement signed! Waiting for investor to complete payment via Paystack.
+              </Text>
+            </View>
           )}
         </View>
 
